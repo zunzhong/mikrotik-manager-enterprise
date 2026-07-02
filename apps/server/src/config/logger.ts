@@ -1,21 +1,21 @@
-import { env } from './env.js';
+import { config } from './config.service.js';
 
 export function createLoggerConfig() {
-  if (env.NODE_ENV === 'production') {
+  if (config.app.isProduction) {
     return {
-      level: process.env.LOG_LEVEL ?? 'info'
+      level: config.logging.level,
     };
   }
 
   return {
-    level: process.env.LOG_LEVEL ?? 'info',
+    level: config.logging.level,
     transport: {
       target: 'pino-pretty',
       options: {
         colorize: true,
         translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname'
-      }
-    }
+        ignore: 'pid,hostname',
+      },
+    },
   };
 }

@@ -1,16 +1,15 @@
 import { buildApp } from './app.js';
-import { env } from './config/env.js';
+import { config } from './config/config.service.js';
 
 const app = await buildApp();
 
 try {
   await app.listen({
-    host: env.SERVER_HOST,
-    port: env.SERVER_PORT
+    host: config.server.host,
+    port: config.server.port,
   });
 
-  const displayHost = env.SERVER_HOST === '0.0.0.0' ? 'localhost' : env.SERVER_HOST;
-  app.log.info(`MME server running at http://${displayHost}:${env.SERVER_PORT}`);
+  app.log.info(`MME server running at ${config.server.publicUrl}`);
 } catch (error) {
   app.log.error(error, 'Failed to start server');
   process.exit(1);
