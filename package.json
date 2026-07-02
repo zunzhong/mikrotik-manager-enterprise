@@ -1,0 +1,16 @@
+{
+  "name": "mikrotik-manager-enterprise",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "echo \"Workspace initialized\"",
+    "build": "echo \"Build workspace\"",
+    "lint": "echo \"Lint workspace\"",
+    "format": "echo \"Format workspace\"",
+    "test": "echo \"Test workspace\""
+  }
+}
