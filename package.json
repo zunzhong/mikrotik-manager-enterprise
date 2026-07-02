@@ -7,10 +7,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "echo \"Workspace initialized\"",
-    "build": "echo \"Build workspace\"",
-    "lint": "echo \"Lint workspace\"",
-    "format": "echo \"Format workspace\"",
-    "test": "echo \"Test workspace\""
+    "dev": "pnpm --filter @mme/server dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "echo \"lint will be added in next step\"",
+    "format": "echo \"format will be added in next step\"",
+    "test": "echo \"tests will be added later\""
   }
 }
