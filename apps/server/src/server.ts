@@ -9,7 +9,8 @@ try {
     port: env.SERVER_PORT
   });
 
-  app.log.info(`MME server running at http://${env.SERVER_HOST}:${env.SERVER_PORT}`);
+  const displayHost = env.SERVER_HOST === '0.0.0.0' ? 'localhost' : env.SERVER_HOST;
+  app.log.info(`MME server running at http://${displayHost}:${env.SERVER_PORT}`);
 } catch (error) {
   app.log.error(error, 'Failed to start server');
   process.exit(1);
