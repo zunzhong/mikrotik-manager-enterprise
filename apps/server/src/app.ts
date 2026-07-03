@@ -14,6 +14,7 @@ import {
 import { alertRoutes } from './modules/alerts/index.js';
 import { collectorRoutes } from './modules/collector/index.js';
 import { complianceRoutes } from './modules/compliance/index.js';
+import { dashboardRoutes } from './modules/dashboard/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -39,6 +40,7 @@ export async function buildApp() {
   await app.register(complianceRoutes);
   await app.register(collectorRoutes);
   await app.register(alertRoutes);
+  await app.register(dashboardRoutes);
 
   await moduleRegistry.loadAll(app);
 
