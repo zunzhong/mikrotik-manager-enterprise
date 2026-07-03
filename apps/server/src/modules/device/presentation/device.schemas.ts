@@ -16,5 +16,16 @@ export const createDeviceSchema = z.object({
 
 export const updateDeviceSchema = createDeviceSchema.partial();
 
+export const testDeviceConnectionSchema = z.object({
+  host: z.string().min(1),
+  port: z.coerce.number().int().positive().default(8728),
+  username: z.string().min(1),
+  password: z.string().default(''),
+  useTls: z.boolean().default(false),
+  loginMode: loginModeSchema.default('auto'),
+  timeoutMs: z.coerce.number().int().positive().default(10000),
+});
+
 export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 export type UpdateDeviceInput = z.infer<typeof updateDeviceSchema>;
+export type TestDeviceConnectionInput = z.infer<typeof testDeviceConnectionSchema>;

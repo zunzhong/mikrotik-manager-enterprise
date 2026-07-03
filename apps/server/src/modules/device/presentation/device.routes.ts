@@ -1,12 +1,26 @@
 import type { FastifyInstance } from 'fastify';
 import { deviceService } from '../application/device.service.js';
-import { createDeviceSchema, updateDeviceSchema } from './device.schemas.js';
+import { deviceTestService } from '../application/device-test.service.js';
+import {
+  createDeviceSchema,
+  testDeviceConnectionSchema,
+  updateDeviceSchema,
+} from './device.schemas.js';
 
 export async function deviceRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/v1/devices', async () => ({
     success: true,
     data: await deviceService.list(),
   }));
+
+  app.post('/api/v1/devices/test', async (request) => {
+    const input = testDeviceConnectionSchema.parse(request.body);
+
+    return {
+      success: true,
+      data: await deviceTestService.test(input),
+    };
+  });
 
   app.get('/api/v1/devices/:id', async (request) => {
     const params = request.params as { id: string };
