@@ -3,6 +3,7 @@ export * from './audit/audit.service.js';
 export * from './events/event-bus.js';
 export * from './jobs/job-queue.js';
 export * from './jobs/job.types.js';
+export * from './modules/alert.module.js';
 export * from './modules/audit.module.js';
 export * from './modules/collector.module.js';
 export * from './modules/health.module.js';

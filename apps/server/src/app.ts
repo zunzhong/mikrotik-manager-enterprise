@@ -3,6 +3,7 @@ import helmet from '@fastify/helmet';
 import Fastify from 'fastify';
 import { createLoggerConfig } from './config/logger.js';
 import {
+  alertModule,
   auditModule,
   collectorModule,
   coreRoutes,
@@ -10,6 +11,7 @@ import {
   moduleRegistry,
   schedulerModule,
 } from './core/index.js';
+import { alertRoutes } from './modules/alerts/index.js';
 import { collectorRoutes } from './modules/collector/index.js';
 import { complianceRoutes } from './modules/compliance/index.js';
 import { deviceRoutes } from './modules/device/index.js';
@@ -28,6 +30,7 @@ export async function buildApp() {
   moduleRegistry.register(auditModule);
   moduleRegistry.register(schedulerModule);
   moduleRegistry.register(collectorModule);
+  moduleRegistry.register(alertModule);
 
   await app.register(healthRoutes);
   await app.register(coreRoutes);
@@ -35,6 +38,7 @@ export async function buildApp() {
   await app.register(inventoryRoutes);
   await app.register(complianceRoutes);
   await app.register(collectorRoutes);
+  await app.register(alertRoutes);
 
   await moduleRegistry.loadAll(app);
 

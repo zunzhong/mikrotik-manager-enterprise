@@ -16,8 +16,7 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  auditLogs AuditLog[]
+  auditLogs    AuditLog[]
 }
 
 model DeviceGroup {
@@ -26,8 +25,7 @@ model DeviceGroup {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  devices Device[]
+  devices     Device[]
 }
 
 model Device {
@@ -52,6 +50,7 @@ model Device {
   inventorySnapshots InventorySnapshot[]
   inventoryDiffs     InventoryDiff[]
   complianceReports  ComplianceReport[]
+  alerts             Alert[]
 
   @@index([host])
   @@index([status])
@@ -66,7 +65,7 @@ model InventorySnapshot {
   status      String   @default("completed")
   summary     Json?
 
-  device  Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  device   Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   sections InventorySection[]
 
   previousDiffs InventoryDiff[] @relation("PreviousSnapshot")
@@ -94,12 +93,12 @@ model InventorySection {
 }
 
 model InventoryItem {
-  id        String @id @default(cuid())
-  sectionId String
+  id         String  @id @default(cuid())
+  sectionId  String
   externalId String?
-  name      String?
-  disabled  Boolean?
-  raw       Json
+  name       String?
+  disabled   Boolean?
+  raw        Json
 
   section InventorySection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
@@ -124,19 +123,17 @@ model InventoryDiff {
 
   @@index([deviceId])
   @@index([createdAt])
-  @@index([previousSnapshotId])
-  @@index([currentSnapshotId])
 }
 
 model InventoryDiffChange {
-  id        String @id @default(cuid())
-  diffId    String
-  category  String
-  path      String
+  id         String @id @default(cuid())
+  diffId     String
+  category   String
+  path       String
   changeType String
-  itemKey   String?
-  before    Json?
-  after     Json?
+  itemKey    String?
+  before     Json?
+  after      Json?
 
   diff InventoryDiff @relation(fields: [diffId], references: [id], onDelete: Cascade)
 
@@ -147,15 +144,15 @@ model InventoryDiffChange {
 }
 
 model ComplianceReport {
-  id          String   @id @default(cuid())
-  deviceId    String
-  snapshotId  String?
-  status      String
-  score       Int
-  summary     Json?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  deviceId  String
+  snapshotId String?
+  status    String
+  score     Int
+  summary   Json?
+  createdAt DateTime @default(now())
 
-  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  device  Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   results ComplianceResult[]
 
   @@index([deviceId])
@@ -178,6 +175,29 @@ model ComplianceResult {
   @@index([policyKey])
   @@index([status])
   @@index([severity])
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  deviceId    String?
+  ruleKey     String
+  severity    String
+  status      String   @default("open")
+  title       String
+  message     String
+  source      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt  DateTime?
+
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId])
+  @@index([ruleKey])
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model AuditLog {
