@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  role         String   @default("admin")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+model DeviceGroup {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  devices Device[]
+}
+
+model Device {
+  id                String   @id @default(cuid())
+  name              String
+  host              String
+  port              Int      @default(8728)
+  username          String
+  passwordEncrypted String
+  useTls            Boolean  @default(false)
+  loginMode         String   @default("auto")
+  status            String   @default("unknown")
+  lastSeenAt        DateTime?
+  lastError         String?
+  tags              String[] @default([])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  groupId String?
+  group   DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([host])
+  @@index([status])
+  @@index([groupId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}

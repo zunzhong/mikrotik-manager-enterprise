@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mme-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mme
+      POSTGRES_USER: mme
+      POSTGRES_PASSWORD: mme_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - mme-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: mme-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - mme-redis-data:/data
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: mme-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mme.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - mme-pgadmin-data:/var/lib/pgadmin
+
+volumes:
+  mme-postgres-data:
+  mme-redis-data:
+  mme-pgadmin-data:
