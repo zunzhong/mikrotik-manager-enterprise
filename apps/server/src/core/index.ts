@@ -4,6 +4,7 @@ export * from './events/event-bus.js';
 export * from './jobs/job-queue.js';
 export * from './jobs/job.types.js';
 export * from './modules/audit.module.js';
+export * from './modules/collector.module.js';
 export * from './modules/health.module.js';
 export * from './modules/module-registry.js';
 export * from './modules/module.types.js';

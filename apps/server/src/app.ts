@@ -4,11 +4,13 @@ import Fastify from 'fastify';
 import { createLoggerConfig } from './config/logger.js';
 import {
   auditModule,
+  collectorModule,
   coreRoutes,
   healthModule,
   moduleRegistry,
   schedulerModule,
 } from './core/index.js';
+import { collectorRoutes } from './modules/collector/index.js';
 import { complianceRoutes } from './modules/compliance/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
@@ -25,12 +27,14 @@ export async function buildApp() {
   moduleRegistry.register(healthModule);
   moduleRegistry.register(auditModule);
   moduleRegistry.register(schedulerModule);
+  moduleRegistry.register(collectorModule);
 
   await app.register(healthRoutes);
   await app.register(coreRoutes);
   await app.register(deviceRoutes);
   await app.register(inventoryRoutes);
   await app.register(complianceRoutes);
+  await app.register(collectorRoutes);
 
   await moduleRegistry.loadAll(app);
 
