@@ -6,7 +6,7 @@ import type { CommandResponse } from '../command/command-response.js';
 import { ConnectionManager } from '../connection/connection-manager.js';
 import type { ConnectionState } from '../connection/connection-state.js';
 import { ConnectionState as State } from '../connection/connection-state.js';
-import { RouterOsAuthError, RouterOsConnectionError } from '../errors/routeros-error.js';
+import { RouterOsConnectionError } from '../errors/routeros-error.js';
 import type { RouterClientOptions } from '../types/index.js';
 
 /**
@@ -58,6 +58,7 @@ export class RouterClient extends EventEmitter {
       },
       {
         timeoutMs: this.options.timeoutMs,
+        loginMode: this.options.loginMode,
       },
     );
 

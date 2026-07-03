@@ -61,4 +61,25 @@ describe('AuthService', () => {
     expect(transport.writes).toHaveLength(1);
     expect(transport.writes[0].toString('utf8')).toContain('response');
   });
+
+  it('authenticates with legacy login mode', async () => {
+    const transport = new FakeTransport();
+    const auth = new AuthService(transport);
+
+    const promise = auth.login(
+      {
+        username: 'admin',
+        password: 'secret',
+      },
+      {
+        loginMode: 'legacy',
+      },
+    );
+
+    transport.pushIncoming(encodeSentence(['!done', '=ret=00112233445566778899aabbccddeeff']));
+    transport.pushIncoming(encodeSentence(['!done']));
+
+    await expect(promise).resolves.toBeUndefined();
+    expect(transport.writes).toHaveLength(2);
+  });
 });

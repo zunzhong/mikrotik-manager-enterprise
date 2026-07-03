@@ -1,3 +1,5 @@
+export type RouterOsLoginMode = 'auto' | 'modern' | 'legacy';
+
 export interface RouterClientOptions {
   host: string;
   port?: number;
@@ -7,6 +9,7 @@ export interface RouterClientOptions {
   timeoutMs?: number;
   keepAlive?: boolean;
   rejectUnauthorized?: boolean;
+  loginMode?: RouterOsLoginMode;
   transportFactory?: (options: TcpTransportOptions) => Transport;
 }
 

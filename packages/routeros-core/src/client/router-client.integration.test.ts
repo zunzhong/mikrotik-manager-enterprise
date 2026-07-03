@@ -13,7 +13,7 @@ describe('RouterClient integration with FakeRouterOsServer', () => {
     }
   });
 
-  it('authenticates over real TCP', async () => {
+  it('authenticates over real TCP with modern login', async () => {
     server = new FakeRouterOsServer({
       username: 'admin',
       password: 'secret',
@@ -26,6 +26,31 @@ describe('RouterClient integration with FakeRouterOsServer', () => {
       port: server.port,
       username: 'admin',
       password: 'secret',
+      timeoutMs: 1000,
+    });
+
+    await client.connect();
+
+    expect(client.isAuthenticated).toBe(true);
+
+    await client.close();
+  });
+
+  it('authenticates over real TCP with legacy challenge login', async () => {
+    server = new FakeRouterOsServer({
+      username: 'admin',
+      password: 'secret',
+      loginMode: 'legacy',
+    });
+
+    await server.start();
+
+    const client = new RouterClient({
+      host: '127.0.0.1',
+      port: server.port,
+      username: 'admin',
+      password: 'secret',
+      loginMode: 'legacy',
       timeoutMs: 1000,
     });
 

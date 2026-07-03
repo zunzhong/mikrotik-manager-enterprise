@@ -1,4 +1,5 @@
 import { createServer, type Server, type Socket } from 'node:net';
+import { createChallengeResponse } from '../auth/md5-challenge.js';
 import { encodeSentence } from '../protocol/encoder.js';
 import { PacketAssembler } from '../protocol/packet-assembler.js';
 import type { RouterOsSentence } from '../types/index.js';
@@ -6,6 +7,8 @@ import type { RouterOsSentence } from '../types/index.js';
 export interface FakeRouterOsServerOptions {
   username?: string;
   password?: string;
+  loginMode?: 'modern' | 'legacy';
+  challengeHex?: string;
   resource?: Record<string, string>;
 }
 
@@ -97,13 +100,41 @@ export class FakeRouterOsServer {
   }
 
   private handleLogin(socket: Socket, sentence: RouterOsSentence): void {
+    if (this.options.loginMode === 'legacy') {
+      this.handleLegacyLogin(socket, sentence);
+      return;
+    }
+
+    this.handleModernLogin(socket, sentence);
+  }
+
+  private handleModernLogin(socket: Socket, sentence: RouterOsSentence): void {
     const username = this.getAttribute(sentence, 'name');
     const password = this.getAttribute(sentence, 'password');
 
+    if (this.isValidCredential(username, password)) {
+      this.write(socket, ['!done']);
+      return;
+    }
+
+    this.write(socket, ['!trap', '=message=invalid user name or password', '=category=2']);
+  }
+
+  private handleLegacyLogin(socket: Socket, sentence: RouterOsSentence): void {
+    const username = this.getAttribute(sentence, 'name');
+    const response = this.getAttribute(sentence, 'response');
+    const challengeHex = this.options.challengeHex ?? '00112233445566778899aabbccddeeff';
+
+    if (!username && !response) {
+      this.write(socket, ['!done', `=ret=${challengeHex}`]);
+      return;
+    }
+
     const expectedUsername = this.options.username ?? 'admin';
     const expectedPassword = this.options.password ?? '';
+    const expectedResponse = createChallengeResponse(expectedPassword, challengeHex);
 
-    if (username === expectedUsername && password === expectedPassword) {
+    if (username === expectedUsername && response === expectedResponse) {
       this.write(socket, ['!done']);
       return;
     }
@@ -128,6 +159,13 @@ export class FakeRouterOsServer {
     ]);
 
     this.write(socket, ['!done', tagWord]);
+  }
+
+  private isValidCredential(username?: string, password?: string): boolean {
+    const expectedUsername = this.options.username ?? 'admin';
+    const expectedPassword = this.options.password ?? '';
+
+    return username === expectedUsername && password === expectedPassword;
   }
 
   private getAttribute(sentence: RouterOsSentence, key: string): string | undefined {
