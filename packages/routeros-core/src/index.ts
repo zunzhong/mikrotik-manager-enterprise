@@ -1,3 +1,5 @@
+export * from './auth/auth-service.js';
+export * from './auth/md5-challenge.js';
 export * from './buffer/byte-buffer.js';
 export * from './client/router-client.js';
 export * from './connection/connection-manager.js';
@@ -10,5 +12,6 @@ export * from './protocol/packet-assembler.js';
 export * from './protocol/reply.js';
 export * from './protocol/reply-parser.js';
 export * from './queue/async-queue.js';
+export * from './testing/fake-transport.js';
 export * from './transport/tcp-transport.js';
 export * from './types/index.js';

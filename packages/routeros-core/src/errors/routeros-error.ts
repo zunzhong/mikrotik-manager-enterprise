@@ -28,3 +28,10 @@ export class RouterOsConnectionError extends RouterOsError {
     this.name = 'RouterOsConnectionError';
   }
 }
+
+export class RouterOsAuthError extends RouterOsError {
+  constructor(message = 'RouterOS authentication failed') {
+    super('ROUTEROS_AUTH_FAILED', message);
+    this.name = 'RouterOsAuthError';
+  }
+}
