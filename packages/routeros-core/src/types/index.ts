@@ -7,6 +7,7 @@ export interface RouterClientOptions {
   timeoutMs?: number;
   keepAlive?: boolean;
   rejectUnauthorized?: boolean;
+  transportFactory?: (options: TcpTransportOptions) => Transport;
 }
 
 export interface RouterOsConnectionOptions {

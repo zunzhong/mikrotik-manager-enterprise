@@ -29,7 +29,8 @@ export class ConnectionManager extends EventEmitter {
   }
 
   public get isConnected(): boolean {
-    return this.currentState === ConnectionState.Connected;
+    return this.currentState === ConnectionState.Connected ||
+      this.currentState === ConnectionState.Authenticated;
   }
 
   public getTransport(): Transport {
@@ -40,8 +41,19 @@ export class ConnectionManager extends EventEmitter {
     return this.transport;
   }
 
+  public markAuthenticating(): void {
+    this.setState(ConnectionState.Authenticating);
+  }
+
+  public markAuthenticated(): void {
+    this.setState(ConnectionState.Authenticated);
+  }
+
   public async connect(): Promise<void> {
-    if (this.currentState === ConnectionState.Connected) {
+    if (
+      this.currentState === ConnectionState.Connected ||
+      this.currentState === ConnectionState.Authenticated
+    ) {
       return;
     }
 
@@ -78,11 +90,15 @@ export class ConnectionManager extends EventEmitter {
   }
 
   private createTransport(): Transport {
-    return new TcpTransport({
+    const options = {
       host: this.options.host,
       port: this.options.port ?? 8728,
       timeoutMs: this.options.timeoutMs ?? 10000,
-    });
+    };
+
+    return this.options.transportFactory
+      ? this.options.transportFactory(options)
+      : new TcpTransport(options);
   }
 
   private setState(state: ConnectionState): void {
