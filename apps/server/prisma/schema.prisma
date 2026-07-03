@@ -50,6 +50,7 @@ model Device {
   group   DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   inventorySnapshots InventorySnapshot[]
+  inventoryDiffs     InventoryDiff[]
 
   @@index([host])
   @@index([status])
@@ -66,6 +67,9 @@ model InventorySnapshot {
 
   device  Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   sections InventorySection[]
+
+  previousDiffs InventoryDiff[] @relation("PreviousSnapshot")
+  currentDiffs  InventoryDiff[] @relation("CurrentSnapshot")
 
   @@index([deviceId])
   @@index([collectedAt])
@@ -101,6 +105,44 @@ model InventoryItem {
   @@index([sectionId])
   @@index([externalId])
   @@index([name])
+}
+
+model InventoryDiff {
+  id                 String   @id @default(cuid())
+  deviceId           String
+  previousSnapshotId String
+  currentSnapshotId  String
+  createdAt          DateTime @default(now())
+  summary            Json?
+  changeCount         Int      @default(0)
+
+  device           Device            @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  previousSnapshot InventorySnapshot @relation("PreviousSnapshot", fields: [previousSnapshotId], references: [id], onDelete: Cascade)
+  currentSnapshot  InventorySnapshot @relation("CurrentSnapshot", fields: [currentSnapshotId], references: [id], onDelete: Cascade)
+  changes          InventoryDiffChange[]
+
+  @@index([deviceId])
+  @@index([createdAt])
+  @@index([previousSnapshotId])
+  @@index([currentSnapshotId])
+}
+
+model InventoryDiffChange {
+  id        String @id @default(cuid())
+  diffId    String
+  category  String
+  path      String
+  changeType String
+  itemKey   String?
+  before    Json?
+  after     Json?
+
+  diff InventoryDiff @relation(fields: [diffId], references: [id], onDelete: Cascade)
+
+  @@index([diffId])
+  @@index([category])
+  @@index([path])
+  @@index([changeType])
 }
 
 model AuditLog {
