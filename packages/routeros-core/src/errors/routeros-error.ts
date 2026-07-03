@@ -35,3 +35,20 @@ export class RouterOsAuthError extends RouterOsError {
     this.name = 'RouterOsAuthError';
   }
 }
+
+export class RouterOsCommandError extends RouterOsError {
+  public readonly category?: string;
+
+  constructor(message: string, category?: string) {
+    super('ROUTEROS_COMMAND_TRAP', message);
+    this.name = 'RouterOsCommandError';
+    this.category = category;
+  }
+}
+
+export class RouterOsFatalError extends RouterOsError {
+  constructor(message: string) {
+    super('ROUTEROS_FATAL', message);
+    this.name = 'RouterOsFatalError';
+  }
+}
