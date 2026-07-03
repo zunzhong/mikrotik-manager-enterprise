@@ -1,3 +1,14 @@
+export interface RouterClientOptions {
+  host: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  tls?: boolean;
+  timeoutMs?: number;
+  keepAlive?: boolean;
+  rejectUnauthorized?: boolean;
+}
+
 export interface RouterOsConnectionOptions {
   host: string;
   port?: number;

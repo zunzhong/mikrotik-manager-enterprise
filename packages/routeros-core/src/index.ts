@@ -1,4 +1,7 @@
 export * from './buffer/byte-buffer.js';
+export * from './client/router-client.js';
+export * from './connection/connection-manager.js';
+export * from './connection/connection-state.js';
 export * from './errors/routeros-error.js';
 export * from './protocol/decoder.js';
 export * from './protocol/encoder.js';

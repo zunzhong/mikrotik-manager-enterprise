@@ -1,0 +1,96 @@
+import { EventEmitter } from 'node:events';
+import { ConnectionState } from './connection-state.js';
+import { RouterOsConnectionError } from '../errors/routeros-error.js';
+import { TcpTransport } from '../transport/tcp-transport.js';
+import type { RouterClientOptions, Transport } from '../types/index.js';
+
+export interface ConnectionManagerEvents {
+  state: [ConnectionState];
+  connect: [];
+  close: [];
+  error: [Error];
+}
+
+/**
+ * ConnectionManager
+ *
+ * Owns connection state and the low-level transport lifecycle.
+ */
+export class ConnectionManager extends EventEmitter {
+  private currentState: ConnectionState = ConnectionState.Idle;
+  private transport: Transport | null = null;
+
+  public constructor(private readonly options: RouterClientOptions) {
+    super();
+  }
+
+  public get state(): ConnectionState {
+    return this.currentState;
+  }
+
+  public get isConnected(): boolean {
+    return this.currentState === ConnectionState.Connected;
+  }
+
+  public getTransport(): Transport {
+    if (!this.transport) {
+      throw new RouterOsConnectionError('Transport is not initialized');
+    }
+
+    return this.transport;
+  }
+
+  public async connect(): Promise<void> {
+    if (this.currentState === ConnectionState.Connected) {
+      return;
+    }
+
+    this.setState(ConnectionState.Connecting);
+
+    try {
+      this.transport = this.createTransport();
+      await this.transport.connect();
+      this.setState(ConnectionState.Connected);
+      this.emit('connect');
+    } catch (error) {
+      this.setState(ConnectionState.Error);
+      this.emit('error', error instanceof Error ? error : new Error(String(error)));
+      this.setState(ConnectionState.Closed);
+      throw error;
+    }
+  }
+
+  public async close(): Promise<void> {
+    if (this.currentState === ConnectionState.Closed || this.currentState === ConnectionState.Idle) {
+      this.setState(ConnectionState.Closed);
+      return;
+    }
+
+    this.setState(ConnectionState.Closing);
+
+    try {
+      await this.transport?.disconnect();
+    } finally {
+      this.transport = null;
+      this.setState(ConnectionState.Closed);
+      this.emit('close');
+    }
+  }
+
+  private createTransport(): Transport {
+    return new TcpTransport({
+      host: this.options.host,
+      port: this.options.port ?? 8728,
+      timeoutMs: this.options.timeoutMs ?? 10000,
+    });
+  }
+
+  private setState(state: ConnectionState): void {
+    if (this.currentState === state) {
+      return;
+    }
+
+    this.currentState = state;
+    this.emit('state', state);
+  }
+}
