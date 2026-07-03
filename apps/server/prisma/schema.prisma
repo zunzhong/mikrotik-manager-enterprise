@@ -51,6 +51,7 @@ model Device {
 
   inventorySnapshots InventorySnapshot[]
   inventoryDiffs     InventoryDiff[]
+  complianceReports  ComplianceReport[]
 
   @@index([host])
   @@index([status])
@@ -143,6 +144,40 @@ model InventoryDiffChange {
   @@index([category])
   @@index([path])
   @@index([changeType])
+}
+
+model ComplianceReport {
+  id          String   @id @default(cuid())
+  deviceId    String
+  snapshotId  String?
+  status      String
+  score       Int
+  summary     Json?
+  createdAt   DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  results ComplianceResult[]
+
+  @@index([deviceId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model ComplianceResult {
+  id        String @id @default(cuid())
+  reportId  String
+  policyKey String
+  severity  String
+  status    String
+  message   String
+  evidence  Json?
+
+  report ComplianceReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([policyKey])
+  @@index([status])
+  @@index([severity])
 }
 
 model AuditLog {

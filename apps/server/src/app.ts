@@ -9,6 +9,7 @@ import {
   moduleRegistry,
   schedulerModule,
 } from './core/index.js';
+import { complianceRoutes } from './modules/compliance/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -29,6 +30,7 @@ export async function buildApp() {
   await app.register(coreRoutes);
   await app.register(deviceRoutes);
   await app.register(inventoryRoutes);
+  await app.register(complianceRoutes);
 
   await moduleRegistry.loadAll(app);
 
