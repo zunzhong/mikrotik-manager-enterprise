@@ -2,7 +2,13 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import Fastify from 'fastify';
 import { createLoggerConfig } from './config/logger.js';
-import { coreRoutes, healthModule, moduleRegistry, schedulerModule } from './core/index.js';
+import {
+  auditModule,
+  coreRoutes,
+  healthModule,
+  moduleRegistry,
+  schedulerModule,
+} from './core/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
@@ -15,6 +21,7 @@ export async function buildApp() {
   await app.register(helmet);
 
   moduleRegistry.register(healthModule);
+  moduleRegistry.register(auditModule);
   moduleRegistry.register(schedulerModule);
 
   await app.register(healthRoutes);
