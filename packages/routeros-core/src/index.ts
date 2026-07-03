@@ -16,6 +16,7 @@ export * from './protocol/packet-assembler.js';
 export * from './protocol/reply.js';
 export * from './protocol/reply-parser.js';
 export * from './queue/async-queue.js';
+export * from './testing/fake-routeros-server.js';
 export * from './testing/fake-transport.js';
 export * from './transport/tcp-transport.js';
 export * from './types/index.js';
