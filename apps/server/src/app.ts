@@ -10,6 +10,7 @@ import {
   schedulerModule,
 } from './core/index.js';
 import { deviceRoutes } from './modules/device/index.js';
+import { inventoryRoutes } from './modules/inventory/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 
@@ -27,6 +28,7 @@ export async function buildApp() {
   await app.register(healthRoutes);
   await app.register(coreRoutes);
   await app.register(deviceRoutes);
+  await app.register(inventoryRoutes);
 
   await moduleRegistry.loadAll(app);
 

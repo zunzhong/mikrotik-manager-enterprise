@@ -49,9 +49,58 @@ model Device {
   groupId String?
   group   DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
+  inventorySnapshots InventorySnapshot[]
+
   @@index([host])
   @@index([status])
   @@index([groupId])
+}
+
+model InventorySnapshot {
+  id          String   @id @default(cuid())
+  deviceId    String
+  collectedAt DateTime @default(now())
+  source      String   @default("manual")
+  status      String   @default("completed")
+  summary     Json?
+
+  device  Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  sections InventorySection[]
+
+  @@index([deviceId])
+  @@index([collectedAt])
+}
+
+model InventorySection {
+  id         String @id @default(cuid())
+  snapshotId String
+  name       String
+  category   String
+  path       String
+  itemCount  Int    @default(0)
+  raw        Json?
+
+  snapshot InventorySnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  items    InventoryItem[]
+
+  @@index([snapshotId])
+  @@index([category])
+  @@index([path])
+}
+
+model InventoryItem {
+  id        String @id @default(cuid())
+  sectionId String
+  externalId String?
+  name      String?
+  disabled  Boolean?
+  raw       Json
+
+  section InventorySection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+  @@index([externalId])
+  @@index([name])
 }
 
 model AuditLog {
