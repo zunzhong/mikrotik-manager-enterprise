@@ -7,6 +7,8 @@ export * from './protocol/decoder.js';
 export * from './protocol/encoder.js';
 export * from './protocol/length.js';
 export * from './protocol/packet-assembler.js';
+export * from './protocol/reply.js';
+export * from './protocol/reply-parser.js';
 export * from './queue/async-queue.js';
 export * from './transport/tcp-transport.js';
 export * from './types/index.js';
