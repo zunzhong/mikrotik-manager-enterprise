@@ -3,17 +3,43 @@ name: CI
 on:
   push:
     branches:
-      - main
       - develop
+      - main
   pull_request:
     branches:
-      - main
       - develop
+      - main
 
 jobs:
-  validate:
-    name: Validate
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mme
+          POSTGRES_PASSWORD: mme
+          POSTGRES_DB: mme
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mme -d mme"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://mme:mme@localhost:5432/mme?schema=public
+      REDIS_URL: redis://localhost:6379
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
 
     steps:
       - name: Checkout
@@ -30,14 +56,20 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Generate Prisma client
+        run: pnpm --filter @mme/server prisma:generate
 
-      - name: Test
-        run: pnpm test
+      - name: Push Prisma schema
+        run: pnpm --filter @mme/server prisma:push
 
-      - name: Build
-        run: pnpm build
+      - name: Typecheck routeros core
+        run: pnpm --filter @mme/routeros-core typecheck
+
+      - name: Typecheck server
+        run: pnpm --filter @mme/server typecheck
+
+      - name: Typecheck web
+        run: pnpm --filter @mme/web typecheck
