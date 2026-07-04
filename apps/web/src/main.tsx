@@ -15,6 +15,7 @@ import './inventory.css';
 import './compliance.css';
 import './device-inventory.css';
 import './backup.css';
+import './alerts.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

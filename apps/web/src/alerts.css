@@ -1,0 +1,69 @@
+.alert-center { margin-top: 24px; }
+.alert-toolbar, .alert-panel {
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 20px;
+  background: rgba(15,23,42,.56);
+  padding: 18px;
+}
+[data-theme='light'] .alert-toolbar,
+[data-theme='light'] .alert-panel {
+  background: white;
+  border-color: #dbe3ef;
+}
+.alert-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+.alert-toolbar h3, .alert-panel h3 { margin: 0; }
+.alert-toolbar p { color: #94a3b8; margin: 6px 0 0; }
+.alert-summary {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 16px;
+}
+.alert-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  gap: 18px;
+}
+.rule-list, .alert-list { display: grid; gap: 12px; margin-top: 18px; }
+.rule-card, .alert-card {
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 16px;
+  padding: 14px;
+}
+.rule-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.rule-card h4, .alert-card h4 { margin: 0; }
+.rule-card p, .alert-card p { color: #94a3b8; margin: 6px 0; }
+.rule-card small, .alert-card small { color: #64748b; }
+.alert-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.alert-badges { display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }
+.alert-severity, .alert-status {
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.sev-critical { color: #fecaca; background: rgba(239,68,68,.16); }
+.sev-warning { color: #fde68a; background: rgba(245,158,11,.16); }
+.sev-info { color: #bfdbfe; background: rgba(59,130,246,.16); }
+.status-open { color: #fecaca; background: rgba(239,68,68,.16); }
+.status-acknowledged { color: #bfdbfe; background: rgba(59,130,246,.16); }
+.status-resolved { color: #bbf7d0; background: rgba(34,197,94,.16); }
+@media (max-width: 1100px) {
+  .alert-toolbar { flex-direction: column; }
+  .alert-grid, .alert-summary { grid-template-columns: 1fr; }
+}
