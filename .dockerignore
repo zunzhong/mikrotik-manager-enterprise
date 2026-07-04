@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+**/coverage
+.git
+.gitignore
+.env
+.env.*
+data
+.DS_Store

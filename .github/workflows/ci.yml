@@ -1,4 +1,84 @@
-# Add after typecheck steps
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mme
+          POSTGRES_PASSWORD: mme
+          POSTGRES_DB: mme
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mme -d mme"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://mme:mme@localhost:5432/mme?schema=public
+      REDIS_URL: redis://localhost:6379
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Generate Prisma client
+        run: pnpm --filter @mme/server prisma:generate
+
+      - name: Push Prisma schema
+        run: pnpm --filter @mme/server prisma:push
+
+      - name: Typecheck routeros core
+        run: pnpm --filter @mme/routeros-core typecheck
+
+      - name: Typecheck server
+        run: pnpm --filter @mme/server typecheck
+
+      - name: Typecheck web
+        run: pnpm --filter @mme/web typecheck
 
       - name: Run routeros-core tests
         run: pnpm --filter @mme/routeros-core test
@@ -6,11 +86,17 @@
       - name: Run server tests
         run: pnpm --filter @mme/server test || true
 
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage
-          path: |
-            coverage
-            **/coverage
+  docker:
+    name: Docker Build Gate
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build -f docker/server.Dockerfile -t mme-server:ci .
+
+      - name: Build web image
+        run: docker build -f docker/web.Dockerfile -t mme-web:ci .
