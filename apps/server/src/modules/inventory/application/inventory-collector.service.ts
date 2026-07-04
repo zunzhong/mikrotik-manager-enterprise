@@ -1,8 +1,12 @@
 import { RouterClient, RouterOsError } from '@mme/routeros-core';
 import { encryptionService } from '../../../security/encryption.service.js';
 import { deviceRepository } from '../../device/infrastructure/device.repository.js';
-import { inventorySections } from '../domain/inventory-section.js';
+import { collectorRegistry, defaultInventoryCollectors } from '../collector/index.js';
 import { inventoryRepository } from '../infrastructure/inventory.repository.js';
+
+if (collectorRegistry.list().length === 0) {
+  collectorRegistry.registerMany(defaultInventoryCollectors);
+}
 
 export class InventoryCollectorService {
   public async collect(deviceId: string) {
@@ -22,36 +26,38 @@ export class InventoryCollectorService {
       timeoutMs: 10000,
     });
 
+    const collectors = collectorRegistry.enabledByDefault();
+
     const snapshot = await inventoryRepository.createSnapshot({
       deviceId,
       source: 'manual',
       status: 'running',
-      summary: {
-        sectionsPlanned: inventorySections.filter((section) => section.enabledByDefault).length,
-      },
+      summary: { collectorsPlanned: collectors.length },
     });
 
     const collectedSections = [];
+    const failedCollectors = [];
 
     try {
       await client.connect();
 
-      for (const section of inventorySections.filter((item) => item.enabledByDefault)) {
-        try {
-          const response = await client.command(section.path);
-          const created = await inventoryRepository.createSection({
-            snapshotId: snapshot.id,
-            name: section.label,
-            category: section.category,
-            path: section.path,
-            items: response.rows,
-          });
+      for (const collector of collectors) {
+        const result = await collector.collect({ deviceId, client });
 
-          collectedSections.push(created);
-        } catch {
-          // Some RouterOS paths may not exist depending on packages/version.
-          // We skip failed optional section collection in the foundation stage.
+        if (!result.success) {
+          failedCollectors.push({ key: result.key, path: result.path, error: result.error });
+          continue;
         }
+
+        const created = await inventoryRepository.createSection({
+          snapshotId: snapshot.id,
+          name: result.label,
+          category: result.category,
+          path: result.path,
+          items: result.rows,
+        });
+
+        collectedSections.push(created);
       }
 
       await client.close();
@@ -59,7 +65,9 @@ export class InventoryCollectorService {
       return {
         snapshotId: snapshot.id,
         deviceId,
+        collectorsPlanned: collectors.length,
         sectionsCollected: collectedSections.length,
+        failedCollectors,
       };
     } catch (error) {
       await client.close().catch(() => undefined);
@@ -67,7 +75,9 @@ export class InventoryCollectorService {
       return {
         snapshotId: snapshot.id,
         deviceId,
+        collectorsPlanned: collectors.length,
         sectionsCollected: collectedSections.length,
+        failedCollectors,
         errorCode: error instanceof RouterOsError ? error.code : 'UNKNOWN_ERROR',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
