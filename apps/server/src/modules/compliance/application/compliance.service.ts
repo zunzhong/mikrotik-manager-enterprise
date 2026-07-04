@@ -1,6 +1,7 @@
 import { eventBus } from '../../../core/index.js';
 import { compliancePolicies, type CompliancePolicy } from '../domain/compliance-policy.js';
 import { complianceRepository, type CreateComplianceResultInput } from '../infrastructure/compliance.repository.js';
+import { policyEvaluators } from './policy-registry.js';
 
 type Snapshot = Awaited<ReturnType<typeof complianceRepository.latestSnapshot>>;
 
@@ -21,9 +22,7 @@ export class ComplianceService {
         deviceId,
         status: 'unknown',
         score: 0,
-        summary: {
-          reason: 'No inventory snapshot found',
-        },
+        summary: { reason: 'No inventory snapshot found' },
         results: compliancePolicies.map((policy) => ({
           policyKey: policy.key,
           severity: policy.severity,
@@ -32,13 +31,7 @@ export class ComplianceService {
         })),
       });
 
-      await eventBus.emit('compliance.report.created', {
-        deviceId,
-        reportId: report.id,
-        status: report.status,
-        score: report.score,
-      });
-
+      await this.emitReport(deviceId, report.id, report.status, report.score);
       return report;
     }
 
@@ -55,161 +48,41 @@ export class ComplianceService {
       results,
     });
 
-    await eventBus.emit('compliance.report.created', {
-      deviceId,
-      reportId: report.id,
-      status: report.status,
-      score: report.score,
-    });
-
+    await this.emitReport(deviceId, report.id, report.status, report.score);
     return report;
   }
 
   private evaluate(snapshot: Snapshot): CreateComplianceResultInput[] {
-    if (!snapshot) {
-      return [];
-    }
+    if (!snapshot) return [];
 
-    const sections = new Map(snapshot.sections.map((section) => [section.path, section]));
+    const sections = new Map(
+      snapshot.sections.map((section) => [
+        section.path,
+        {
+          path: section.path,
+          category: section.category,
+          name: section.name,
+          itemCount: section.itemCount,
+          items: section.items,
+        },
+      ]),
+    );
 
-    return compliancePolicies.map((policy) => {
-      switch (policy.key) {
-        case 'services.api.enabled':
-          return this.checkIpService(policy, sections, 'api');
-
-        case 'services.api-ssl.enabled':
-          return this.checkIpService(policy, sections, 'api-ssl');
-
-        case 'services.ssh.enabled':
-          return this.checkIpService(policy, sections, 'ssh');
-
-        case 'system.default-admin.present':
-          return this.checkDefaultAdmin(policy, sections);
-
-        case 'system.clock.visible':
-          return this.checkSectionVisible(policy, sections, '/system/clock/print');
-
-        case 'automation.scheduler.visible':
-          return this.checkSectionVisible(policy, sections, '/system/scheduler/print');
-
-        default:
-          return {
-            policyKey: policy.key,
-            severity: policy.severity,
-            status: 'unknown',
-            message: 'Policy evaluator is not implemented',
-          };
-      }
-    });
-  }
-
-  private checkIpService(
-    policy: CompliancePolicy,
-    sections: Map<string, any>,
-    serviceName: string,
-  ): CreateComplianceResultInput {
-    const section = sections.get('/ip/service/print');
-
-    if (!section) {
-      return {
-        policyKey: policy.key,
-        severity: policy.severity,
-        status: 'unknown',
-        message: 'IP service inventory section not found',
-      };
-    }
-
-    const service = section.items.find((item: any) => {
-      const raw = item.raw as Record<string, unknown>;
-      return raw.name === serviceName;
-    });
-
-    if (!service) {
-      return {
-        policyKey: policy.key,
-        severity: policy.severity,
-        status: 'fail',
-        message: `${serviceName} service not found`,
-      };
-    }
-
-    const raw = service.raw as Record<string, unknown>;
-    const disabled = raw.disabled === 'true' || raw.disabled === true;
-
-    return {
-      policyKey: policy.key,
-      severity: policy.severity,
-      status: disabled ? 'warning' : 'pass',
-      message: disabled ? `${serviceName} service is disabled` : `${serviceName} service is enabled`,
-      evidence: raw,
-    };
-  }
-
-  private checkDefaultAdmin(
-    policy: CompliancePolicy,
-    sections: Map<string, any>,
-  ): CreateComplianceResultInput {
-    const section = sections.get('/user/print');
-
-    if (!section) {
-      return {
-        policyKey: policy.key,
-        severity: policy.severity,
-        status: 'unknown',
-        message: 'User inventory section not found',
-      };
-    }
-
-    const admin = section.items.find((item: any) => {
-      const raw = item.raw as Record<string, unknown>;
-      return raw.name === 'admin';
-    });
-
-    if (!admin) {
-      return {
-        policyKey: policy.key,
-        severity: policy.severity,
-        status: 'pass',
-        message: 'Default admin user not found',
-      };
-    }
-
-    return {
-      policyKey: policy.key,
-      severity: policy.severity,
-      status: 'warning',
-      message: 'Default admin user exists and should be reviewed',
-      evidence: admin.raw as Record<string, unknown>,
-    };
-  }
-
-  private checkSectionVisible(
-    policy: CompliancePolicy,
-    sections: Map<string, any>,
-    path: string,
-  ): CreateComplianceResultInput {
-    const section = sections.get(path);
-
-    return {
-      policyKey: policy.key,
-      severity: policy.severity,
-      status: section ? 'pass' : 'unknown',
-      message: section ? `${path} inventory section found` : `${path} inventory section not found`,
-      evidence: section
-        ? {
-            itemCount: section.itemCount,
-          }
-        : undefined,
-    };
+    return policyEvaluators.map((evaluator) => evaluator.evaluate({ sections }));
   }
 
   private calculateScore(results: CreateComplianceResultInput[]): number {
-    if (results.length === 0) {
-      return 0;
-    }
+    if (results.length === 0) return 0;
 
-    const passed = results.filter((result) => result.status === 'pass').length;
-    return Math.round((passed / results.length) * 100);
+    const weights: Record<string, number> = {
+      pass: 1,
+      warning: 0.5,
+      unknown: 0.25,
+      fail: 0,
+    };
+
+    const total = results.reduce((sum, result) => sum + (weights[result.status] ?? 0), 0);
+    return Math.round((total / results.length) * 100);
   }
 
   private createSummary(results: CreateComplianceResultInput[]) {
@@ -219,7 +92,20 @@ export class ComplianceService {
       warning: results.filter((result) => result.status === 'warning').length,
       fail: results.filter((result) => result.status === 'fail').length,
       unknown: results.filter((result) => result.status === 'unknown').length,
+      bySeverity: results.reduce<Record<string, number>>((acc, result) => {
+        acc[result.severity] = (acc[result.severity] ?? 0) + 1;
+        return acc;
+      }, {}),
     };
+  }
+
+  private async emitReport(deviceId: string, reportId: string, status: string, score: number) {
+    await eventBus.emit('compliance.report.created', {
+      deviceId,
+      reportId,
+      status,
+      score,
+    });
   }
 }
 
