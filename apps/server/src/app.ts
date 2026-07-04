@@ -18,6 +18,7 @@ import { complianceRoutes } from './modules/compliance/index.js';
 import { dashboardRoutes } from './modules/dashboard/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
+import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
 
@@ -43,6 +44,7 @@ export async function buildApp() {
   await app.register(alertRoutes);
   await app.register(dashboardRoutes);
   await app.register(backupRoutes);
+  await app.register(topologyRoutes);
 
   await moduleRegistry.loadAll(app);
 

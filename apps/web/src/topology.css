@@ -1,0 +1,47 @@
+.topology-view { margin-top: 24px; }
+.topology-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 16px;
+}
+.topology-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 18px;
+}
+.topology-panel {
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 20px;
+  background: rgba(15,23,42,.56);
+  padding: 18px;
+}
+[data-theme='light'] .topology-panel {
+  background: white;
+  border-color: #dbe3ef;
+}
+.topology-panel h3 { margin: 0; }
+.topology-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+.topology-item {
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+.topology-item h4 { margin: 0; }
+.topology-item p { margin: 6px 0 0; color: #94a3b8; }
+.status-discovered {
+  background: rgba(59,130,246,.16);
+  color: #bfdbfe;
+}
+@media (max-width: 1000px) {
+  .topology-grid, .topology-summary {
+    grid-template-columns: 1fr;
+  }
+}

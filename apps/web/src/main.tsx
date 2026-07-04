@@ -17,6 +17,7 @@ import './device-inventory.css';
 import './backup.css';
 import './alerts.css';
 import './dashboard-refresh.css';
+import './topology.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
