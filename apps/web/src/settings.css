@@ -1,0 +1,44 @@
+.system-status-panel { margin-top: 24px; }
+.settings-toolbar,
+.settings-panel {
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 20px;
+  background: rgba(15,23,42,.56);
+  padding: 18px;
+}
+[data-theme='light'] .settings-toolbar,
+[data-theme='light'] .settings-panel {
+  background: white;
+  border-color: #dbe3ef;
+}
+.settings-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+.settings-toolbar h3,
+.settings-panel h3 {
+  margin: 0;
+}
+.settings-toolbar p {
+  color: #94a3b8;
+  margin: 6px 0 0;
+}
+.settings-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 16px;
+}
+.settings-panel {
+  margin-top: 18px;
+}
+@media (max-width: 1000px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-toolbar {
+    flex-direction: column;
+  }
+}
