@@ -1,0 +1,17 @@
+export const defaultPermissions = [
+  ['device.read', 'Read Devices', 'View devices', 'device'],
+  ['device.write', 'Write Devices', 'Create and update devices', 'device'],
+  ['inventory.read', 'Read Inventory', 'View inventory snapshots', 'inventory'],
+  ['inventory.collect', 'Collect Inventory', 'Run inventory collectors', 'inventory'],
+  ['backup.read', 'Read Backups', 'View backup records', 'backup'],
+  ['backup.run', 'Run Backup', 'Run backup/export jobs', 'backup'],
+  ['backup.delete', 'Delete Backup', 'Delete backup records', 'backup'],
+  ['compliance.read', 'Read Compliance', 'View compliance reports', 'compliance'],
+  ['compliance.run', 'Run Compliance', 'Run compliance scans', 'compliance'],
+  ['alert.read', 'Read Alerts', 'View alerts', 'alert'],
+  ['alert.write', 'Write Alerts', 'Acknowledge and manage alerts', 'alert'],
+  ['user.read', 'Read Users', 'View users', 'iam'],
+  ['user.write', 'Write Users', 'Create and update users', 'iam'],
+  ['role.read', 'Read Roles', 'View roles', 'iam'],
+  ['role.write', 'Write Roles', 'Create and update roles', 'iam'],
+] as const;
