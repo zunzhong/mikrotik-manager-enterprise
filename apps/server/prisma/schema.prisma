@@ -51,6 +51,7 @@ model Device {
   inventoryDiffs     InventoryDiff[]
   complianceReports  ComplianceReport[]
   alerts             Alert[]
+  backups            BackupRecord[]
 
   @@index([host])
   @@index([status])
@@ -144,13 +145,13 @@ model InventoryDiffChange {
 }
 
 model ComplianceReport {
-  id        String   @id @default(cuid())
-  deviceId  String
+  id         String   @id @default(cuid())
+  deviceId   String
   snapshotId String?
-  status    String
-  score     Int
-  summary   Json?
-  createdAt DateTime @default(now())
+  status     String
+  score      Int
+  summary    Json?
+  createdAt  DateTime @default(now())
 
   device  Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   results ComplianceResult[]
@@ -177,19 +178,41 @@ model ComplianceResult {
   @@index([severity])
 }
 
-model Alert {
+model BackupRecord {
   id          String   @id @default(cuid())
-  deviceId    String?
-  ruleKey     String
-  severity    String
-  status      String   @default("open")
-  title       String
-  message     String
-  source      String
+  deviceId    String
+  type        String
+  status      String   @default("pending")
+  fileName    String
+  filePath    String?
+  sizeBytes   Int?
+  checksum    String?
   metadata    Json?
+  error       String?
   createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Alert {
+  id             String   @id @default(cuid())
+  deviceId       String?
+  ruleKey        String
+  severity       String
+  status         String   @default("open")
+  title          String
+  message        String
+  source         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
   acknowledgedAt DateTime?
-  resolvedAt  DateTime?
+  resolvedAt     DateTime?
 
   device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
 

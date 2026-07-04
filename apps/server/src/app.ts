@@ -12,6 +12,7 @@ import {
   schedulerModule,
 } from './core/index.js';
 import { alertRoutes } from './modules/alerts/index.js';
+import { backupRoutes } from './modules/backup/index.js';
 import { collectorRoutes } from './modules/collector/index.js';
 import { complianceRoutes } from './modules/compliance/index.js';
 import { dashboardRoutes } from './modules/dashboard/index.js';
@@ -41,6 +42,7 @@ export async function buildApp() {
   await app.register(collectorRoutes);
   await app.register(alertRoutes);
   await app.register(dashboardRoutes);
+  await app.register(backupRoutes);
 
   await moduleRegistry.loadAll(app);
 
