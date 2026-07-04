@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { inventoryApiService } from '../application/inventory-api.service.js';
 import { inventoryCollectorService } from '../application/inventory-collector.service.js';
 import { inventoryDiffService } from '../application/inventory-diff.service.js';
 import { inventoryService } from '../application/inventory.service.js';
@@ -9,6 +10,33 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
     return {
       success: true,
       data: inventoryService.listSections(),
+    };
+  });
+
+  app.get('/api/v1/devices/:id/inventory/overview', async (request) => {
+    const params = request.params as { id: string };
+
+    return {
+      success: true,
+      data: await inventoryApiService.overview(params.id),
+    };
+  });
+
+  app.get('/api/v1/devices/:id/inventory/tree', async (request) => {
+    const params = request.params as { id: string };
+
+    return {
+      success: true,
+      data: await inventoryApiService.tree(params.id),
+    };
+  });
+
+  app.get('/api/v1/devices/:id/inventory/sections/:sectionId', async (request) => {
+    const params = request.params as { sectionId: string };
+
+    return {
+      success: true,
+      data: await inventoryApiService.section(params.sectionId),
     };
   });
 
