@@ -20,7 +20,7 @@ model User {
   
   roles     UserRole[]
   auditLogs AuditLog[]
-
+  mfaSecret  MfaSecret?
   sessions Session[]
   passwordResetTokens PasswordResetToken[]
 
@@ -337,4 +337,18 @@ model PasswordResetToken {
   @@index([tokenHash])
   @@index([expiresAt])
   @@index([usedAt])
+}
+
+model MfaSecret {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  secretEncrypted String
+  enabled         Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  enabledAt       DateTime?
+  disabledAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled])
 }

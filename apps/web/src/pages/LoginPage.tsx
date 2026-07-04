@@ -11,8 +11,11 @@ export function LoginPage() {
 
     try {
       const result = await authApi.login(email, password);
-      window.localStorage.setItem('mme-token', result.token);
-      setMessage(`Signed in as ${result.user.email}`);
+      window.localStorage.setItem(
+  'mme-token',
+  result.accessToken ?? result.token ?? '',
+);
+      setMessage(`Signed in as ${result.user?.email ?? email}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Login failed');
     }

@@ -1,0 +1,17 @@
+// MERGE INTO apps/server/prisma/schema.prisma
+// Add this relation to model User:
+// mfaSecret MfaSecret?
+
+model MfaSecret {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  secretEncrypted String
+  enabled         Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  enabledAt       DateTime?
+  disabledAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled])
+}
