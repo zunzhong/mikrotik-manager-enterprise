@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { inventoryCollectorService } from '../application/inventory-collector.service.js';
 import { inventoryDiffService } from '../application/inventory-diff.service.js';
 import { inventoryService } from '../application/inventory.service.js';
+import { inventorySnapshotService } from '../application/inventory-snapshot.service.js';
 
 export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/v1/inventory/sections', async () => {
@@ -16,7 +17,34 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       success: true,
-      data: await inventoryService.listSnapshots(params.id),
+      data: await inventorySnapshotService.list(params.id),
+    };
+  });
+
+  app.get('/api/v1/devices/:id/inventory/snapshots/latest', async (request) => {
+    const params = request.params as { id: string };
+
+    return {
+      success: true,
+      data: await inventorySnapshotService.latest(params.id),
+    };
+  });
+
+  app.get('/api/v1/inventory/snapshots/:snapshotId', async (request) => {
+    const params = request.params as { snapshotId: string };
+
+    return {
+      success: true,
+      data: await inventorySnapshotService.get(params.snapshotId),
+    };
+  });
+
+  app.get('/api/v1/inventory/snapshots/:snapshotId/sections', async (request) => {
+    const params = request.params as { snapshotId: string };
+
+    return {
+      success: true,
+      data: await inventorySnapshotService.sections(params.snapshotId),
     };
   });
 

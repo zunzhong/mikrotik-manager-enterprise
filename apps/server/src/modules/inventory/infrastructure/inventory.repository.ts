@@ -60,7 +60,58 @@ export class InventoryRepository {
       where: { deviceId },
       orderBy: { collectedAt: 'desc' },
       include: {
-        sections: true,
+        sections: {
+          orderBy: [{ category: 'asc' }, { name: 'asc' }],
+        },
+      },
+    });
+  }
+
+  public async latestSnapshot(deviceId: string) {
+    return prisma.inventorySnapshot.findFirst({
+      where: { deviceId },
+      orderBy: { collectedAt: 'desc' },
+      include: {
+        sections: {
+          orderBy: [{ category: 'asc' }, { name: 'asc' }],
+        },
+      },
+    });
+  }
+
+  public async getSnapshot(snapshotId: string) {
+    return prisma.inventorySnapshot.findUnique({
+      where: { id: snapshotId },
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+            status: true,
+          },
+        },
+        sections: {
+          orderBy: [{ category: 'asc' }, { name: 'asc' }],
+          include: {
+            items: {
+              take: 20,
+              orderBy: [{ name: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+  }
+
+  public async listSnapshotSections(snapshotId: string) {
+    return prisma.inventorySection.findMany({
+      where: { snapshotId },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      include: {
+        items: {
+          orderBy: [{ name: 'asc' }],
+        },
       },
     });
   }
