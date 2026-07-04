@@ -28,28 +28,6 @@ export class AuthService {
     };
   }
 
-  public async me(authorization?: string) {
-    const token = authorization?.replace('Bearer ', '');
-
-    if (!token) {
-      throw new HttpError(401, 'UNAUTHORIZED', 'Missing authorization token');
-    }
-
-    const payload = tokenService.verify(token);
-
-    if (!payload) {
-      throw new HttpError(401, 'UNAUTHORIZED', 'Invalid or expired token');
-    }
-
-    const user = await authRepository.findUserById(payload.userId);
-
-    if (!user || !user.isActive) {
-      throw new HttpError(401, 'UNAUTHORIZED', 'User is inactive or missing');
-    }
-
-    return user;
-  }
-
   public logout() {
     return {
       ok: true,
