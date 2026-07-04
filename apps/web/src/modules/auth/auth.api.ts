@@ -33,4 +33,9 @@ export const authApi = {
   revokeSession: (id: string) => apiDelete(`/api/v1/auth/sessions/${id}`),
   logoutAll: () => apiPost('/api/v1/auth/logout-all', {}),
   logout: () => apiPost('/api/v1/auth/logout', {}),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiPost('/api/v1/auth/change-password', { currentPassword, newPassword }),
+  requestPasswordReset: (email: string) => apiPost('/api/v1/auth/password-reset/request', { email }),
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    apiPost('/api/v1/auth/password-reset/confirm', { token, newPassword }),
 };

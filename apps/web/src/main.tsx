@@ -21,6 +21,7 @@ import './dashboard-refresh.css';
 import './topology.css';
 import './settings.css';
 import './login.css';
+import './password-security.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

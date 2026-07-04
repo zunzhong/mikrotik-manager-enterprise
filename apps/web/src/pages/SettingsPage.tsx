@@ -1,3 +1,4 @@
+import { PasswordSecurityPanel } from '../modules/auth/components/PasswordSecurityPanel';
 import { SecuritySessionsPanel } from '../modules/auth/components/SecuritySessionsPanel';
 import { SystemStatusPanel } from '../modules/system/components/SystemStatusPanel';
 
@@ -11,6 +12,7 @@ export function SettingsPage() {
 
       <SystemStatusPanel />
       <SecuritySessionsPanel />
+      <PasswordSecurityPanel />
     </div>
   );
 }

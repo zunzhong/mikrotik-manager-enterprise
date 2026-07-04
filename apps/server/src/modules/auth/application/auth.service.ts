@@ -1,9 +1,15 @@
+import { createHash, randomBytes } from 'node:crypto';
 import { HttpError } from '../../../errors/http-error.js';
 import { authRepository } from '../infrastructure/auth.repository.js';
 import { sessionRepository } from '../infrastructure/session.repository.js';
+import { passwordPolicyService } from './password-policy.service.js';
 import { passwordService } from './password.service.js';
 import { sessionTokenService } from './session-token.service.js';
 import { tokenService } from './token.service.js';
+
+function hashResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 export class AuthService {
   public async login(input: {
@@ -38,7 +44,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      token,
+      token: accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -46,10 +52,6 @@ export class AuthService {
         role: user.role,
       },
     };
-
-    function token() {
-      return accessToken;
-    }
   }
 
   public async refresh(refreshToken: string) {
@@ -84,6 +86,66 @@ export class AuthService {
 
   public logout() {
     return { ok: true, message: 'Client should remove tokens locally.' };
+  }
+
+  public async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await authRepository.findUserById(userId);
+    const fullUser = user ? await authRepository.findUserByEmail(user.email) : null;
+
+    if (!fullUser || !passwordService.verify(currentPassword, fullUser.passwordHash)) {
+      throw new HttpError(401, 'INVALID_CURRENT_PASSWORD', 'Current password is invalid');
+    }
+
+    const policy = passwordPolicyService.validate(newPassword);
+    if (!policy.valid) {
+      throw new HttpError(400, 'PASSWORD_POLICY_FAILED', policy.errors.join(' '));
+    }
+
+    await authRepository.updatePassword(userId, passwordService.hash(newPassword));
+    await sessionRepository.revokeAll(userId);
+
+    return { changed: true };
+  }
+
+  public async requestPasswordReset(email: string) {
+    const user = await authRepository.findUserByEmail(email);
+
+    if (!user || !user.isActive) {
+      return { requested: true };
+    }
+
+    const token = randomBytes(32).toString('base64url');
+
+    await authRepository.createPasswordResetToken({
+      userId: user.id,
+      tokenHash: hashResetToken(token),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    });
+
+    return {
+      requested: true,
+      resetToken: token,
+      note: 'Development mode returns token directly. Email delivery will be added later.',
+    };
+  }
+
+  public async confirmPasswordReset(token: string, newPassword: string) {
+    const policy = passwordPolicyService.validate(newPassword);
+    if (!policy.valid) {
+      throw new HttpError(400, 'PASSWORD_POLICY_FAILED', policy.errors.join(' '));
+    }
+
+    const reset = await authRepository.findPasswordResetToken(hashResetToken(token));
+
+    if (!reset || !reset.user.isActive) {
+      throw new HttpError(400, 'INVALID_RESET_TOKEN', 'Invalid or expired reset token');
+    }
+
+    await authRepository.updatePassword(reset.userId, passwordService.hash(newPassword));
+    await authRepository.markPasswordResetTokenUsed(reset.id);
+    await sessionRepository.revokeAll(reset.userId);
+
+    return { reset: true };
   }
 }
 
