@@ -16,7 +16,28 @@ export class InventoryDiffRepository {
       where: { deviceId },
       orderBy: { createdAt: 'desc' },
       include: {
-        changes: true,
+        changes: {
+          take: 50,
+          orderBy: [{ category: 'asc' }, { path: 'asc' }],
+        },
+      },
+    });
+  }
+
+  public async getDiff(diffId: string) {
+    return prisma.inventoryDiff.findUnique({
+      where: { id: diffId },
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+          },
+        },
+        changes: {
+          orderBy: [{ category: 'asc' }, { path: 'asc' }, { changeType: 'asc' }],
+        },
       },
     });
   }

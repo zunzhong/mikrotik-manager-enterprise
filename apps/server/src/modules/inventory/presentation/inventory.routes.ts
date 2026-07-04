@@ -66,6 +66,15 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
+  app.get('/api/v1/inventory/diffs/:diffId', async (request) => {
+    const params = request.params as { diffId: string };
+
+    return {
+      success: true,
+      data: await inventoryDiffService.get(params.diffId),
+    };
+  });
+
   app.post('/api/v1/devices/:id/inventory/diff-latest', async (request, reply) => {
     const params = request.params as { id: string };
 

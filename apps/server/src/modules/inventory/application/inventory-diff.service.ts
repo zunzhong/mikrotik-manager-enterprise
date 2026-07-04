@@ -1,5 +1,9 @@
+import { HttpError } from '../../../errors/http-error.js';
 import { eventBus } from '../../../core/index.js';
-import { inventoryDiffRepository, type InventoryDiffChangeInput } from '../infrastructure/inventory-diff.repository.js';
+import {
+  inventoryDiffRepository,
+  type InventoryDiffChangeInput,
+} from '../infrastructure/inventory-diff.repository.js';
 
 type SnapshotWithSections = Awaited<
   ReturnType<typeof inventoryDiffRepository.getLatestSnapshots>
@@ -8,6 +12,16 @@ type SnapshotWithSections = Awaited<
 export class InventoryDiffService {
   public async list(deviceId: string) {
     return inventoryDiffRepository.listDiffs(deviceId);
+  }
+
+  public async get(diffId: string) {
+    const diff = await inventoryDiffRepository.getDiff(diffId);
+
+    if (!diff) {
+      throw new HttpError(404, 'DIFF_NOT_FOUND', 'Inventory diff not found');
+    }
+
+    return diff;
   }
 
   public async diffLatest(deviceId: string) {
@@ -50,7 +64,6 @@ export class InventoryDiffService {
     current: SnapshotWithSections,
   ): InventoryDiffChangeInput[] {
     const changes: InventoryDiffChangeInput[] = [];
-
     const previousSections = new Map(previous.sections.map((section) => [section.path, section]));
     const currentSections = new Map(current.sections.map((section) => [section.path, section]));
 
@@ -87,14 +100,17 @@ export class InventoryDiffService {
           continue;
         }
 
-        if (JSON.stringify(previousItem) !== JSON.stringify(currentItem)) {
+        const normalizedPrevious = this.normalizeRaw(previousItem);
+        const normalizedCurrent = this.normalizeRaw(currentItem);
+
+        if (JSON.stringify(normalizedPrevious) !== JSON.stringify(normalizedCurrent)) {
           changes.push({
             category: currentSection.category,
             path,
             changeType: 'changed',
             itemKey: key,
-            before: previousItem,
-            after: currentItem,
+            before: normalizedPrevious,
+            after: normalizedCurrent,
           });
         }
       }
@@ -106,9 +122,26 @@ export class InventoryDiffService {
             path,
             changeType: 'removed',
             itemKey: key,
-            before: previousItem,
+            before: this.normalizeRaw(previousItem),
           });
         }
+      }
+    }
+
+    for (const [path, previousSection] of previousSections) {
+      if (currentSections.has(path)) {
+        continue;
+      }
+
+      for (const item of previousSection.items) {
+        const raw = item.raw as Record<string, unknown>;
+        changes.push({
+          category: previousSection.category,
+          path,
+          changeType: 'removed',
+          itemKey: this.getItemKey(raw),
+          before: this.normalizeRaw(raw),
+        });
       }
     }
 
@@ -130,14 +163,36 @@ export class InventoryDiffService {
     const id = item['.id'];
     const name = item.name;
     const address = item.address;
+    const macAddress = item['mac-address'];
     const comment = item.comment;
 
     if (typeof id === 'string') return id;
     if (typeof name === 'string') return name;
     if (typeof address === 'string') return address;
+    if (typeof macAddress === 'string') return macAddress;
     if (typeof comment === 'string') return comment;
 
-    return JSON.stringify(item);
+    return JSON.stringify(this.normalizeRaw(item));
+  }
+
+  private normalizeRaw(item: Record<string, unknown>): Record<string, unknown> {
+    const ignoredKeys = new Set([
+      'last-seen',
+      'uptime',
+      'running-time',
+      'rx-byte',
+      'tx-byte',
+      'rx-packet',
+      'tx-packet',
+      'fp-rx-byte',
+      'fp-tx-byte',
+    ]);
+
+    return Object.fromEntries(
+      Object.entries(item)
+        .filter(([key]) => !ignoredKeys.has(key))
+        .sort(([a], [b]) => a.localeCompare(b)),
+    );
   }
 
   private createSummary(changes: InventoryDiffChangeInput[]) {
@@ -146,6 +201,10 @@ export class InventoryDiffService {
       added: changes.filter((change) => change.changeType === 'added').length,
       removed: changes.filter((change) => change.changeType === 'removed').length,
       changed: changes.filter((change) => change.changeType === 'changed').length,
+      byCategory: changes.reduce<Record<string, number>>((acc, change) => {
+        acc[change.category] = (acc[change.category] ?? 0) + 1;
+        return acc;
+      }, {}),
     };
   }
 }
