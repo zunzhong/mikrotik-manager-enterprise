@@ -1,42 +1,43 @@
 services:
   postgres:
-    image: postgres:17-alpine
-    container_name: mme-postgres
-    restart: unless-stopped
+    image: postgres:16
     environment:
-      POSTGRES_DB: mme
       POSTGRES_USER: mme
-      POSTGRES_PASSWORD: mme_password
-    ports:
-      - '5432:5432'
+      POSTGRES_PASSWORD: mme
+      POSTGRES_DB: mme
     volumes:
-      - mme-postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   redis:
-    image: redis:7-alpine
-    container_name: mme-redis
-    restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
+    image: redis:7
     ports:
-      - '6379:6379'
-    volumes:
-      - mme-redis-data:/data
+      - "6379:6379"
 
-  pgadmin:
-    image: dpage/pgadmin4:8
-    container_name: mme-pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@mme.local
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - '5050:80'
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    env_file:
+      - .env
     depends_on:
       - postgres
+      - redis
+    ports:
+      - "3000:3000"
     volumes:
-      - mme-pgadmin-data:/var/lib/pgadmin
+      - backup-data:/app/data/backups
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    depends_on:
+      - server
+    ports:
+      - "5173:5173"
 
 volumes:
-  mme-postgres-data:
-  mme-redis-data:
-  mme-pgadmin-data:
+  postgres-data:
+  backup-data:
