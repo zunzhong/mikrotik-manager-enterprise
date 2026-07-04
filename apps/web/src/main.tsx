@@ -13,6 +13,7 @@ import { TopologyPage } from './pages/TopologyPage';
 import './styles.css';
 import './inventory.css';
 import './compliance.css';
+import './device-inventory.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
