@@ -26,6 +26,39 @@ export async function backupRoutes(app: FastifyInstance) {
     });
   });
 
+  app.get('/api/v1/backups/:id', async (request) => {
+    const params = request.params as { id: string };
+
+    return {
+      success: true,
+      data: await backupService.get(params.id),
+    };
+  });
+
+  app.get('/api/v1/backups/:id/download', async (request, reply) => {
+    const params = request.params as { id: string };
+    const backup = await backupService.get(params.id);
+
+    return reply.code(202).send({
+      success: true,
+      data: {
+        backupId: backup.id,
+        fileName: backup.fileName,
+        available: backup.storage.exists,
+        note: 'Physical file transfer from RouterOS storage is not enabled yet.',
+      },
+    });
+  });
+
+  app.post('/api/v1/backups/:id/validate', async (request) => {
+    const params = request.params as { id: string };
+
+    return {
+      success: true,
+      data: await backupService.validate(params.id),
+    };
+  });
+
   app.get('/api/v1/devices/:id/snapshots', async (request) => {
     const params = request.params as { id: string };
 

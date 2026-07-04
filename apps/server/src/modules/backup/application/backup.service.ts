@@ -1,8 +1,11 @@
 import { RouterClient } from '@mme/routeros-core';
+import { HttpError } from '../../../errors/http-error.js';
 import { eventBus } from '../../../core/index.js';
 import { encryptionService } from '../../../security/encryption.service.js';
 import { deviceRepository } from '../../device/infrastructure/device.repository.js';
 import { backupRepository } from '../infrastructure/backup.repository.js';
+import { backupStorageService } from './backup-storage.service.js';
+import { restoreValidationService } from './restore-validation.service.js';
 import type { BackupType } from '../domain/backup.types.js';
 
 function timestampName(): string {
@@ -14,6 +17,26 @@ export class BackupService {
     return backupRepository.listByDevice(deviceId);
   }
 
+  public async get(id: string) {
+    const backup = await backupRepository.findById(id);
+
+    if (!backup) {
+      throw new HttpError(404, 'BACKUP_NOT_FOUND', 'Backup not found');
+    }
+
+    const fileInfo = await backupStorageService.getFileInfo(backup.filePath);
+
+    return {
+      ...backup,
+      storage: fileInfo,
+      validation: restoreValidationService.validateMetadata({
+        type: backup.type,
+        fileName: backup.fileName,
+        status: backup.status,
+      }),
+    };
+  }
+
   public async create(deviceId: string, type: BackupType = 'export') {
     const device = await deviceRepository.findById(deviceId);
 
@@ -22,16 +45,21 @@ export class BackupService {
     }
 
     const extension = type === 'binary' ? 'backup' : 'rsc';
-    const fileName = `${device.name.replace(/\s+/g, '-')}-${timestampName()}.${extension}`;
+    const fileName = backupStorageService.sanitizeFileName(
+      `${device.name.replace(/\s+/g, '-')}-${timestampName()}.${extension}`,
+    );
+    const filePath = await backupStorageService.buildPath(deviceId, fileName);
 
     const record = await backupRepository.create({
       deviceId,
       type,
       status: 'running',
       fileName,
+      filePath,
       metadata: {
         host: device.host,
         type,
+        storage: 'local',
       },
     });
 
@@ -63,11 +91,14 @@ export class BackupService {
       const completed = await backupRepository.update(record.id, {
         status: 'completed',
         completedAt: new Date(),
+        filePath,
+        checksum: backupStorageService.checksumText(`${deviceId}:${fileName}`),
         metadata: {
           host: device.host,
           type,
           routerFileName: fileName,
-          note: 'RouterOS backup/export command completed. File download/storage will be added in next part.',
+          localPath: filePath,
+          note: 'RouterOS command completed. Physical file transfer will be added later.',
         },
       });
 
@@ -97,6 +128,16 @@ export class BackupService {
 
       return failed;
     }
+  }
+
+  public async validate(id: string) {
+    const backup = await this.get(id);
+
+    return restoreValidationService.validateMetadata({
+      type: backup.type,
+      fileName: backup.fileName,
+      status: backup.status,
+    });
   }
 
   public delete(id: string) {

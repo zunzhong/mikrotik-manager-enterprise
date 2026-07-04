@@ -9,11 +9,27 @@ export class BackupRepository {
     });
   }
 
+  public findById(id: string) {
+    return prisma.backupRecord.findUnique({
+      where: { id },
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+          },
+        },
+      },
+    });
+  }
+
   public create(input: {
     deviceId: string;
     type: string;
     status: string;
     fileName: string;
+    filePath?: string;
     metadata?: Record<string, unknown>;
   }) {
     return prisma.backupRecord.create({
@@ -22,6 +38,7 @@ export class BackupRepository {
         type: input.type,
         status: input.status,
         fileName: input.fileName,
+        filePath: input.filePath,
         metadata:
           input.metadata === undefined ? Prisma.JsonNull : (input.metadata as Prisma.InputJsonValue),
       },
