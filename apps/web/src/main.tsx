@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './layout/AppShell';
+import { AdministrationPage } from './pages/AdministrationPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { BackupCenterPage } from './pages/BackupCenterPage';
 import { CompliancePage } from './pages/CompliancePage';
@@ -22,6 +23,8 @@ import './topology.css';
 import './settings.css';
 import './login.css';
 import './password-security.css';
+import './mfa.css';
+import './rbac.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -37,6 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/backup-center" element={<BackupCenterPage />} />
           <Route path="/topology" element={<TopologyPage />} />
+          <Route path="/administration" element={<AdministrationPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
