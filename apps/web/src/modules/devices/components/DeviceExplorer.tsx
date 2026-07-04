@@ -25,7 +25,9 @@ export function DeviceExplorer() {
             <h3>Devices</h3>
             <p>{devices.length} managed routers</p>
           </div>
-          <button className="small-button" onClick={refresh}>Refresh</button>
+          <button className="small-button" onClick={refresh}>
+            Refresh
+          </button>
         </div>
 
         {error ? <div className="error-banner">{error}</div> : null}
@@ -47,7 +49,9 @@ export function DeviceExplorer() {
               type="button"
             >
               <span className="device-name">{device.name}</span>
-              <span className="device-host">{device.host}:{device.port}</span>
+              <span className="device-host">
+                {device.host}:{device.port}
+              </span>
               <StatusBadge status={device.status} />
             </button>
           ))}
@@ -65,7 +69,9 @@ export function DeviceExplorer() {
             <div className="detail-header">
               <div>
                 <h2>{selected.name}</h2>
-                <p>{selected.host}:{selected.port}</p>
+                <p>
+                  {selected.host}:{selected.port}
+                </p>
               </div>
               <StatusBadge status={selected.status} />
             </div>
@@ -98,7 +104,11 @@ export function DeviceExplorer() {
                   </div>
                   <div className="detail-card">
                     <span>Last Seen</span>
-                    <strong>{selected.lastSeenAt ? new Date(selected.lastSeenAt).toLocaleString() : 'Never'}</strong>
+                    <strong>
+                      {selected.lastSeenAt
+                        ? new Date(selected.lastSeenAt).toLocaleString()
+                        : 'Never'}
+                    </strong>
                     <p>{selected.lastError ?? 'No error recorded'}</p>
                   </div>
                   <div className="detail-card">

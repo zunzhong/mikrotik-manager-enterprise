@@ -200,9 +200,7 @@ export class DashboardService {
       })),
     ];
 
-    return activities
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 30);
+    return activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 30);
   }
 }
 

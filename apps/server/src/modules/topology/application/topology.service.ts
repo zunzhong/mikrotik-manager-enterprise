@@ -54,7 +54,9 @@ export class TopologyService {
 
       for (const neighbor of neighborSection.items) {
         const raw = neighbor.raw as Record<string, unknown>;
-        const identity = String(raw.identity ?? raw['system-description'] ?? raw.address ?? 'unknown-neighbor');
+        const identity = String(
+          raw.identity ?? raw['system-description'] ?? raw.address ?? 'unknown-neighbor',
+        );
         const address = String(raw.address ?? raw['interface'] ?? identity);
         const neighborId = `neighbor:${identity}:${address}`;
 

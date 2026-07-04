@@ -18,17 +18,23 @@ export class CollectorService {
   }
 
   public registerHandlers(): void {
-    jobQueue.registerHandler<InventoryCollectorJobPayload>('collector.inventory.full', async (job) => {
-      await eventBus.emit('collector.inventory.started', job.payload);
-      const result = await inventoryCollectorService.collect(job.payload.deviceId);
-      await eventBus.emit('collector.inventory.completed', result);
-    });
+    jobQueue.registerHandler<InventoryCollectorJobPayload>(
+      'collector.inventory.full',
+      async (job) => {
+        await eventBus.emit('collector.inventory.started', job.payload);
+        const result = await inventoryCollectorService.collect(job.payload.deviceId);
+        await eventBus.emit('collector.inventory.completed', result);
+      },
+    );
 
-    jobQueue.registerHandler<InventoryCollectorJobPayload>('collector.inventory.quick', async (job) => {
-      await eventBus.emit('collector.inventory.started', job.payload);
-      const result = await inventoryCollectorService.collect(job.payload.deviceId);
-      await eventBus.emit('collector.inventory.completed', result);
-    });
+    jobQueue.registerHandler<InventoryCollectorJobPayload>(
+      'collector.inventory.quick',
+      async (job) => {
+        await eventBus.emit('collector.inventory.started', job.payload);
+        const result = await inventoryCollectorService.collect(job.payload.deviceId);
+        await eventBus.emit('collector.inventory.completed', result);
+      },
+    );
   }
 
   public async enqueueInventory(deviceId: string, mode: 'full' | 'quick' = 'full') {

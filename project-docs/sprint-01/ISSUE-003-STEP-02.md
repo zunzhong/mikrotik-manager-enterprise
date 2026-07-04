@@ -54,7 +54,7 @@ import { env } from './env.js';
 export function createLoggerConfig() {
   if (env.NODE_ENV === 'production') {
     return {
-      level: process.env.LOG_LEVEL ?? 'info'
+      level: process.env.LOG_LEVEL ?? 'info',
     };
   }
 
@@ -65,9 +65,9 @@ export function createLoggerConfig() {
       options: {
         colorize: true,
         translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname'
-      }
-    }
+        ignore: 'pid,hostname',
+      },
+    },
   };
 }
 ```
@@ -107,8 +107,8 @@ export async function registerErrorHandler(app: FastifyInstance): Promise<void> 
         success: false,
         error: {
           code: error.code,
-          message: error.message
-        }
+          message: error.message,
+        },
       });
     }
 
@@ -116,8 +116,8 @@ export async function registerErrorHandler(app: FastifyInstance): Promise<void> 
       success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Internal server error'
-      }
+        message: 'Internal server error',
+      },
     });
   });
 
@@ -126,8 +126,8 @@ export async function registerErrorHandler(app: FastifyInstance): Promise<void> 
       success: false,
       error: {
         code: 'ROUTE_NOT_FOUND',
-        message: `Route ${request.method} ${request.url} not found`
-      }
+        message: `Route ${request.method} ${request.url} not found`,
+      },
     });
   });
 }
@@ -150,7 +150,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       name: env.APP_NAME,
       version: env.APP_VERSION,
       node: process.version,
-      uptime: Number(process.uptime().toFixed(2))
+      uptime: Number(process.uptime().toFixed(2)),
     };
   });
 
@@ -162,8 +162,8 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         name: env.APP_NAME,
         version: env.APP_VERSION,
         node: process.version,
-        uptime: Number(process.uptime().toFixed(2))
-      }
+        uptime: Number(process.uptime().toFixed(2)),
+      },
     };
   });
 }
@@ -185,13 +185,13 @@ import { healthRoutes } from './routes/health.js';
 
 export async function buildApp() {
   const app = Fastify({
-    logger: createLoggerConfig()
+    logger: createLoggerConfig(),
   });
 
   await registerErrorHandler(app);
 
   await app.register(cors, {
-    origin: true
+    origin: true,
   });
 
   await app.register(helmet);
@@ -217,7 +217,7 @@ const app = await buildApp();
 try {
   await app.listen({
     host: env.SERVER_HOST,
-    port: env.SERVER_PORT
+    port: env.SERVER_PORT,
   });
 
   const displayHost = env.SERVER_HOST === '0.0.0.0' ? 'localhost' : env.SERVER_HOST;

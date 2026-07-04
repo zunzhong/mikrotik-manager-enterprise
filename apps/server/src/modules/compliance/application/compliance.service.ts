@@ -1,6 +1,9 @@
 import { eventBus } from '../../../core/index.js';
 import { compliancePolicies, type CompliancePolicy } from '../domain/compliance-policy.js';
-import { complianceRepository, type CreateComplianceResultInput } from '../infrastructure/compliance.repository.js';
+import {
+  complianceRepository,
+  type CreateComplianceResultInput,
+} from '../infrastructure/compliance.repository.js';
 import { policyEvaluators } from './policy-registry.js';
 
 type Snapshot = Awaited<ReturnType<typeof complianceRepository.latestSnapshot>>;

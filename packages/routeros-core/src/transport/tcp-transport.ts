@@ -1,9 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { Socket } from 'node:net';
-import {
-  RouterOsConnectionError,
-  RouterOsTimeoutError,
-} from '../errors/routeros-error.js';
+import { RouterOsConnectionError, RouterOsTimeoutError } from '../errors/routeros-error.js';
 import type { TcpTransportOptions, Transport } from '../types/index.js';
 
 export class TcpTransport extends EventEmitter implements Transport {

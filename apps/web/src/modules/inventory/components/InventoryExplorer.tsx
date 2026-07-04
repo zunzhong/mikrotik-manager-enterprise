@@ -8,16 +8,32 @@ export function InventoryExplorer() {
   const [category, setCategory] = useState('all');
 
   const sections = data ?? [];
-  const categories = useMemo(() => ['all', ...Array.from(new Set(sections.map((item) => item.category))).sort()], [sections]);
-  const filtered = category === 'all' ? sections : sections.filter((item) => item.category === category);
+  const categories = useMemo(
+    () => ['all', ...Array.from(new Set(sections.map((item) => item.category))).sort()],
+    [sections],
+  );
+  const filtered =
+    category === 'all' ? sections : sections.filter((item) => item.category === category);
   const enabledCount = sections.filter((item) => item.enabledByDefault).length;
 
   return (
     <div className="inventory-explorer">
       <div className="inventory-summary">
-        <div className="summary-card"><span>Total Sections</span><strong>{sections.length}</strong><small>enterprise paths</small></div>
-        <div className="summary-card"><span>Enabled Default</span><strong>{enabledCount}</strong><small>collected by pipeline</small></div>
-        <div className="summary-card"><span>Categories</span><strong>{categories.length - 1}</strong><small>inventory groups</small></div>
+        <div className="summary-card">
+          <span>Total Sections</span>
+          <strong>{sections.length}</strong>
+          <small>enterprise paths</small>
+        </div>
+        <div className="summary-card">
+          <span>Enabled Default</span>
+          <strong>{enabledCount}</strong>
+          <small>collected by pipeline</small>
+        </div>
+        <div className="summary-card">
+          <span>Categories</span>
+          <strong>{categories.length - 1}</strong>
+          <small>inventory groups</small>
+        </div>
       </div>
 
       <div className="inventory-toolbar">
@@ -25,7 +41,9 @@ export function InventoryExplorer() {
           <h3>Inventory Catalog</h3>
           <p>RouterOS sections supported by the enterprise collector.</p>
         </div>
-        <button className="small-button" onClick={refresh}>Refresh</button>
+        <button className="small-button" onClick={refresh}>
+          Refresh
+        </button>
       </div>
 
       {error ? <div className="error-banner">{error}</div> : null}
@@ -33,7 +51,12 @@ export function InventoryExplorer() {
 
       <div className="filter-row">
         {categories.map((item) => (
-          <button key={item} type="button" className={`filter-chip ${item === category ? 'active' : ''}`} onClick={() => setCategory(item)}>
+          <button
+            key={item}
+            type="button"
+            className={`filter-chip ${item === category ? 'active' : ''}`}
+            onClick={() => setCategory(item)}
+          >
             {item}
           </button>
         ))}

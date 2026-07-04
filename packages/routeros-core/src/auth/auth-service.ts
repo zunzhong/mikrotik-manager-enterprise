@@ -29,7 +29,10 @@ export interface AuthServiceOptions {
 export class AuthService {
   public constructor(private readonly transport: Transport) {}
 
-  public async login(credentials: AuthCredentials, options: AuthServiceOptions = {}): Promise<void> {
+  public async login(
+    credentials: AuthCredentials,
+    options: AuthServiceOptions = {},
+  ): Promise<void> {
     const timeoutMs = options.timeoutMs ?? 10000;
     const loginMode = options.loginMode ?? 'auto';
 

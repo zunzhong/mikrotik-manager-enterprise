@@ -78,9 +78,13 @@ export class InventoryDiffRepository {
             changeType: change.changeType,
             itemKey: change.itemKey,
             before:
-              change.before === undefined ? Prisma.JsonNull : (change.before as Prisma.InputJsonValue),
+              change.before === undefined
+                ? Prisma.JsonNull
+                : (change.before as Prisma.InputJsonValue),
             after:
-              change.after === undefined ? Prisma.JsonNull : (change.after as Prisma.InputJsonValue),
+              change.after === undefined
+                ? Prisma.JsonNull
+                : (change.after as Prisma.InputJsonValue),
           })),
         },
       },

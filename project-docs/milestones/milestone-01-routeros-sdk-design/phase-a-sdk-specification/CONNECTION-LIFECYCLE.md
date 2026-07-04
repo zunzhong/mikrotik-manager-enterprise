@@ -26,9 +26,9 @@ error
 ## Events
 
 ```ts
-client.on('state', (state) => {})
-client.on('connect', () => {})
-client.on('authenticated', () => {})
-client.on('close', () => {})
-client.on('error', (error) => {})
+client.on('state', (state) => {});
+client.on('connect', () => {});
+client.on('authenticated', () => {});
+client.on('close', () => {});
+client.on('error', (error) => {});
 ```

@@ -18,7 +18,7 @@ Example:
 
 ```ts
 await client.command('/system/resource/print', {
-  '.proplist': 'version,uptime,cpu-load'
+  '.proplist': 'version,uptime,cpu-load',
 });
 ```
 

@@ -96,7 +96,12 @@ export class FakeRouterOsServer {
       return;
     }
 
-    this.write(socket, ['!trap', '=message=no such command', '=category=0', this.getTagWord(sentence)]);
+    this.write(socket, [
+      '!trap',
+      '=message=no such command',
+      '=category=0',
+      this.getTagWord(sentence),
+    ]);
   }
 
   private handleLogin(socket: Socket, sentence: RouterOsSentence): void {

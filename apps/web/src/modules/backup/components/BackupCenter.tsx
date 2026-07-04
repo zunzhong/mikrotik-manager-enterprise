@@ -39,7 +39,11 @@ export function BackupCenter() {
 
     try {
       const result = await backupApi.validate(backup.id);
-      setMessage(result.valid ? 'Backup validation passed.' : `Validation warning: ${result.warnings.join(', ')}`);
+      setMessage(
+        result.valid
+          ? 'Backup validation passed.'
+          : `Validation warning: ${result.warnings.join(', ')}`,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Validation failed');
     }
@@ -66,7 +70,10 @@ export function BackupCenter() {
         </div>
 
         <div className="toolbar-actions">
-          <select value={activeDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
+          <select
+            value={activeDeviceId}
+            onChange={(event) => setSelectedDeviceId(event.target.value)}
+          >
             {(devices.data ?? []).map((device) => (
               <option value={device.id} key={device.id}>
                 {device.name} — {device.host}
@@ -75,8 +82,12 @@ export function BackupCenter() {
             {(devices.data ?? []).length === 0 ? <option value="">No devices</option> : null}
           </select>
 
-          <button className="small-button" onClick={() => createBackup('export')}>Export .rsc</button>
-          <button className="small-button" onClick={() => createBackup('binary')}>Binary .backup</button>
+          <button className="small-button" onClick={() => createBackup('export')}>
+            Export .rsc
+          </button>
+          <button className="small-button" onClick={() => createBackup('binary')}>
+            Binary .backup
+          </button>
         </div>
       </div>
 
@@ -89,7 +100,9 @@ export function BackupCenter() {
             <div className="backup-card-header">
               <div>
                 <h4>{backup.fileName}</h4>
-                <p>{backup.type} • {new Date(backup.createdAt).toLocaleString()}</p>
+                <p>
+                  {backup.type} • {new Date(backup.createdAt).toLocaleString()}
+                </p>
               </div>
               <span className={`backup-status backup-${backup.status}`}>{backup.status}</span>
             </div>
@@ -102,8 +115,12 @@ export function BackupCenter() {
             {backup.error ? <div className="error-banner">{backup.error}</div> : null}
 
             <div className="backup-actions">
-              <button className="small-button" onClick={() => validateBackup(backup)}>Validate</button>
-              <button className="small-button danger" onClick={() => deleteBackup(backup)}>Delete</button>
+              <button className="small-button" onClick={() => validateBackup(backup)}>
+                Validate
+              </button>
+              <button className="small-button danger" onClick={() => deleteBackup(backup)}>
+                Delete
+              </button>
             </div>
           </article>
         ))}

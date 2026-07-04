@@ -1,4 +1,8 @@
-import type { InventoryCollector, InventoryCollectorContext, InventoryCollectorResult } from './collector.types.js';
+import type {
+  InventoryCollector,
+  InventoryCollectorContext,
+  InventoryCollectorResult,
+} from './collector.types.js';
 
 export interface RouterOsPrintCollectorOptions {
   key: string;

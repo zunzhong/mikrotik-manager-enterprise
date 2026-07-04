@@ -69,8 +69,7 @@ export const deviceInventoryApi = {
   section: (deviceId: string, sectionId: string) =>
     apiGet<DeviceInventorySection>(`/api/v1/devices/${deviceId}/inventory/sections/${sectionId}`),
 
-  collect: (deviceId: string) =>
-    apiPost(`/api/v1/devices/${deviceId}/inventory/collect`, {}),
+  collect: (deviceId: string) => apiPost(`/api/v1/devices/${deviceId}/inventory/collect`, {}),
 
   diffLatest: (deviceId: string) =>
     apiPost(`/api/v1/devices/${deviceId}/inventory/diff-latest`, {}),

@@ -52,7 +52,9 @@ export function AlertCenter() {
   }
 
   const openCount = (alerts.data ?? []).filter((item) => item.status === 'open').length;
-  const criticalCount = (alerts.data ?? []).filter((item) => item.severity === 'critical' && item.status === 'open').length;
+  const criticalCount = (alerts.data ?? []).filter(
+    (item) => item.severity === 'critical' && item.status === 'open',
+  ).length;
 
   return (
     <div className="alert-center">
@@ -63,7 +65,10 @@ export function AlertCenter() {
         </div>
 
         <div className="toolbar-actions">
-          <select value={activeDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
+          <select
+            value={activeDeviceId}
+            onChange={(event) => setSelectedDeviceId(event.target.value)}
+          >
             {(devices.data ?? []).map((device) => (
               <option value={device.id} key={device.id}>
                 {device.name} — {device.host}
@@ -71,8 +76,12 @@ export function AlertCenter() {
             ))}
             {(devices.data ?? []).length === 0 ? <option value="">No devices</option> : null}
           </select>
-          <button className="small-button" onClick={evaluateDevice}>Evaluate Device</button>
-          <button className="small-button" onClick={evaluateAll}>Evaluate All</button>
+          <button className="small-button" onClick={evaluateDevice}>
+            Evaluate Device
+          </button>
+          <button className="small-button" onClick={evaluateAll}>
+            Evaluate All
+          </button>
         </div>
       </div>
 
@@ -107,7 +116,9 @@ export function AlertCenter() {
                 <div>
                   <h4>{rule.title}</h4>
                   <p>{rule.description}</p>
-                  <small>{rule.source} • {rule.key}</small>
+                  <small>
+                    {rule.source} • {rule.key}
+                  </small>
                 </div>
                 <span className={`alert-severity sev-${rule.severity}`}>{rule.severity}</span>
               </article>
@@ -124,7 +135,9 @@ export function AlertCenter() {
                   <div>
                     <h4>{alert.title}</h4>
                     <p>{alert.message}</p>
-                    <small>{alert.source} • {new Date(alert.createdAt).toLocaleString()}</small>
+                    <small>
+                      {alert.source} • {new Date(alert.createdAt).toLocaleString()}
+                    </small>
                   </div>
                   <div className="alert-badges">
                     <span className={`alert-severity sev-${alert.severity}`}>{alert.severity}</span>
@@ -133,7 +146,9 @@ export function AlertCenter() {
                 </div>
 
                 {alert.status === 'open' ? (
-                  <button className="small-button" onClick={() => acknowledge(alert)}>Acknowledge</button>
+                  <button className="small-button" onClick={() => acknowledge(alert)}>
+                    Acknowledge
+                  </button>
                 ) : null}
               </article>
             ))}
@@ -141,7 +156,10 @@ export function AlertCenter() {
             {!alerts.loading && (alerts.data?.length ?? 0) === 0 ? (
               <div className="empty-state">
                 <strong>No alerts yet</strong>
-                <p>Run evaluation to generate alerts from current inventory, compliance and backup data.</p>
+                <p>
+                  Run evaluation to generate alerts from current inventory, compliance and backup
+                  data.
+                </p>
               </div>
             ) : null}
           </div>

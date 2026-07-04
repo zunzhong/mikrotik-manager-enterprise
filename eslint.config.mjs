@@ -1,28 +1,23 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-
 export default [
   {
     ignores: [
-      '**/dist/**',
       '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
       '**/coverage/**',
+      '**/.vite/**',
       '**/.turbo/**',
-      '**/pnpm-lock.yaml',
+      '**/apps/server/prisma/generated/**',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.ts'],
-    languageOptions: {
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-      },
-    },
+    files: ['**/*.ts', '**/*.tsx'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {
@@ -30,6 +25,7 @@ export default [
           varsIgnorePattern: '^_',
         },
       ],
+      'no-console': 'off',
     },
   },
 ];

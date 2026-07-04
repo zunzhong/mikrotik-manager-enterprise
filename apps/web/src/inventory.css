@@ -1,22 +1,114 @@
-.inventory-explorer { margin-top: 24px; }
-.inventory-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
-.inventory-toolbar { border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 20px; padding: 18px; background: rgba(15, 23, 42, 0.56); display: flex; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
-[data-theme='light'] .inventory-toolbar { background: white; border-color: #dbe3ef; }
-.inventory-toolbar h3 { margin: 0; }
-.inventory-toolbar p { margin: 6px 0 0; color: #94a3b8; }
-.filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-.filter-chip { border: 1px solid rgba(148, 163, 184, 0.28); background: rgba(15, 23, 42, 0.44); color: inherit; border-radius: 999px; padding: 8px 12px; cursor: pointer; text-transform: capitalize; }
-.filter-chip.active, .filter-chip:hover { background: rgba(34, 211, 238, 0.12); border-color: rgba(34, 211, 238, 0.5); color: #67e8f9; }
-[data-theme='light'] .filter-chip { background: white; }
-.inventory-section-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.inventory-section-card { border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 18px; background: rgba(15, 23, 42, 0.56); padding: 16px; }
-[data-theme='light'] .inventory-section-card { background: white; border-color: #dbe3ef; }
-.section-card-header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.section-card-header h4 { margin: 0; }
-.section-card-header span { color: #94a3b8; text-transform: capitalize; font-size: 13px; }
-.section-card-header strong { color: #67e8f9; font-size: 12px; }
-.inventory-section-card code { display: block; color: #bae6fd; background: rgba(2, 6, 23, 0.45); border-radius: 10px; padding: 10px; overflow: auto; }
-[data-theme='light'] .inventory-section-card code { color: #0369a1; background: #eff6ff; }
-.inventory-section-card p { color: #94a3b8; margin-bottom: 0; }
-@media (max-width: 1200px) { .inventory-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 900px) { .inventory-summary, .inventory-section-grid { grid-template-columns: 1fr; } }
+.inventory-explorer {
+  margin-top: 24px;
+}
+.inventory-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.inventory-toolbar {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.56);
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+[data-theme='light'] .inventory-toolbar {
+  background: white;
+  border-color: #dbe3ef;
+}
+.inventory-toolbar h3 {
+  margin: 0;
+}
+.inventory-toolbar p {
+  margin: 6px 0 0;
+  color: #94a3b8;
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.filter-chip {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.44);
+  color: inherit;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.filter-chip.active,
+.filter-chip:hover {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #67e8f9;
+}
+[data-theme='light'] .filter-chip {
+  background: white;
+}
+.inventory-section-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.inventory-section-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.56);
+  padding: 16px;
+}
+[data-theme='light'] .inventory-section-card {
+  background: white;
+  border-color: #dbe3ef;
+}
+.section-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-card-header h4 {
+  margin: 0;
+}
+.section-card-header span {
+  color: #94a3b8;
+  text-transform: capitalize;
+  font-size: 13px;
+}
+.section-card-header strong {
+  color: #67e8f9;
+  font-size: 12px;
+}
+.inventory-section-card code {
+  display: block;
+  color: #bae6fd;
+  background: rgba(2, 6, 23, 0.45);
+  border-radius: 10px;
+  padding: 10px;
+  overflow: auto;
+}
+[data-theme='light'] .inventory-section-card code {
+  color: #0369a1;
+  background: #eff6ff;
+}
+.inventory-section-card p {
+  color: #94a3b8;
+  margin-bottom: 0;
+}
+@media (max-width: 1200px) {
+  .inventory-section-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .inventory-summary,
+  .inventory-section-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,9 +1,11 @@
-.system-status-panel { margin-top: 24px; }
+.system-status-panel {
+  margin-top: 24px;
+}
 .settings-toolbar,
 .settings-panel {
-  border: 1px solid rgba(148,163,184,.18);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 20px;
-  background: rgba(15,23,42,.56);
+  background: rgba(15, 23, 42, 0.56);
   padding: 18px;
 }
 [data-theme='light'] .settings-toolbar,
@@ -28,7 +30,7 @@
 .settings-grid {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 .settings-panel {

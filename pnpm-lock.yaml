@@ -9,16 +9,16 @@ importers:
   .:
     devDependencies:
       '@eslint/js':
-        specifier: ^9.18.0
+        specifier: ^9.0.0
         version: 9.39.4
       eslint:
-        specifier: ^9.18.0
+        specifier: ^9.0.0
         version: 9.39.4(jiti@2.7.0)
       prettier:
-        specifier: ^3.4.2
+        specifier: ^3.0.0
         version: 3.9.4
       typescript-eslint:
-        specifier: ^8.20.0
+        specifier: ^8.0.0
         version: 8.62.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
   apps/server:

@@ -5,7 +5,9 @@ export interface CoreEvent<TPayload = unknown> {
   createdAt: Date;
 }
 
-export type CoreEventHandler<TPayload = unknown> = (event: CoreEvent<TPayload>) => void | Promise<void>;
+export type CoreEventHandler<TPayload = unknown> = (
+  event: CoreEvent<TPayload>,
+) => void | Promise<void>;
 
 /**
  * EventBus
@@ -27,7 +29,10 @@ export class EventBus {
     };
   }
 
-  public async emit<TPayload = unknown>(type: string, payload: TPayload): Promise<CoreEvent<TPayload>> {
+  public async emit<TPayload = unknown>(
+    type: string,
+    payload: TPayload,
+  ): Promise<CoreEvent<TPayload>> {
     const event: CoreEvent<TPayload> = {
       id: crypto.randomUUID(),
       type,

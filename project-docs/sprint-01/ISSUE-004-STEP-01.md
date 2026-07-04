@@ -65,7 +65,7 @@ const envSchema = z.object({
   REDIS_PASSWORD: z.string().optional().default(''),
   REDIS_DB: z.coerce.number().int().min(0).default(0),
 
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -87,7 +87,7 @@ export class ConfigService {
     environment: env.NODE_ENV,
     isDevelopment: env.NODE_ENV === 'development',
     isProduction: env.NODE_ENV === 'production',
-    isTest: env.NODE_ENV === 'test'
+    isTest: env.NODE_ENV === 'test',
   };
 
   public readonly server = {
@@ -97,22 +97,22 @@ export class ConfigService {
     get publicUrl() {
       const host = env.SERVER_HOST === '0.0.0.0' ? 'localhost' : env.SERVER_HOST;
       return `http://${host}:${env.SERVER_PORT}`;
-    }
+    },
   };
 
   public readonly database = {
-    url: env.DATABASE_URL
+    url: env.DATABASE_URL,
   };
 
   public readonly redis = {
     host: env.REDIS_HOST,
     port: env.REDIS_PORT,
     password: env.REDIS_PASSWORD || undefined,
-    db: env.REDIS_DB
+    db: env.REDIS_DB,
   };
 
   public readonly logging = {
-    level: env.LOG_LEVEL
+    level: env.LOG_LEVEL,
   };
 }
 
@@ -131,7 +131,7 @@ import { config } from './config.service.js';
 export function createLoggerConfig() {
   if (config.app.isProduction) {
     return {
-      level: config.logging.level
+      level: config.logging.level,
     };
   }
 
@@ -142,9 +142,9 @@ export function createLoggerConfig() {
       options: {
         colorize: true,
         translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname'
-      }
-    }
+        ignore: 'pid,hostname',
+      },
+    },
   };
 }
 ```
@@ -166,7 +166,7 @@ function getHealthPayload() {
     version: config.app.version,
     environment: config.app.environment,
     node: process.version,
-    uptime: Number(process.uptime().toFixed(2))
+    uptime: Number(process.uptime().toFixed(2)),
   };
 }
 
@@ -178,7 +178,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/v1/health', async () => {
     return {
       success: true,
-      data: getHealthPayload()
+      data: getHealthPayload(),
     };
   });
 }
@@ -199,7 +199,7 @@ const app = await buildApp();
 try {
   await app.listen({
     host: config.server.host,
-    port: config.server.port
+    port: config.server.port,
   });
 
   app.log.info(`MME server running at ${config.server.publicUrl}`);

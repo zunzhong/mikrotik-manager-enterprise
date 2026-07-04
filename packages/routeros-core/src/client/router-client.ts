@@ -72,7 +72,9 @@ export class RouterClient extends EventEmitter {
     options: Omit<CommandRequest, 'path' | 'attributes'> = {},
   ): Promise<CommandResponse> {
     if (!this.isAuthenticated) {
-      throw new RouterOsConnectionError('RouterClient must be authenticated before running commands');
+      throw new RouterOsConnectionError(
+        'RouterClient must be authenticated before running commands',
+      );
     }
 
     const executor = new CommandExecutor(this.connection.getTransport());

@@ -86,7 +86,7 @@ const envSchema = z.object({
   SERVER_HOST: z.string().default('0.0.0.0'),
   SERVER_PORT: z.coerce.number().int().positive().default(3000),
   APP_NAME: z.string().default('mikrotik-manager-enterprise'),
-  APP_VERSION: z.string().default('0.1.0')
+  APP_VERSION: z.string().default('0.1.0'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -107,7 +107,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
       name: env.APP_NAME,
       version: env.APP_VERSION,
       node: process.version,
-      uptime: Number(process.uptime().toFixed(2))
+      uptime: Number(process.uptime().toFixed(2)),
     };
   });
 }
@@ -124,12 +124,12 @@ import { healthRoutes } from './routes/health.js';
 export async function buildApp() {
   const app = Fastify({
     logger: {
-      level: process.env.LOG_LEVEL ?? 'info'
-    }
+      level: process.env.LOG_LEVEL ?? 'info',
+    },
   });
 
   await app.register(cors, {
-    origin: true
+    origin: true,
   });
 
   await app.register(helmet);
@@ -151,7 +151,7 @@ const app = await buildApp();
 try {
   await app.listen({
     host: env.SERVER_HOST,
-    port: env.SERVER_PORT
+    port: env.SERVER_PORT,
   });
 
   app.log.info(`MME server running at http://${env.SERVER_HOST}:${env.SERVER_PORT}`);

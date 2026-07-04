@@ -6,7 +6,10 @@ const envSchema = z.object({
   APP_VERSION: z.string().min(1).default('0.1.0'),
   SERVER_HOST: z.string().min(1).default('0.0.0.0'),
   SERVER_PORT: z.coerce.number().int().positive().default(3000),
-  DATABASE_URL: z.string().min(1).default('postgresql://mme:mme_password@localhost:5432/mme?schema=public'),
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .default('postgresql://mme:mme_password@localhost:5432/mme?schema=public'),
   REDIS_HOST: z.string().min(1).default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
   REDIS_PASSWORD: z.string().optional().default(''),

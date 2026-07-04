@@ -24,9 +24,7 @@ export class InventoryRepository {
         source: input.source,
         status: input.status,
         summary:
-          input.summary === undefined
-            ? Prisma.JsonNull
-            : (input.summary as Prisma.InputJsonValue),
+          input.summary === undefined ? Prisma.JsonNull : (input.summary as Prisma.InputJsonValue),
       },
     });
   }

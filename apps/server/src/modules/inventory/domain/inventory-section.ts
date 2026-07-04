@@ -12,10 +12,12 @@ export interface InventorySectionDefinition {
   enabledByDefault: boolean;
 }
 
-export const inventorySections: InventorySectionDefinition[] = collectorRegistry.list().map((collector) => ({
-  key: collector.key,
-  category: collector.category,
-  label: collector.label,
-  path: collector.path,
-  enabledByDefault: collector.enabledByDefault,
-}));
+export const inventorySections: InventorySectionDefinition[] = collectorRegistry
+  .list()
+  .map((collector) => ({
+    key: collector.key,
+    category: collector.category,
+    label: collector.label,
+    path: collector.path,
+    enabledByDefault: collector.enabledByDefault,
+  }));

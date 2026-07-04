@@ -27,6 +27,7 @@ export const backupApi = {
   create: (deviceId: string, type: 'export' | 'binary') =>
     apiPost<BackupRecord>(`/api/v1/devices/${deviceId}/backup`, { type }),
   get: (backupId: string) => apiGet<BackupRecord>(`/api/v1/backups/${backupId}`),
-  validate: (backupId: string) => apiPost<BackupValidation>(`/api/v1/backups/${backupId}/validate`, {}),
+  validate: (backupId: string) =>
+    apiPost<BackupValidation>(`/api/v1/backups/${backupId}/validate`, {}),
   delete: (backupId: string) => apiDelete<BackupRecord>(`/api/v1/backups/${backupId}`),
 };

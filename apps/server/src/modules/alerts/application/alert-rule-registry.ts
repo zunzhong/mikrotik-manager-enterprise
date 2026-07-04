@@ -23,14 +23,16 @@ export const alertRuleEvaluators: AlertRuleEvaluator[] = [
         const snapshot = await alertEvaluationRepository.latestSnapshot(device.id);
 
         if (!snapshot) {
-          results.push(result({
-            rule: byKey['device.no-snapshot'],
-            triggered: true,
-            deviceId: device.id,
-            title: 'Device has no inventory snapshot',
-            message: `${device.name} has no inventory snapshot yet.`,
-            metadata: { device },
-          }));
+          results.push(
+            result({
+              rule: byKey['device.no-snapshot'],
+              triggered: true,
+              deviceId: device.id,
+              title: 'Device has no inventory snapshot',
+              message: `${device.name} has no inventory snapshot yet.`,
+              metadata: { device },
+            }),
+          );
         }
       }
 
@@ -50,18 +52,20 @@ export const alertRuleEvaluators: AlertRuleEvaluator[] = [
 
         const ageMs = Date.now() - snapshot.collectedAt.getTime();
         if (ageMs > maxAgeMs) {
-          results.push(result({
-            rule: byKey['device.no-recent-snapshot'],
-            triggered: true,
-            deviceId: device.id,
-            title: 'Device inventory is stale',
-            message: `${device.name} latest inventory snapshot is older than ${context.staleSnapshotHours} hours.`,
-            metadata: {
-              device,
-              snapshot,
-              ageHours: Math.round(ageMs / 60 / 60 / 1000),
-            },
-          }));
+          results.push(
+            result({
+              rule: byKey['device.no-recent-snapshot'],
+              triggered: true,
+              deviceId: device.id,
+              title: 'Device inventory is stale',
+              message: `${device.name} latest inventory snapshot is older than ${context.staleSnapshotHours} hours.`,
+              metadata: {
+                device,
+                snapshot,
+                ageHours: Math.round(ageMs / 60 / 60 / 1000),
+              },
+            }),
+          );
         }
       }
 
@@ -79,14 +83,16 @@ export const alertRuleEvaluators: AlertRuleEvaluator[] = [
         if (!report) continue;
 
         if (report.score < context.lowComplianceThreshold) {
-          results.push(result({
-            rule: byKey['device.low-compliance-score'],
-            triggered: true,
-            deviceId: device.id,
-            title: 'Low compliance score',
-            message: `${device.name} compliance score is ${report.score}%.`,
-            metadata: { device, report, threshold: context.lowComplianceThreshold },
-          }));
+          results.push(
+            result({
+              rule: byKey['device.low-compliance-score'],
+              triggered: true,
+              deviceId: device.id,
+              title: 'Low compliance score',
+              message: `${device.name} compliance score is ${report.score}%.`,
+              metadata: { device, report, threshold: context.lowComplianceThreshold },
+            }),
+          );
         }
       }
 
@@ -103,14 +109,16 @@ export const alertRuleEvaluators: AlertRuleEvaluator[] = [
         const backup = await alertEvaluationRepository.latestCompletedBackup(device.id);
 
         if (!backup) {
-          results.push(result({
-            rule: byKey['device.no-successful-backup'],
-            triggered: true,
-            deviceId: device.id,
-            title: 'No successful backup',
-            message: `${device.name} has no completed backup record.`,
-            metadata: { device },
-          }));
+          results.push(
+            result({
+              rule: byKey['device.no-successful-backup'],
+              triggered: true,
+              deviceId: device.id,
+              title: 'No successful backup',
+              message: `${device.name} has no completed backup record.`,
+              metadata: { device },
+            }),
+          );
         }
       }
 

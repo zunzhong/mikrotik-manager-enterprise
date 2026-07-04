@@ -2,11 +2,11 @@
 
 ## Supported RouterOS Versions
 
-| RouterOS | API 8728 | API-SSL 8729 | Login Mode | Priority |
-|---|---:|---:|---|---|
-| 6.49.x | yes | yes | challenge / legacy compatible | high |
-| 7.1+ | yes | yes | modern username/password | high |
-| 7.10+ | yes | yes | modern username/password | high |
+| RouterOS | API 8728 | API-SSL 8729 | Login Mode                    | Priority |
+| -------- | -------: | -----------: | ----------------------------- | -------- |
+| 6.49.x   |      yes |          yes | challenge / legacy compatible | high     |
+| 7.1+     |      yes |          yes | modern username/password      | high     |
+| 7.10+    |      yes |          yes | modern username/password      | high     |
 
 ## API Services
 

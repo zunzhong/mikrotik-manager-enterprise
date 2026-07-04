@@ -12,7 +12,9 @@ export function SystemStatusPanel() {
           <h3>System Status</h3>
           <p>Operational readiness, runtime and platform metrics.</p>
         </div>
-        <button className="small-button" onClick={status.refresh}>Refresh</button>
+        <button className="small-button" onClick={status.refresh}>
+          Refresh
+        </button>
       </div>
 
       {status.error ? <div className="error-banner">{status.error}</div> : null}

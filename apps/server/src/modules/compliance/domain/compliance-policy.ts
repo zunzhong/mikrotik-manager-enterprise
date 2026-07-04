@@ -13,7 +13,8 @@ export const compliancePolicies: CompliancePolicy[] = [
   {
     key: 'services.api.disabled-or-restricted',
     title: 'RouterOS API should be disabled or restricted',
-    description: 'Plain API should not be exposed broadly. Prefer API-SSL or restricted address ranges.',
+    description:
+      'Plain API should not be exposed broadly. Prefer API-SSL or restricted address ranges.',
     severity: 'high',
     category: 'services',
   },

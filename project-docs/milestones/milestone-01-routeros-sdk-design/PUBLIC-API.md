@@ -11,7 +11,7 @@ const client = new RouterClient({
   password: '',
   port: 8728,
   tls: false,
-  timeoutMs: 10000
+  timeoutMs: 10000,
 });
 
 await client.connect();

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RouterOsCommandError, RouterOsFatalError, RouterOsTimeoutError } from '../errors/routeros-error.js';
+import {
+  RouterOsCommandError,
+  RouterOsFatalError,
+  RouterOsTimeoutError,
+} from '../errors/routeros-error.js';
 import { encodeSentence } from '../protocol/encoder.js';
 import { FakeTransport } from '../testing/fake-transport.js';
 import { CommandExecutor } from './command-executor.js';
@@ -71,7 +75,9 @@ describe('CommandExecutor', () => {
       tag: 'test-3',
     });
 
-    transport.pushIncoming(encodeSentence(['!fatal', '=message=session terminated', '.tag=test-3']));
+    transport.pushIncoming(
+      encodeSentence(['!fatal', '=message=session terminated', '.tag=test-3']),
+    );
 
     await expect(promise).rejects.toBeInstanceOf(RouterOsFatalError);
   });

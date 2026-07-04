@@ -6,12 +6,15 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
   const [actionMessage, setActionMessage] = useState('');
 
-  const overview = useAsyncData(useCallback(() => deviceInventoryApi.overview(deviceId), [deviceId]));
+  const overview = useAsyncData(
+    useCallback(() => deviceInventoryApi.overview(deviceId), [deviceId]),
+  );
   const tree = useAsyncData(useCallback(() => deviceInventoryApi.tree(deviceId), [deviceId]));
 
   const section = useAsyncData(
     useCallback(() => {
-      if (!selectedSectionId) return Promise.resolve(undefined as unknown as DeviceInventorySection);
+      if (!selectedSectionId)
+        return Promise.resolve(undefined as unknown as DeviceInventorySection);
       return deviceInventoryApi.section(deviceId, selectedSectionId);
     }, [deviceId, selectedSectionId]),
   );
@@ -47,8 +50,12 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
           <p>Snapshot, tree and RouterOS inventory sections for this device.</p>
         </div>
         <div className="toolbar-actions">
-          <button className="small-button" onClick={collectInventory}>Collect Inventory</button>
-          <button className="small-button" onClick={diffLatest}>Diff Latest</button>
+          <button className="small-button" onClick={collectInventory}>
+            Collect Inventory
+          </button>
+          <button className="small-button" onClick={diffLatest}>
+            Diff Latest
+          </button>
         </div>
       </div>
 
@@ -59,7 +66,11 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
         <div className="summary-card">
           <span>Snapshot</span>
           <strong>{overview.data?.hasSnapshot ? 'Yes' : 'No'}</strong>
-          <small>{overview.data?.snapshot?.collectedAt ? new Date(overview.data.snapshot.collectedAt).toLocaleString() : 'not collected'}</small>
+          <small>
+            {overview.data?.snapshot?.collectedAt
+              ? new Date(overview.data.snapshot.collectedAt).toLocaleString()
+              : 'not collected'}
+          </small>
         </div>
         <div className="summary-card">
           <span>Sections</span>
@@ -85,7 +96,9 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
           {(tree.data?.categories ?? []).map((category) => (
             <div className="tree-category" key={category.category}>
               <strong>{category.category}</strong>
-              <small>{category.sectionCount} sections • {category.itemCount} items</small>
+              <small>
+                {category.sectionCount} sections • {category.itemCount} items
+              </small>
 
               <div className="tree-section-list">
                 {category.sections.map((item) => (

@@ -18,8 +18,7 @@ export function DashboardRefreshBar({
       <div>
         <strong>Dashboard Refresh</strong>
         <span>
-          Last updated:{' '}
-          {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString() : 'not updated yet'}
+          Last updated: {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString() : 'not updated yet'}
         </span>
       </div>
 
@@ -33,10 +32,7 @@ export function DashboardRefreshBar({
           Auto refresh
         </label>
 
-        <select
-          value={intervalMs}
-          onChange={(event) => setIntervalMs(Number(event.target.value))}
-        >
+        <select value={intervalMs} onChange={(event) => setIntervalMs(Number(event.target.value))}>
           <option value={10000}>10s</option>
           <option value={30000}>30s</option>
           <option value={60000}>60s</option>

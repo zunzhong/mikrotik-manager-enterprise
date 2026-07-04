@@ -29,8 +29,10 @@ export class ConnectionManager extends EventEmitter {
   }
 
   public get isConnected(): boolean {
-    return this.currentState === ConnectionState.Connected ||
-      this.currentState === ConnectionState.Authenticated;
+    return (
+      this.currentState === ConnectionState.Connected ||
+      this.currentState === ConnectionState.Authenticated
+    );
   }
 
   public getTransport(): Transport {
@@ -73,7 +75,10 @@ export class ConnectionManager extends EventEmitter {
   }
 
   public async close(): Promise<void> {
-    if (this.currentState === ConnectionState.Closed || this.currentState === ConnectionState.Idle) {
+    if (
+      this.currentState === ConnectionState.Closed ||
+      this.currentState === ConnectionState.Idle
+    ) {
       this.setState(ConnectionState.Closed);
       return;
     }

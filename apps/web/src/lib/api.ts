@@ -1,7 +1,9 @@
 const explicitApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 function buildApiUrl(path: string): string {
-  return explicitApiBaseUrl && explicitApiBaseUrl.length > 0 ? `${explicitApiBaseUrl}${path}` : path;
+  return explicitApiBaseUrl && explicitApiBaseUrl.length > 0
+    ? `${explicitApiBaseUrl}${path}`
+    : path;
 }
 
 export class ApiError extends Error {
@@ -20,10 +22,18 @@ async function readJson<T>(response: Response, path: string): Promise<T> {
     throw new ApiError(`API request failed with status ${response.status}`, response.status, path);
   }
 
-  const json = (await response.json()) as { success: boolean; data?: T; error?: { message?: string } };
+  const json = (await response.json()) as {
+    success: boolean;
+    data?: T;
+    error?: { message?: string };
+  };
 
   if (!json.success) {
-    throw new ApiError(json.error?.message ?? 'API returned unsuccessful response', response.status, path);
+    throw new ApiError(
+      json.error?.message ?? 'API returned unsuccessful response',
+      response.status,
+      path,
+    );
   }
 
   return json.data as T;
@@ -35,7 +45,11 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
     return readJson<T>(response, path);
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(`Cannot reach backend API for ${path}. Make sure @mme/server is running.`, undefined, path);
+    throw new ApiError(
+      `Cannot reach backend API for ${path}. Make sure @mme/server is running.`,
+      undefined,
+      path,
+    );
   }
 }
 

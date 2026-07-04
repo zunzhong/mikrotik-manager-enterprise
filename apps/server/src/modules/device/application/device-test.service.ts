@@ -54,17 +54,17 @@ export class DeviceTestService {
         responseTimeMs: Date.now() - startedAt,
       };
     } catch (error) {
-  await client.close().catch(() => undefined);
+      await client.close().catch(() => undefined);
 
-  const err = error as Error;
+      const err = error as Error;
 
-  return {
-    online: false,
-    code: error instanceof RouterOsError ? error.code : 'UNKNOWN_ERROR',
-    reason: err.message ?? 'Unknown error',
-    responseTimeMs: Date.now() - startedAt,
-  };
-}
+      return {
+        online: false,
+        code: error instanceof RouterOsError ? error.code : 'UNKNOWN_ERROR',
+        reason: err.message ?? 'Unknown error',
+        responseTimeMs: Date.now() - startedAt,
+      };
+    }
   }
 
   private toNumber(value: string | undefined): number | undefined {

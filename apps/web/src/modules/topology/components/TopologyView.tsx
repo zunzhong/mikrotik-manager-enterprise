@@ -37,7 +37,9 @@ export function TopologyView() {
                   <h4>{node.label}</h4>
                   <p>{node.host ?? node.id}</p>
                 </div>
-                <span className={`status-badge status-${node.status}`}>{node.type} • {node.status}</span>
+                <span className={`status-badge status-${node.status}`}>
+                  {node.type} • {node.status}
+                </span>
               </article>
             ))}
           </div>

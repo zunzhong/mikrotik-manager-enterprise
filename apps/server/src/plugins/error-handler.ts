@@ -10,8 +10,8 @@ export async function registerErrorHandler(app: FastifyInstance): Promise<void> 
         success: false,
         error: {
           code: error.code,
-          message: error.message
-        }
+          message: error.message,
+        },
       });
     }
 
@@ -19,8 +19,8 @@ export async function registerErrorHandler(app: FastifyInstance): Promise<void> 
       success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Internal server error'
-      }
+        message: 'Internal server error',
+      },
     });
   });
 
@@ -29,8 +29,8 @@ export async function registerErrorHandler(app: FastifyInstance): Promise<void> 
       success: false,
       error: {
         code: 'ROUTE_NOT_FOUND',
-        message: `Route ${request.method} ${request.url} not found`
-      }
+        message: `Route ${request.method} ${request.url} not found`,
+      },
     });
   });
 }

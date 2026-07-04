@@ -2,11 +2,11 @@
 
 ## RouterOS Reply Types
 
-| Reply | Meaning |
-|---|---|
-| `!re` | data row |
-| `!done` | command finished |
-| `!trap` | command-level error |
+| Reply    | Meaning                      |
+| -------- | ---------------------------- |
+| `!re`    | data row                     |
+| `!done`  | command finished             |
+| `!trap`  | command-level error          |
 | `!fatal` | connection-level fatal error |
 
 ## Raw Reply Example
@@ -35,12 +35,12 @@ interface RouterReply {
 
 ## Attribute Parsing Rules
 
-| Raw Word | Parsed |
-|---|---|
+| Raw Word      | Parsed              |
+| ------------- | ------------------- |
 | `=name=value` | `{ name: 'value' }` |
-| `.tag=req-1` | `tag = 'req-1'` |
-| `!done` | `type = 'done'` |
-| `!re` | `type = 're'` |
+| `.tag=req-1`  | `tag = 'req-1'`     |
+| `!done`       | `type = 'done'`     |
+| `!re`         | `type = 're'`       |
 
 ## Notes
 

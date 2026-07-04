@@ -40,20 +40,25 @@ export class BackupRepository {
         fileName: input.fileName,
         filePath: input.filePath,
         metadata:
-          input.metadata === undefined ? Prisma.JsonNull : (input.metadata as Prisma.InputJsonValue),
+          input.metadata === undefined
+            ? Prisma.JsonNull
+            : (input.metadata as Prisma.InputJsonValue),
       },
     });
   }
 
-  public update(id: string, input: {
-    status?: string;
-    filePath?: string;
-    sizeBytes?: number;
-    checksum?: string;
-    error?: string;
-    metadata?: Record<string, unknown>;
-    completedAt?: Date;
-  }) {
+  public update(
+    id: string,
+    input: {
+      status?: string;
+      filePath?: string;
+      sizeBytes?: number;
+      checksum?: string;
+      error?: string;
+      metadata?: Record<string, unknown>;
+      completedAt?: Date;
+    },
+  ) {
     return prisma.backupRecord.update({
       where: { id },
       data: {
