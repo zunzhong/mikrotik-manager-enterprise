@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
-import { useAsyncData } from '../hooks/useAsyncData';
+import { usePollingData } from '../hooks/usePollingData';
 import { dashboardApi } from '../modules/dashboard/dashboard.api';
+import { DashboardRefreshBar } from '../modules/dashboard/components/DashboardRefreshBar';
 import { SummaryCard } from '../modules/dashboard/components/SummaryCard';
 import { WidgetCard } from '../modules/dashboard/components/WidgetCard';
 
@@ -12,14 +13,23 @@ export function DashboardPage() {
   const loadInventory = useCallback(() => dashboardApi.inventory(), []);
   const loadActivity = useCallback(() => dashboardApi.activity(), []);
 
-  const summary = useAsyncData(loadSummary);
-  const devices = useAsyncData(loadDevices);
-  const alerts = useAsyncData(loadAlerts);
-  const compliance = useAsyncData(loadCompliance);
-  const inventory = useAsyncData(loadInventory);
-  const activity = useAsyncData(loadActivity);
+  const summary = usePollingData(loadSummary, { enabled: true, intervalMs: 30000 });
+  const devices = usePollingData(loadDevices, { enabled: true, intervalMs: 30000 });
+  const alerts = usePollingData(loadAlerts, { enabled: true, intervalMs: 30000 });
+  const compliance = usePollingData(loadCompliance, { enabled: true, intervalMs: 60000 });
+  const inventory = usePollingData(loadInventory, { enabled: true, intervalMs: 60000 });
+  const activity = usePollingData(loadActivity, { enabled: true, intervalMs: 30000 });
 
   const data = summary.data;
+
+  function refreshAll() {
+    summary.refresh();
+    devices.refresh();
+    alerts.refresh();
+    compliance.refresh();
+    inventory.refresh();
+    activity.refresh();
+  }
 
   return (
     <div className="page dashboard-page">
@@ -28,11 +38,30 @@ export function DashboardPage() {
           <h2>Enterprise Dashboard</h2>
           <p>Live summary for devices, inventory, compliance, alerts and activity.</p>
         </div>
-
-        <button className="theme-toggle" onClick={summary.refresh}>
-          Refresh
-        </button>
       </div>
+
+      <DashboardRefreshBar
+        enabled={summary.enabled}
+        setEnabled={(enabled) => {
+          summary.setEnabled(enabled);
+          devices.setEnabled(enabled);
+          alerts.setEnabled(enabled);
+          compliance.setEnabled(enabled);
+          inventory.setEnabled(enabled);
+          activity.setEnabled(enabled);
+        }}
+        intervalMs={summary.intervalMs}
+        setIntervalMs={(intervalMs) => {
+          summary.setIntervalMs(intervalMs);
+          devices.setIntervalMs(intervalMs);
+          alerts.setIntervalMs(intervalMs);
+          compliance.setIntervalMs(intervalMs);
+          inventory.setIntervalMs(intervalMs);
+          activity.setIntervalMs(intervalMs);
+        }}
+        lastUpdatedAt={summary.lastUpdatedAt}
+        onRefresh={refreshAll}
+      />
 
       {summary.error ? <div className="error-banner">{summary.error}</div> : null}
 

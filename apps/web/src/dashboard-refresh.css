@@ -1,0 +1,47 @@
+.dashboard-refresh-bar {
+  margin-top: 18px;
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 18px;
+  background: rgba(15,23,42,.56);
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+[data-theme='light'] .dashboard-refresh-bar {
+  background: white;
+  border-color: #dbe3ef;
+}
+.dashboard-refresh-bar strong {
+  display: block;
+}
+.dashboard-refresh-bar span {
+  display: block;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.inline-control {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.dashboard-refresh-bar select {
+  background: rgba(15,23,42,.7);
+  color: inherit;
+  border: 1px solid rgba(148,163,184,.35);
+  border-radius: 12px;
+  padding: 9px 12px;
+}
+[data-theme='light'] .dashboard-refresh-bar select {
+  background: white;
+}
+@media (max-width: 900px) {
+  .dashboard-refresh-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
