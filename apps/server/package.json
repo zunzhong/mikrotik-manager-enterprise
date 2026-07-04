@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "prisma:format": "prisma format"
+    "prisma:format": "prisma format",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",
@@ -28,5 +29,8 @@
     "prisma": "^6.19.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

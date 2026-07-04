@@ -8,6 +8,7 @@ import { CompliancePage } from './pages/CompliancePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DevicesPage } from './pages/DevicesPage';
 import { InventoryPage } from './pages/InventoryPage';
+import { LoginPage } from './pages/LoginPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TopologyPage } from './pages/TopologyPage';
 import './styles.css';
@@ -19,11 +20,13 @@ import './alerts.css';
 import './dashboard-refresh.css';
 import './topology.css';
 import './settings.css';
+import './login.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<LoginPage />} />
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
