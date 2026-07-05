@@ -1,8 +1,12 @@
 import crypto from 'node:crypto';
 import { attribute } from '../codec/sentence.js';
+import { BridgeApi } from '../api/bridge-api.js';
+import { EthernetApi } from '../api/ethernet-api.js';
 import { InterfaceApi } from '../api/interface-api.js';
 import { IpApi } from '../api/ip-api.js';
 import { SystemApi } from '../api/system-api.js';
+import { VlanApi } from '../api/vlan-api.js';
+import { WifiApi, WirelessApi } from '../api/wireless-api.js';
 import { CommandRunner } from '../core/command-runner.js';
 import { RouterOsTrapError } from '../protocol/errors.js';
 import { firstData, type RouterOsReply } from '../protocol/reply.js';
@@ -19,7 +23,9 @@ export interface RouterOsClientOptions {
   rejectUnauthorized?: boolean;
 }
 
-export interface RouterOsCommandOptions { timeoutMs?: number; }
+export interface RouterOsCommandOptions {
+  timeoutMs?: number;
+}
 
 export class RouterOsClient {
   private readonly transport: RouterOsTransport;
@@ -27,6 +33,11 @@ export class RouterOsClient {
 
   public readonly system: SystemApi;
   public readonly interfaces: InterfaceApi;
+  public readonly ethernet: EthernetApi;
+  public readonly bridge: BridgeApi;
+  public readonly vlan: VlanApi;
+  public readonly wireless: WirelessApi;
+  public readonly wifi: WifiApi;
   public readonly ip: IpApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
@@ -39,8 +50,14 @@ export class RouterOsClient {
     });
 
     this.runner = new CommandRunner(this.transport, options.timeoutMs ?? 10000);
+
     this.system = new SystemApi(this.runner);
     this.interfaces = new InterfaceApi(this.runner);
+    this.ethernet = new EthernetApi(this.runner);
+    this.bridge = new BridgeApi(this.runner);
+    this.vlan = new VlanApi(this.runner);
+    this.wireless = new WirelessApi(this.runner);
+    this.wifi = new WifiApi(this.runner);
     this.ip = new IpApi(this.runner);
   }
 
@@ -49,10 +66,20 @@ export class RouterOsClient {
     await this.login();
   }
 
-  public close(): void { this.transport.close(); }
+  public close(): void {
+    this.transport.close();
+  }
 
-  public async command(path: string, attributes: Record<string, string | number | boolean> = {}, options: RouterOsCommandOptions = {}): Promise<RouterOsReply[]> {
-    await this.transport.send([path, ...Object.entries(attributes).map(([key, value]) => attribute(key, value))]);
+  public async command(
+    path: string,
+    attributes: Record<string, string | number | boolean> = {},
+    options: RouterOsCommandOptions = {},
+  ): Promise<RouterOsReply[]> {
+    await this.transport.send([
+      path,
+      ...Object.entries(attributes).map(([key, value]) => attribute(key, value)),
+    ]);
+
     return this.transport.readReplySet(options.timeoutMs ?? this.options.timeoutMs ?? 10000);
   }
 
@@ -66,7 +93,11 @@ export class RouterOsClient {
 
   private async login(): Promise<void> {
     try {
-      await this.transport.send(['/login', attribute('name', this.options.username), attribute('password', this.options.password)]);
+      await this.transport.send([
+        '/login',
+        attribute('name', this.options.username),
+        attribute('password', this.options.password),
+      ]);
       await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     } catch (error) {
       if (error instanceof RouterOsTrapError) {
