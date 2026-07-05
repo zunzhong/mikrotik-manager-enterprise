@@ -1,9 +1,12 @@
 import crypto from 'node:crypto';
 import { BridgeApi } from '../api/bridge-api.js';
+import { DhcpApi } from '../api/dhcp-api.js';
 import { EthernetApi } from '../api/ethernet-api.js';
 import { FirewallApi } from '../api/firewall-api.js';
 import { InterfaceApi } from '../api/interface-api.js';
 import { IpApi } from '../api/ip-api.js';
+import { PppApi } from '../api/ppp-api.js';
+import { ServiceApi } from '../api/service-api.js';
 import { SystemApi } from '../api/system-api.js';
 import { VlanApi } from '../api/vlan-api.js';
 import { WifiApi, WirelessApi } from '../api/wireless-api.js';
@@ -41,6 +44,9 @@ export class RouterOsClient {
   public readonly wifi: WifiApi;
   public readonly ip: IpApi;
   public readonly firewall: FirewallApi;
+  public readonly dhcp: DhcpApi;
+  public readonly ppp: PppApi;
+  public readonly service: ServiceApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -62,6 +68,9 @@ export class RouterOsClient {
     this.wifi = new WifiApi(this.runner);
     this.ip = new IpApi(this.runner);
     this.firewall = new FirewallApi(this.runner);
+    this.dhcp = new DhcpApi(this.runner);
+    this.ppp = new PppApi(this.runner);
+    this.service = new ServiceApi(this.runner);
   }
 
   public async connect(): Promise<void> {
