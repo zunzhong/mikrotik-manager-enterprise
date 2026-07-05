@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { BgpApi } from '../api/bgp-api.js';
 import { BridgeApi } from '../api/bridge-api.js';
 import { DhcpApi } from '../api/dhcp-api.js';
 import { EthernetApi } from '../api/ethernet-api.js';
@@ -7,8 +8,11 @@ import { InterfaceApi } from '../api/interface-api.js';
 import { IpApi } from '../api/ip-api.js';
 import { IpSecApi } from '../api/ipsec-api.js';
 import { MonitoringApi } from '../api/monitoring-api.js';
+import { MplsApi } from '../api/mpls-api.js';
+import { OspfApi } from '../api/ospf-api.js';
 import { PppApi } from '../api/ppp-api.js';
 import { QueueApi } from '../api/queue-api.js';
+import { RoutingApi } from '../api/routing-api.js';
 import { ServiceApi } from '../api/service-api.js';
 import { SystemApi } from '../api/system-api.js';
 import { TunnelApi } from '../api/tunnel-api.js';
@@ -32,7 +36,9 @@ export interface RouterOsClientOptions {
   rejectUnauthorized?: boolean;
 }
 
-export interface RouterOsCommandOptions { timeoutMs?: number; }
+export interface RouterOsCommandOptions {
+  timeoutMs?: number;
+}
 
 export class RouterOsClient {
   private readonly transport: RouterOsTransport;
@@ -55,6 +61,10 @@ export class RouterOsClient {
   public readonly wireguard: WireGuardApi;
   public readonly tunnel: TunnelApi;
   public readonly ipsec: IpSecApi;
+  public readonly routing: RoutingApi;
+  public readonly bgp: BgpApi;
+  public readonly ospf: OspfApi;
+  public readonly mpls: MplsApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -66,6 +76,7 @@ export class RouterOsClient {
     });
 
     this.runner = new CommandRunner(this.transport, options.timeoutMs ?? 10000);
+
     this.system = new SystemApi(this.runner);
     this.interfaces = new InterfaceApi(this.runner);
     this.ethernet = new EthernetApi(this.runner);
@@ -83,6 +94,10 @@ export class RouterOsClient {
     this.wireguard = new WireGuardApi(this.runner);
     this.tunnel = new TunnelApi(this.runner);
     this.ipsec = new IpSecApi(this.runner);
+    this.routing = new RoutingApi(this.runner);
+    this.bgp = new BgpApi(this.runner);
+    this.ospf = new OspfApi(this.runner);
+    this.mpls = new MplsApi(this.runner);
   }
 
   public async connect(): Promise<void> {
@@ -90,14 +105,20 @@ export class RouterOsClient {
     await this.login();
   }
 
-  public close(): void { this.transport.close(); }
+  public close(): void {
+    this.transport.close();
+  }
 
   public async command(
     path: string,
     attributes: Record<string, string | number | boolean> = {},
     options: RouterOsCommandOptions = {},
   ): Promise<RouterOsReply[]> {
-    await this.transport.send([path, ...Object.entries(attributes).map(([key, value]) => attribute(key, value))]);
+    await this.transport.send([
+      path,
+      ...Object.entries(attributes).map(([key, value]) => attribute(key, value)),
+    ]);
+
     return this.transport.readReplySet(options.timeoutMs ?? this.options.timeoutMs ?? 10000);
   }
 
@@ -111,7 +132,11 @@ export class RouterOsClient {
 
   private async login(): Promise<void> {
     try {
-      await this.transport.send(['/login', attribute('name', this.options.username), attribute('password', this.options.password)]);
+      await this.transport.send([
+        '/login',
+        attribute('name', this.options.username),
+        attribute('password', this.options.password),
+      ]);
       await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     } catch (error) {
       if (error instanceof RouterOsTrapError) {
@@ -126,11 +151,14 @@ export class RouterOsClient {
     await this.transport.send(['/login']);
     const replies = await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     const challenge = firstData(replies).ret;
+
     if (!challenge) throw new Error('RouterOS legacy login challenge missing');
+
     const challengeBuffer = Buffer.from(challenge, 'hex');
     const digest = crypto.createHash('md5')
       .update(Buffer.concat([Buffer.from([0]), Buffer.from(this.options.password), challengeBuffer]))
       .digest('hex');
+
     await this.command('/login', { name: this.options.username, response: `00${digest}` });
   }
 }
