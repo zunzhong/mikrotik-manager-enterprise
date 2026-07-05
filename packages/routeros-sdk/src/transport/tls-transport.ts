@@ -1,12 +1,12 @@
-import net from 'node:net';
+import tls from 'node:tls';
 import { RouterOsSentenceParser } from '../codec/parser.js';
 import { encodeSentence, type RouterOsSentence } from '../codec/sentence.js';
 import { RouterOsFatalError, RouterOsTimeoutError, RouterOsTrapError } from '../protocol/errors.js';
 import { parseReply, type RouterOsReply } from '../protocol/reply.js';
 import type { RouterOsTransport, RouterOsTransportOptions } from './transport.types.js';
 
-export class TcpTransport implements RouterOsTransport {
-  private socket?: net.Socket;
+export class TlsTransport implements RouterOsTransport {
+  private socket?: tls.TLSSocket;
   private readonly parser = new RouterOsSentenceParser();
   private pendingReplies: RouterOsReply[] = [];
   private pendingResolvers: Array<() => void> = [];
@@ -17,17 +17,18 @@ export class TcpTransport implements RouterOsTransport {
     if (this.socket) return;
 
     await new Promise<void>((resolve, reject) => {
-      const socket = net.createConnection({
+      const socket = tls.connect({
         host: this.options.host,
-        port: this.options.port ?? 8728,
+        port: this.options.port ?? 8729,
+        rejectUnauthorized: this.options.rejectUnauthorized ?? false,
       });
 
       const timeout = setTimeout(() => {
         socket.destroy();
-        reject(new RouterOsTimeoutError('RouterOS TCP connect timeout'));
+        reject(new RouterOsTimeoutError('RouterOS TLS connect timeout'));
       }, this.options.timeoutMs ?? 10000);
 
-      socket.once('connect', () => {
+      socket.once('secureConnect', () => {
         clearTimeout(timeout);
         this.socket = socket;
         resolve();
@@ -59,7 +60,7 @@ export class TcpTransport implements RouterOsTransport {
   }
 
   public async send(sentence: RouterOsSentence): Promise<void> {
-    if (!this.socket) throw new Error('RouterOS TCP transport is not connected');
+    if (!this.socket) throw new Error('RouterOS TLS transport is not connected');
 
     const payload = encodeSentence(sentence);
 
@@ -89,7 +90,7 @@ export class TcpTransport implements RouterOsTransport {
       await this.waitForData(Math.max(1, timeoutMs - (Date.now() - startedAt)));
     }
 
-    throw new RouterOsTimeoutError('RouterOS API read timeout');
+    throw new RouterOsTimeoutError('RouterOS API-SSL read timeout');
   }
 
   private waitForData(timeoutMs: number): Promise<void> {

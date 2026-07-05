@@ -1,11 +1,19 @@
 {
   "name": "@mme/routeros-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": {"build":"tsc -p tsconfig.json", "typecheck":"tsc -p tsconfig.json --noEmit"},
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "probe": "tsx src/tools/probe.ts"
+  },
   "dependencies": {},
-  "devDependencies": {"@types/node":"^22.10.7", "typescript":"^5.7.3"}
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
 }

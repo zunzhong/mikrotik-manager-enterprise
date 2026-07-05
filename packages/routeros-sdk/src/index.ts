@@ -6,4 +6,7 @@ export * from './client/probe.js';
 export * from './client/routeros-client.js';
 export * from './protocol/errors.js';
 export * from './protocol/reply.js';
+export * from './transport/create-transport.js';
 export * from './transport/tcp-transport.js';
+export * from './transport/tls-transport.js';
+export * from './transport/transport.types.js';
