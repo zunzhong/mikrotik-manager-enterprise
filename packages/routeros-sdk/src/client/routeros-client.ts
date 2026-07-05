@@ -14,6 +14,7 @@ import { PppApi } from '../api/ppp-api.js';
 import { QueueApi } from '../api/queue-api.js';
 import { RoutingApi } from '../api/routing-api.js';
 import { ServiceApi } from '../api/service-api.js';
+import { SystemManagementApi } from '../api/system-management-api.js';
 import { SystemApi } from '../api/system-api.js';
 import { TunnelApi } from '../api/tunnel-api.js';
 import { VlanApi } from '../api/vlan-api.js';
@@ -45,6 +46,7 @@ export class RouterOsClient {
   private readonly runner: CommandRunner;
 
   public readonly system: SystemApi;
+  public readonly systemManagement: SystemManagementApi;
   public readonly interfaces: InterfaceApi;
   public readonly ethernet: EthernetApi;
   public readonly bridge: BridgeApi;
@@ -78,6 +80,7 @@ export class RouterOsClient {
     this.runner = new CommandRunner(this.transport, options.timeoutMs ?? 10000);
 
     this.system = new SystemApi(this.runner);
+    this.systemManagement = new SystemManagementApi(this.runner);
     this.interfaces = new InterfaceApi(this.runner);
     this.ethernet = new EthernetApi(this.runner);
     this.bridge = new BridgeApi(this.runner);
