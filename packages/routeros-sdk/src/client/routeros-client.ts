@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { DiscoveryApi } from '../api/discovery-api.js';
+import { EnterpriseApi } from '../api/enterprise-api.js';
 import { EventApi } from '../api/event-api.js';
 import { SystemApi } from '../api/system-api.js';
 import { attribute } from '../codec/sentence.js';
@@ -30,6 +31,7 @@ export class RouterOsClient {
   public readonly system: SystemApi;
   public readonly events: EventApi;
   public readonly discovery: DiscoveryApi;
+  public readonly enterprise: EnterpriseApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -44,6 +46,7 @@ export class RouterOsClient {
     this.system = new SystemApi(this.runner);
     this.events = new EventApi(this.transport);
     this.discovery = new DiscoveryApi(this.runner);
+    this.enterprise = new EnterpriseApi(this.runner);
   }
 
   public async connect(): Promise<void> {
