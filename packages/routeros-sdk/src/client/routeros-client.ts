@@ -5,7 +5,9 @@ import { EthernetApi } from '../api/ethernet-api.js';
 import { FirewallApi } from '../api/firewall-api.js';
 import { InterfaceApi } from '../api/interface-api.js';
 import { IpApi } from '../api/ip-api.js';
+import { MonitoringApi } from '../api/monitoring-api.js';
 import { PppApi } from '../api/ppp-api.js';
+import { QueueApi } from '../api/queue-api.js';
 import { ServiceApi } from '../api/service-api.js';
 import { SystemApi } from '../api/system-api.js';
 import { VlanApi } from '../api/vlan-api.js';
@@ -47,6 +49,8 @@ export class RouterOsClient {
   public readonly dhcp: DhcpApi;
   public readonly ppp: PppApi;
   public readonly service: ServiceApi;
+  public readonly queue: QueueApi;
+  public readonly monitoring: MonitoringApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -71,6 +75,8 @@ export class RouterOsClient {
     this.dhcp = new DhcpApi(this.runner);
     this.ppp = new PppApi(this.runner);
     this.service = new ServiceApi(this.runner);
+    this.queue = new QueueApi(this.runner);
+    this.monitoring = new MonitoringApi(this.runner);
   }
 
   public async connect(): Promise<void> {
