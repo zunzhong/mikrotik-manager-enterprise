@@ -20,6 +20,7 @@ import { complianceRoutes } from './modules/compliance/index.js';
 import { dashboardRoutes } from './modules/dashboard/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
+import { routerOsApiRoutes } from './modules/routeros-api/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -43,6 +44,7 @@ export async function buildApp() {
   await app.register(coreRoutes);
   await app.register(adminRoutes);
   await app.register(deviceRoutes);
+  await app.register(routerOsApiRoutes);
   await app.register(inventoryRoutes);
   await app.register(complianceRoutes);
   await app.register(collectorRoutes);

@@ -1,13 +1,12 @@
-export interface RouterOsConnectionInput {
+export interface RouterOsApiConnectionInput {
   host: string;
   port?: number;
   username: string;
   password: string;
-  useTls?: boolean;
   timeoutMs?: number;
 }
 
-export interface RouterOsProbeResult {
+export interface RouterOsApiProbeResult {
   online: boolean;
   latencyMs?: number;
   identity?: string;

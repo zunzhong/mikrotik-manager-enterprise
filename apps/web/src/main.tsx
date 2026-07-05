@@ -25,6 +25,7 @@ import './login.css';
 import './password-security.css';
 import './mfa.css';
 import './rbac.css';
+import './routeros-probe.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
