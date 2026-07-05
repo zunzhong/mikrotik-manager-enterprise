@@ -10,6 +10,7 @@ export class TlsTransport implements RouterOsTransport {
   private readonly parser = new RouterOsSentenceParser();
   private pendingReplies: RouterOsReply[] = [];
   private pendingResolvers: Array<() => void> = [];
+  private replyListeners = new Set<(reply: RouterOsReply) => void>();
 
   public constructor(private readonly options: RouterOsTransportOptions) {}
 
@@ -41,7 +42,9 @@ export class TlsTransport implements RouterOsTransport {
 
       socket.on('data', (chunk) => {
         for (const sentence of this.parser.push(chunk)) {
-          this.pendingReplies.push(parseReply(sentence));
+          const reply = parseReply(sentence);
+          this.pendingReplies.push(reply);
+          for (const listener of this.replyListeners) listener(reply);
         }
         this.flushResolvers();
       });
@@ -57,6 +60,12 @@ export class TlsTransport implements RouterOsTransport {
     this.parser.reset();
     this.pendingReplies = [];
     this.flushResolvers();
+    this.replyListeners.clear();
+  }
+
+  public onReply(listener: (reply: RouterOsReply) => void): () => void {
+    this.replyListeners.add(listener);
+    return () => this.replyListeners.delete(listener);
   }
 
   public async send(sentence: RouterOsSentence): Promise<void> {

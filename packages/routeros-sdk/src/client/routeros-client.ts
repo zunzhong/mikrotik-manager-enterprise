@@ -1,27 +1,6 @@
 import crypto from 'node:crypto';
-import { BgpApi } from '../api/bgp-api.js';
-import { BridgeApi } from '../api/bridge-api.js';
-import { DhcpApi } from '../api/dhcp-api.js';
-import { DiagnosticsApi } from '../api/diagnostics-api.js';
-import { EthernetApi } from '../api/ethernet-api.js';
-import { FirewallApi } from '../api/firewall-api.js';
-import { InterfaceApi } from '../api/interface-api.js';
-import { IpApi } from '../api/ip-api.js';
-import { IpSecApi } from '../api/ipsec-api.js';
-import { MonitoringApi } from '../api/monitoring-api.js';
-import { MplsApi } from '../api/mpls-api.js';
-import { OspfApi } from '../api/ospf-api.js';
-import { PppApi } from '../api/ppp-api.js';
-import { QueueApi } from '../api/queue-api.js';
-import { RealtimeApi } from '../api/realtime-api.js';
-import { RoutingApi } from '../api/routing-api.js';
-import { ServiceApi } from '../api/service-api.js';
-import { SystemManagementApi } from '../api/system-management-api.js';
+import { EventApi } from '../api/event-api.js';
 import { SystemApi } from '../api/system-api.js';
-import { TunnelApi } from '../api/tunnel-api.js';
-import { VlanApi } from '../api/vlan-api.js';
-import { WifiApi, WirelessApi } from '../api/wireless-api.js';
-import { WireGuardApi } from '../api/wireguard-api.js';
 import { attribute } from '../codec/sentence.js';
 import { CommandRunner } from '../core/command-runner.js';
 import { RouterOsTrapError } from '../protocol/errors.js';
@@ -48,29 +27,7 @@ export class RouterOsClient {
   private readonly runner: CommandRunner;
 
   public readonly system: SystemApi;
-  public readonly systemManagement: SystemManagementApi;
-  public readonly interfaces: InterfaceApi;
-  public readonly ethernet: EthernetApi;
-  public readonly bridge: BridgeApi;
-  public readonly vlan: VlanApi;
-  public readonly wireless: WirelessApi;
-  public readonly wifi: WifiApi;
-  public readonly ip: IpApi;
-  public readonly firewall: FirewallApi;
-  public readonly dhcp: DhcpApi;
-  public readonly ppp: PppApi;
-  public readonly service: ServiceApi;
-  public readonly queue: QueueApi;
-  public readonly monitoring: MonitoringApi;
-  public readonly realtime: RealtimeApi;
-  public readonly diagnostics: DiagnosticsApi;
-  public readonly wireguard: WireGuardApi;
-  public readonly tunnel: TunnelApi;
-  public readonly ipsec: IpSecApi;
-  public readonly routing: RoutingApi;
-  public readonly bgp: BgpApi;
-  public readonly ospf: OspfApi;
-  public readonly mpls: MplsApi;
+  public readonly events: EventApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -82,31 +39,8 @@ export class RouterOsClient {
     });
 
     this.runner = new CommandRunner(this.transport, options.timeoutMs ?? 10000);
-
     this.system = new SystemApi(this.runner);
-    this.systemManagement = new SystemManagementApi(this.runner);
-    this.interfaces = new InterfaceApi(this.runner);
-    this.ethernet = new EthernetApi(this.runner);
-    this.bridge = new BridgeApi(this.runner);
-    this.vlan = new VlanApi(this.runner);
-    this.wireless = new WirelessApi(this.runner);
-    this.wifi = new WifiApi(this.runner);
-    this.ip = new IpApi(this.runner);
-    this.firewall = new FirewallApi(this.runner);
-    this.dhcp = new DhcpApi(this.runner);
-    this.ppp = new PppApi(this.runner);
-    this.service = new ServiceApi(this.runner);
-    this.queue = new QueueApi(this.runner);
-    this.monitoring = new MonitoringApi(this.runner);
-    this.realtime = new RealtimeApi(this.runner);
-    this.diagnostics = new DiagnosticsApi(this.runner);
-    this.wireguard = new WireGuardApi(this.runner);
-    this.tunnel = new TunnelApi(this.runner);
-    this.ipsec = new IpSecApi(this.runner);
-    this.routing = new RoutingApi(this.runner);
-    this.bgp = new BgpApi(this.runner);
-    this.ospf = new OspfApi(this.runner);
-    this.mpls = new MplsApi(this.runner);
+    this.events = new EventApi(this.transport);
   }
 
   public async connect(): Promise<void> {

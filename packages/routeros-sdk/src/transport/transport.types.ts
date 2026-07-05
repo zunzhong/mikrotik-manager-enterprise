@@ -6,6 +6,7 @@ export interface RouterOsTransport {
   close(): void;
   send(sentence: RouterOsSentence): Promise<void>;
   readReplySet(timeoutMs?: number): Promise<RouterOsReply[]>;
+  onReply?(listener: (reply: RouterOsReply) => void): () => void;
 }
 
 export interface RouterOsTransportOptions {
