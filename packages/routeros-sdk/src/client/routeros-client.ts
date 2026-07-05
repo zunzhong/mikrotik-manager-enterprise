@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { BackupOrchestratorApi } from '../api/backup-orchestrator-api.js';
+import { ComplianceApi } from '../api/compliance-api.js';
 import { ConfigSyncApi } from '../api/config-sync-api.js';
 import { DiscoveryApi } from '../api/discovery-api.js';
 import { EnterpriseApi } from '../api/enterprise-api.js';
@@ -36,6 +37,7 @@ export class RouterOsClient {
   public readonly enterprise: EnterpriseApi;
   public readonly backup: BackupOrchestratorApi;
   public readonly configSync: ConfigSyncApi;
+  public readonly compliance: ComplianceApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -47,12 +49,14 @@ export class RouterOsClient {
     });
 
     this.runner = new CommandRunner(this.transport, options.timeoutMs ?? 10000);
+
     this.system = new SystemApi(this.runner);
     this.events = new EventApi(this.transport);
     this.discovery = new DiscoveryApi(this.runner);
     this.enterprise = new EnterpriseApi(this.runner);
     this.backup = new BackupOrchestratorApi(this.runner);
     this.configSync = new ConfigSyncApi(this.runner);
+    this.compliance = new ComplianceApi(this.runner);
   }
 
   public async connect(): Promise<void> {
@@ -77,11 +81,17 @@ export class RouterOsClient {
     return this.transport.readReplySet(options.timeoutMs ?? this.options.timeoutMs ?? 10000);
   }
 
-  public print(path: string, attributes: Record<string, string | number | boolean> = {}): Promise<Record<string, string>[]> {
+  public print(
+    path: string,
+    attributes: Record<string, string | number | boolean> = {},
+  ): Promise<Record<string, string>[]> {
     return this.runner.print(path, { attributes, normalizeKeys: true });
   }
 
-  public printOne(path: string, attributes: Record<string, string | number | boolean> = {}): Promise<Record<string, string>> {
+  public printOne(
+    path: string,
+    attributes: Record<string, string | number | boolean> = {},
+  ): Promise<Record<string, string>> {
     return this.runner.printOne(path, { attributes, normalizeKeys: true });
   }
 
@@ -92,12 +102,14 @@ export class RouterOsClient {
         attribute('name', this.options.username),
         attribute('password', this.options.password),
       ]);
+
       await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     } catch (error) {
       if (error instanceof RouterOsTrapError) {
         await this.tryLegacyLogin();
         return;
       }
+
       throw error;
     }
   }
@@ -107,13 +119,19 @@ export class RouterOsClient {
     const replies = await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     const challenge = firstData(replies).ret;
 
-    if (!challenge) throw new Error('RouterOS legacy login challenge missing');
+    if (!challenge) {
+      throw new Error('RouterOS legacy login challenge missing');
+    }
 
     const challengeBuffer = Buffer.from(challenge, 'hex');
-    const digest = crypto.createHash('md5')
+    const digest = crypto
+      .createHash('md5')
       .update(Buffer.concat([Buffer.from([0]), Buffer.from(this.options.password), challengeBuffer]))
       .digest('hex');
 
-    await this.command('/login', { name: this.options.username, response: `00${digest}` });
+    await this.command('/login', {
+      name: this.options.username,
+      response: `00${digest}`,
+    });
   }
 }
