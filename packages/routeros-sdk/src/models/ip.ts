@@ -23,3 +23,14 @@ export interface RouterOsRoute {
   disabled?: string;
   comment?: string;
 }
+
+export interface RouterOsDnsSettings {
+  servers?: string;
+  dynamicServers?: string;
+  useDohServer?: string;
+  verifyDohCert?: string;
+  allowRemoteRequests?: string;
+  cacheSize?: string;
+  cacheMaxTtl?: string;
+  cacheUsed?: string;
+}

@@ -1,5 +1,6 @@
 export * from './api/bridge-api.js';
 export * from './api/ethernet-api.js';
+export * from './api/firewall-api.js';
 export * from './api/interface-api.js';
 export * from './api/ip-api.js';
 export * from './api/system-api.js';
@@ -15,6 +16,7 @@ export * from './core/command-builder.js';
 export * from './core/command-runner.js';
 export * from './core/routeros-record.js';
 export * from './models/bridge.js';
+export * from './models/firewall.js';
 export * from './models/interface.js';
 export * from './models/ip.js';
 export * from './models/system.js';

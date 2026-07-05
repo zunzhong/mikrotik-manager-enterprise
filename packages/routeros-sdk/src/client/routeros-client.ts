@@ -1,12 +1,13 @@
 import crypto from 'node:crypto';
-import { attribute } from '../codec/sentence.js';
 import { BridgeApi } from '../api/bridge-api.js';
 import { EthernetApi } from '../api/ethernet-api.js';
+import { FirewallApi } from '../api/firewall-api.js';
 import { InterfaceApi } from '../api/interface-api.js';
 import { IpApi } from '../api/ip-api.js';
 import { SystemApi } from '../api/system-api.js';
 import { VlanApi } from '../api/vlan-api.js';
 import { WifiApi, WirelessApi } from '../api/wireless-api.js';
+import { attribute } from '../codec/sentence.js';
 import { CommandRunner } from '../core/command-runner.js';
 import { RouterOsTrapError } from '../protocol/errors.js';
 import { firstData, type RouterOsReply } from '../protocol/reply.js';
@@ -39,6 +40,7 @@ export class RouterOsClient {
   public readonly wireless: WirelessApi;
   public readonly wifi: WifiApi;
   public readonly ip: IpApi;
+  public readonly firewall: FirewallApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -59,6 +61,7 @@ export class RouterOsClient {
     this.wireless = new WirelessApi(this.runner);
     this.wifi = new WifiApi(this.runner);
     this.ip = new IpApi(this.runner);
+    this.firewall = new FirewallApi(this.runner);
   }
 
   public async connect(): Promise<void> {
