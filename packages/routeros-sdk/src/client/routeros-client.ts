@@ -1,5 +1,9 @@
 import crypto from 'node:crypto';
 import { attribute } from '../codec/sentence.js';
+import { InterfaceApi } from '../api/interface-api.js';
+import { IpApi } from '../api/ip-api.js';
+import { SystemApi } from '../api/system-api.js';
+import { CommandRunner } from '../core/command-runner.js';
 import { RouterOsTrapError } from '../protocol/errors.js';
 import { firstData, type RouterOsReply } from '../protocol/reply.js';
 import { createTransport } from '../transport/create-transport.js';
@@ -15,18 +19,15 @@ export interface RouterOsClientOptions {
   rejectUnauthorized?: boolean;
 }
 
-export interface RouterOsCommandOptions {
-  timeoutMs?: number;
-}
+export interface RouterOsCommandOptions { timeoutMs?: number; }
 
 export class RouterOsClient {
   private readonly transport: RouterOsTransport;
+  private readonly runner: CommandRunner;
 
-  public readonly system = {
-    identity: () => this.printOne('/system/identity/print'),
-    resource: () => this.printOne('/system/resource/print'),
-    routerboard: () => this.printOne('/system/routerboard/print'),
-  };
+  public readonly system: SystemApi;
+  public readonly interfaces: InterfaceApi;
+  public readonly ip: IpApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -36,6 +37,11 @@ export class RouterOsClient {
       tls: options.tls ?? false,
       rejectUnauthorized: options.rejectUnauthorized ?? false,
     });
+
+    this.runner = new CommandRunner(this.transport, options.timeoutMs ?? 10000);
+    this.system = new SystemApi(this.runner);
+    this.interfaces = new InterfaceApi(this.runner);
+    this.ip = new IpApi(this.runner);
   }
 
   public async connect(): Promise<void> {
@@ -43,47 +49,30 @@ export class RouterOsClient {
     await this.login();
   }
 
-  public close(): void {
-    this.transport.close();
-  }
+  public close(): void { this.transport.close(); }
 
-  public async command(
-    path: string,
-    attributes: Record<string, string | number | boolean> = {},
-    options: RouterOsCommandOptions = {},
-  ): Promise<RouterOsReply[]> {
-    await this.transport.send([
-      path,
-      ...Object.entries(attributes).map(([key, value]) => attribute(key, value)),
-    ]);
-
+  public async command(path: string, attributes: Record<string, string | number | boolean> = {}, options: RouterOsCommandOptions = {}): Promise<RouterOsReply[]> {
+    await this.transport.send([path, ...Object.entries(attributes).map(([key, value]) => attribute(key, value))]);
     return this.transport.readReplySet(options.timeoutMs ?? this.options.timeoutMs ?? 10000);
   }
 
-  public async print(path: string, attributes: Record<string, string | number | boolean> = {}): Promise<Record<string, string>[]> {
-    const replies = await this.command(path, attributes);
-    return replies.filter((reply) => reply.type === '!re').map((reply) => reply.attributes);
+  public print(path: string, attributes: Record<string, string | number | boolean> = {}): Promise<Record<string, string>[]> {
+    return this.runner.print(path, { attributes, normalizeKeys: true });
   }
 
-  public async printOne(path: string, attributes: Record<string, string | number | boolean> = {}): Promise<Record<string, string>> {
-    const replies = await this.command(path, attributes);
-    return firstData(replies);
+  public printOne(path: string, attributes: Record<string, string | number | boolean> = {}): Promise<Record<string, string>> {
+    return this.runner.printOne(path, { attributes, normalizeKeys: true });
   }
 
   private async login(): Promise<void> {
     try {
-      await this.transport.send([
-        '/login',
-        attribute('name', this.options.username),
-        attribute('password', this.options.password),
-      ]);
+      await this.transport.send(['/login', attribute('name', this.options.username), attribute('password', this.options.password)]);
       await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     } catch (error) {
       if (error instanceof RouterOsTrapError) {
         await this.tryLegacyLogin();
         return;
       }
-
       throw error;
     }
   }
@@ -93,19 +82,13 @@ export class RouterOsClient {
     const replies = await this.transport.readReplySet(this.options.timeoutMs ?? 10000);
     const challenge = firstData(replies).ret;
 
-    if (!challenge) {
-      throw new Error('RouterOS legacy login challenge missing');
-    }
+    if (!challenge) throw new Error('RouterOS legacy login challenge missing');
 
     const challengeBuffer = Buffer.from(challenge, 'hex');
-    const digest = crypto
-      .createHash('md5')
+    const digest = crypto.createHash('md5')
       .update(Buffer.concat([Buffer.from([0]), Buffer.from(this.options.password), challengeBuffer]))
       .digest('hex');
 
-    await this.command('/login', {
-      name: this.options.username,
-      response: `00${digest}`,
-    });
+    await this.command('/login', { name: this.options.username, response: `00${digest}` });
   }
 }

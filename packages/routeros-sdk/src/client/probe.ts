@@ -14,9 +14,7 @@ export interface RouterOsProbeResult {
 }
 
 function value(...items: unknown[]): string | undefined {
-  for (const item of items) {
-    if (typeof item === 'string' && item.length > 0) return item;
-  }
+  for (const item of items) if (typeof item === 'string' && item.length > 0) return item;
   return undefined;
 }
 
@@ -26,7 +24,6 @@ export async function probeRouterOs(options: RouterOsClientOptions): Promise<Rou
 
   try {
     await client.connect();
-
     const [identity, resource, routerboard] = await Promise.all([
       client.system.identity(),
       client.system.resource(),
@@ -38,9 +35,9 @@ export async function probeRouterOs(options: RouterOsClientOptions): Promise<Rou
       latencyMs: Date.now() - startedAt,
       identity: value(identity.name),
       version: value(resource.version),
-      architecture: value(resource['architecture-name'], resource.architecture),
-      boardName: value(routerboard.model, resource['board-name']),
-      serialNumber: value(routerboard['serial-number']),
+      architecture: value(resource.architectureName, resource.architecture),
+      boardName: value(routerboard.model, resource.boardName),
+      serialNumber: value(routerboard.serialNumber),
       uptime: value(resource.uptime),
       raw: { identity, resource, routerboard },
     };
