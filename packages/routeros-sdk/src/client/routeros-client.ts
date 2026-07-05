@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { BackupOrchestratorApi } from '../api/backup-orchestrator-api.js';
+import { ConfigSyncApi } from '../api/config-sync-api.js';
 import { DiscoveryApi } from '../api/discovery-api.js';
 import { EnterpriseApi } from '../api/enterprise-api.js';
 import { EventApi } from '../api/event-api.js';
@@ -34,6 +35,7 @@ export class RouterOsClient {
   public readonly discovery: DiscoveryApi;
   public readonly enterprise: EnterpriseApi;
   public readonly backup: BackupOrchestratorApi;
+  public readonly configSync: ConfigSyncApi;
 
   public constructor(private readonly options: RouterOsClientOptions) {
     this.transport = createTransport({
@@ -50,6 +52,7 @@ export class RouterOsClient {
     this.discovery = new DiscoveryApi(this.runner);
     this.enterprise = new EnterpriseApi(this.runner);
     this.backup = new BackupOrchestratorApi(this.runner);
+    this.configSync = new ConfigSyncApi(this.runner);
   }
 
   public async connect(): Promise<void> {
