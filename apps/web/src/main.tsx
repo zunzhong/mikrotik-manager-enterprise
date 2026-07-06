@@ -16,6 +16,8 @@ import './styles.css';
 import './inventory.css';
 import './compliance.css';
 import './device-inventory.css';
+import './modules/devices/device-dashboard.css';
+import './modules/devices/device-interface-explorer.css';
 import './backup.css';
 import './alerts.css';
 import './dashboard-refresh.css';

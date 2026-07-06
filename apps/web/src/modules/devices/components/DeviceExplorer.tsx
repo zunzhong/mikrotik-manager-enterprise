@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
+import { DeviceDashboard } from '../DeviceDashboard';
+import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
 import { deviceApi, type Device } from '../device.api';
 import { DeviceInventoryPanel } from './DeviceInventoryPanel';
 import { StatusBadge } from './StatusBadge';
 
-const tabs = ['Overview', 'Inventory', 'Backups', 'Compliance', 'Alerts'];
+const tabs = ['Overview', 'Inventory', 'Interfaces', 'Backups', 'Compliance', 'Alerts'];
 
 export function DeviceExplorer() {
   const loadDevices = useCallback(() => deviceApi.list(), []);
@@ -17,6 +19,11 @@ export function DeviceExplorer() {
     return devices.find((device) => device.id === selectedId) ?? devices[0];
   }, [devices, selectedId]);
 
+  function selectDevice(deviceId: string) {
+    setSelectedId(deviceId);
+    setActiveTab('Overview');
+  }
+
   return (
     <div className="explorer-layout">
       <aside className="explorer-list">
@@ -25,7 +32,7 @@ export function DeviceExplorer() {
             <h3>Devices</h3>
             <p>{devices.length} managed routers</p>
           </div>
-          <button className="small-button" onClick={refresh}>
+          <button className="small-button" onClick={refresh} type="button">
             Refresh
           </button>
         </div>
@@ -45,7 +52,7 @@ export function DeviceExplorer() {
             <button
               key={device.id}
               className={`device-list-item ${selected?.id === device.id ? 'active' : ''}`}
-              onClick={() => setSelectedId(device.id)}
+              onClick={() => selectDevice(device.id)}
               type="button"
             >
               <span className="device-name">{device.name}</span>
@@ -90,7 +97,7 @@ export function DeviceExplorer() {
             </div>
 
             {activeTab === 'Overview' ? (
-              <>
+              <div className="device-explorer-section">
                 <div className="detail-grid">
                   <div className="detail-card">
                     <span>Connection</span>
@@ -117,15 +124,21 @@ export function DeviceExplorer() {
                     <p>{selected.tags.length ? selected.tags.join(', ') : 'No tags'}</p>
                   </div>
                 </div>
-              </>
+
+                <DeviceDashboard deviceId={selected.id} />
+              </div>
             ) : null}
 
             {activeTab === 'Inventory' ? <DeviceInventoryPanel deviceId={selected.id} /> : null}
 
-            {!['Overview', 'Inventory'].includes(activeTab) ? (
+            {activeTab === 'Interfaces' ? (
+              <DeviceInterfaceExplorer deviceId={selected.id} />
+            ) : null}
+
+            {!['Overview', 'Inventory', 'Interfaces'].includes(activeTab) ? (
               <div className="placeholder-panel">
                 <h3>{activeTab}</h3>
-                <p>This tab will be connected in an upcoming part.</p>
+                <p>This tab will be connected in an upcoming sprint task.</p>
               </div>
             ) : null}
           </>
