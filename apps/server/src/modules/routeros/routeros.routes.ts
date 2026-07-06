@@ -8,15 +8,19 @@ export async function routerosRoutes(app: FastifyInstance): Promise<void> {
       module: 'routeros',
       sdk: '@mme/routeros-sdk',
       status: 'ready',
+      endpoints: [
+        'POST /api/v1/routeros/probe',
+        'POST /api/v1/routeros/identity',
+        'POST /api/v1/routeros/resource',
+        'POST /api/v1/routeros/routerboard',
+      ],
     },
   }));
 
   app.post('/api/v1/routeros/probe', async (request, reply) => {
     try {
       const input = routerOsProbeInputSchema.parse(request.body);
-      const data = await routerOsSdkAdapter.probe(input);
-
-      return { success: true, data };
+      return { success: true, data: await routerOsSdkAdapter.probe(input) };
     } catch (error) {
       reply.code(400);
       return {
@@ -32,9 +36,7 @@ export async function routerosRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/v1/routeros/identity', async (request, reply) => {
     try {
       const input = routerOsProbeInputSchema.parse(request.body);
-      const data = await routerOsSdkAdapter.identity(input);
-
-      return { success: true, data };
+      return { success: true, data: await routerOsSdkAdapter.identity(input) };
     } catch (error) {
       reply.code(400);
       return {
@@ -50,9 +52,7 @@ export async function routerosRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/v1/routeros/resource', async (request, reply) => {
     try {
       const input = routerOsProbeInputSchema.parse(request.body);
-      const data = await routerOsSdkAdapter.resource(input);
-
-      return { success: true, data };
+      return { success: true, data: await routerOsSdkAdapter.resource(input) };
     } catch (error) {
       reply.code(400);
       return {
@@ -60,6 +60,22 @@ export async function routerosRoutes(app: FastifyInstance): Promise<void> {
         error: {
           code: 'ROUTEROS_RESOURCE_FAILED',
           message: error instanceof Error ? error.message : 'RouterOS resource failed',
+        },
+      };
+    }
+  });
+
+  app.post('/api/v1/routeros/routerboard', async (request, reply) => {
+    try {
+      const input = routerOsProbeInputSchema.parse(request.body);
+      return { success: true, data: await routerOsSdkAdapter.routerboard(input) };
+    } catch (error) {
+      reply.code(400);
+      return {
+        success: false,
+        error: {
+          code: 'ROUTEROS_ROUTERBOARD_FAILED',
+          message: error instanceof Error ? error.message : 'RouterOS routerboard failed',
         },
       };
     }

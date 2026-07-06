@@ -1,67 +1,55 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/api';
+import type {
+  Device,
+  DeviceInput,
+  RouterOsProbeInput,
+  RouterOsProbeResult,
+} from './device.types';
 
-export interface DeviceRecord {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  username: string;
-  useTls: boolean;
-  loginMode: string;
-  status: string;
-  lastSeenAt?: string;
-  lastError?: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+function normalizeProbeInput(input: RouterOsProbeInput): RouterOsProbeInput {
+  const tls = input.tls ?? input.useTls ?? false;
 
-export type Device = DeviceRecord;
-
-export interface DeviceInput {
-  name: string;
-  host: string;
-  port?: number;
-  username: string;
-  password?: string;
-  useTls?: boolean;
-  loginMode?: string;
-  tags?: string[];
-  groupId?: string | null;
-}
-
-export interface RouterOsProbeInput {
-  host: string;
-  port?: number;
-  username: string;
-  password: string;
-  useTls?: boolean;
-  timeoutMs?: number;
-}
-
-export interface RouterOsProbeResult {
-  online: boolean;
-  latencyMs?: number;
-  identity?: string;
-  version?: string;
-  architecture?: string;
-  boardName?: string;
-  serialNumber?: string;
-  uptime?: string;
-  error?: string;
-  raw?: Record<string, unknown>;
+  return {
+    ...input,
+    tls,
+    port: input.port ?? (tls ? 8729 : 8728),
+    timeoutMs: input.timeoutMs ?? 10000,
+  };
 }
 
 export const deviceApi = {
-  list: () => apiGet<DeviceRecord[]>('/api/v1/devices'),
-  get: (id: string) => apiGet<DeviceRecord>(`/api/v1/devices/${id}`),
-  create: (input: DeviceInput) => apiPost<DeviceRecord>('/api/v1/devices', input),
+  list: () => apiGet<Device[]>('/api/v1/devices'),
+
+  get: (id: string) => apiGet<Device>(`/api/v1/devices/${id}`),
+
+  create: (input: DeviceInput) => apiPost<Device>('/api/v1/devices', input),
+
   update: (id: string, input: Partial<DeviceInput>) =>
-    apiPut<DeviceRecord>(`/api/v1/devices/${id}`, input),
+    apiPut<Device>(`/api/v1/devices/${id}`, input),
+
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
-  test: (input: RouterOsProbeInput) =>
-    apiPost<RouterOsProbeResult>('/api/v1/device/test', input),
+
   probe: (input: RouterOsProbeInput) =>
-    apiPost<RouterOsProbeResult>('/api/v1/device/probe', input),
+    apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
+
+  identity: (input: RouterOsProbeInput) =>
+    apiPost<Record<string, unknown>>('/api/v1/routeros/identity', normalizeProbeInput(input)),
+
+  resource: (input: RouterOsProbeInput) =>
+    apiPost<Record<string, unknown>>('/api/v1/routeros/resource', normalizeProbeInput(input)),
+
+  routerboard: (input: RouterOsProbeInput) =>
+    apiPost<Record<string, unknown>>('/api/v1/routeros/routerboard', normalizeProbeInput(input)),
+
+  test: (input: RouterOsProbeInput) =>
+    apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
+
   status: (id: string) => apiGet<RouterOsProbeResult>(`/api/v1/device/${id}/status`),
 };
+
+export type {
+  Device,
+  DeviceInput,
+  RouterOsProbeInput,
+  RouterOsProbeResult,
+} from './device.types';

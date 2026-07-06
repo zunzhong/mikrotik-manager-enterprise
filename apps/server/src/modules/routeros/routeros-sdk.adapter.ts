@@ -8,6 +8,7 @@ export const routerOsProbeInputSchema = z.object({
   password: z.string().optional(),
   timeoutMs: z.number().int().positive().optional(),
   tls: z.boolean().optional(),
+  useTls: z.boolean().optional(),
   rejectUnauthorized: z.boolean().optional(),
 });
 
@@ -42,14 +43,15 @@ export interface RouterOsProbeResult {
 
 function normalizeInput(input: RouterOsProbeInput): NormalizedRouterOsProbeInput {
   const parsed = routerOsProbeInputSchema.parse(input);
+  const tls = parsed.tls ?? parsed.useTls ?? false;
 
   return {
     host: parsed.host,
-    port: parsed.port ?? (parsed.tls ? 8729 : 8728),
+    port: parsed.port ?? (tls ? 8729 : 8728),
     username: parsed.username,
     password: parsed.password ?? '',
     timeoutMs: parsed.timeoutMs ?? 10000,
-    tls: parsed.tls ?? false,
+    tls,
     rejectUnauthorized: parsed.rejectUnauthorized ?? false,
   };
 }
@@ -58,7 +60,6 @@ function value(...items: unknown[]): string | undefined {
   for (const item of items) {
     if (typeof item === 'string' && item.length > 0) return item;
   }
-
   return undefined;
 }
 
@@ -101,11 +102,9 @@ export class RouterOsSdkAdapter {
 
   public async identity(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-
     try {
       await client.connect();
-      const identity = await client.system.identity();
-      return { ...identity };
+      return { ...(await client.system.identity()) };
     } finally {
       client.close();
     }
@@ -113,11 +112,19 @@ export class RouterOsSdkAdapter {
 
   public async resource(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-
     try {
       await client.connect();
-      const resource = await client.system.resource();
-      return { ...resource };
+      return { ...(await client.system.resource()) };
+    } finally {
+      client.close();
+    }
+  }
+
+  public async routerboard(input: RouterOsProbeInput): Promise<object> {
+    const client = new RouterOsClient(normalizeInput(input));
+    try {
+      await client.connect();
+      return { ...(await client.system.routerboard()) };
     } finally {
       client.close();
     }
