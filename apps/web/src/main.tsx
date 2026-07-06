@@ -19,6 +19,7 @@ import './device-inventory.css';
 import './modules/devices/device-dashboard.css';
 import './modules/devices/device-detail.css';
 import './modules/devices/device-interface-explorer.css';
+import './modules/devices/device-inventory-timeline.css';
 import './modules/devices/device-realtime-monitor.css';
 import './backup.css';
 import './alerts.css';

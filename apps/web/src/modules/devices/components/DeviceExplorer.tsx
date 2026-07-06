@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { DeviceDashboard } from '../DeviceDashboard';
 import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
+import { DeviceInventoryTimeline } from '../DeviceInventoryTimeline';
 import { DeviceRealtimeMonitor } from '../DeviceRealtimeMonitor';
 import { deviceApi, type Device } from '../device.api';
 import { DeviceDetailHeader } from './DeviceDetailHeader';
@@ -114,7 +115,10 @@ export function DeviceExplorer() {
                 ) : null}
 
                 {activeTab === 'Inventory' ? (
-                  <DeviceInventoryPanel deviceId={selected.id} />
+                  <div className="device-explorer-section">
+                    <DeviceInventoryTimeline deviceId={selected.id} />
+                    <DeviceInventoryPanel deviceId={selected.id} />
+                  </div>
                 ) : null}
 
                 {activeTab === 'Interfaces' ? (

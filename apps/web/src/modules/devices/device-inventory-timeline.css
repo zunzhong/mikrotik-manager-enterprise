@@ -1,0 +1,101 @@
+.device-inventory-timeline {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+[data-theme='light'] .device-inventory-timeline {
+  background: #fff;
+  border-color: #dbe3ef;
+}
+
+.device-inventory-timeline__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.device-inventory-timeline__eyebrow,
+.device-inventory-timeline__muted,
+.device-inventory-timeline__item small {
+  color: #94a3b8;
+}
+
+.device-inventory-timeline__header button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.52);
+  color: inherit;
+  padding: 9px 11px;
+  cursor: pointer;
+}
+
+[data-theme='light'] .device-inventory-timeline__header button {
+  background: #fff;
+}
+
+.device-inventory-timeline__error {
+  border: 1px solid #fda29b;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffbfa;
+  color: #b42318;
+}
+
+.device-inventory-timeline__empty {
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.device-inventory-timeline__list {
+  display: grid;
+  gap: 10px;
+}
+
+.device-inventory-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.28);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-theme='light'] .device-inventory-timeline__item {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.device-inventory-timeline__item.latest {
+  border-color: rgba(34, 211, 238, 0.45);
+}
+
+.device-inventory-timeline__item small {
+  display: block;
+  margin-top: 4px;
+}
+
+.device-inventory-timeline__item em {
+  color: #67e8f9;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.device-inventory-timeline__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #22c55e;
+}

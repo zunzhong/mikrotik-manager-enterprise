@@ -8,6 +8,7 @@ export * from './DeviceDashboard';
 export * from './DeviceDashboardPage';
 export * from './DeviceInterfaceExplorer';
 export * from './DeviceInterfaceExplorerPage';
+export * from './DeviceInventoryTimeline';
 export * from './DeviceRealtimeMonitor';
 export * from './DeviceRealtimeMonitorPage';
 export * from './components/DeviceDetailHeader';
