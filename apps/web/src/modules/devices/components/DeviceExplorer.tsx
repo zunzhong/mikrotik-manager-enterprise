@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { DeviceDashboard } from '../DeviceDashboard';
 import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
+import { DeviceRealtimeMonitor } from '../DeviceRealtimeMonitor';
 import { deviceApi, type Device } from '../device.api';
 import { DeviceDetailHeader } from './DeviceDetailHeader';
 import { DeviceInventoryPanel } from './DeviceInventoryPanel';
@@ -108,19 +109,16 @@ export function DeviceExplorer() {
                   </div>
                 ) : null}
 
+                {activeTab === 'Realtime' ? (
+                  <DeviceRealtimeMonitor deviceId={selected.id} />
+                ) : null}
+
                 {activeTab === 'Inventory' ? (
                   <DeviceInventoryPanel deviceId={selected.id} />
                 ) : null}
 
                 {activeTab === 'Interfaces' ? (
                   <DeviceInterfaceExplorer deviceId={selected.id} />
-                ) : null}
-
-                {activeTab === 'Realtime' ? (
-                  <ComingSoonPanel
-                    title="Realtime Monitoring"
-                    description="CPU, RAM, interface traffic and temperature streaming will be connected in the next tasks."
-                  />
                 ) : null}
 
                 {activeTab === 'Backups' ? (
