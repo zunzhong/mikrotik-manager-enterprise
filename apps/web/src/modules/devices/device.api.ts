@@ -1,4 +1,5 @@
-import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
+import type { DeviceActionResult, DeviceFileActionInput, DevicePingInput } from './device-action.types';
 import type {
   InventoryCollectResult,
   InventorySectionDetail,
@@ -32,9 +33,21 @@ export const deviceApi = {
   create: (input: DeviceInput) => apiPost<Device>('/api/v1/devices', input),
 
   update: (id: string, input: Partial<DeviceInput>) =>
-    apiPut<Device>(`/api/v1/devices/${id}`, input),
+    apiPatch<Device>(`/api/v1/devices/${id}`, input),
 
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
+
+  pingDevice: (id: string, input: DevicePingInput = {}) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping`, input),
+
+  createBackup: (id: string, input: DeviceFileActionInput = {}) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/backup`, input),
+
+  generateSupout: (id: string, input: DeviceFileActionInput = {}) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/supout`, input),
+
+  rebootDevice: (id: string, confirm: boolean) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/reboot`, { confirm }),
 
   probe: (input: RouterOsProbeInput) =>
     apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
@@ -74,6 +87,12 @@ export const deviceApi = {
 
   status: (id: string) => apiGet<RouterOsProbeResult>(`/api/v1/device/${id}/status`),
 };
+
+export type {
+  DeviceActionResult,
+  DeviceFileActionInput,
+  DevicePingInput,
+} from './device-action.types';
 
 export type {
   InventoryCollectResult,

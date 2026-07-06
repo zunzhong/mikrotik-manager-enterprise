@@ -10,19 +10,45 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
   const [message, setMessage] = useState<string>('');
   const [busyAction, setBusyAction] = useState<string>('');
 
-  async function collectInventory() {
-    setBusyAction('inventory');
-    setMessage('Collecting inventory...');
+  async function runAction(action: string, fn: () => Promise<{ message: string; success?: boolean }>) {
+    setBusyAction(action);
+    setMessage(`${action} running...`);
 
     try {
-      await deviceApi.collectInventory(device.id);
-      setMessage('Inventory collection completed.');
-      onInventoryCollected?.();
+      const result = await fn();
+      setMessage(result.message);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Inventory collection failed');
+      setMessage(error instanceof Error ? error.message : `${action} failed`);
     } finally {
       setBusyAction('');
     }
+  }
+
+  async function collectInventory() {
+    await runAction('Inventory', async () => {
+      await deviceApi.collectInventory(device.id);
+      onInventoryCollected?.();
+      return { message: 'Inventory collection completed.', success: true };
+    });
+  }
+
+  async function ping() {
+    await runAction('Ping', () => deviceApi.pingDevice(device.id, { address: device.host, count: 4 }));
+  }
+
+  async function backup() {
+    await runAction('Backup', () => deviceApi.createBackup(device.id));
+  }
+
+  async function supout() {
+    await runAction('Supout', () => deviceApi.generateSupout(device.id));
+  }
+
+  async function reboot() {
+    const confirmed = window.confirm(`Reboot ${device.name}? This will interrupt connectivity.`);
+    if (!confirmed) return;
+
+    await runAction('Reboot', () => deviceApi.rebootDevice(device.id, true));
   }
 
   function comingSoon(action: string) {
@@ -42,29 +68,29 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
         <button
           type="button"
           onClick={() => void collectInventory()}
-          disabled={busyAction === 'inventory'}
+          disabled={busyAction === 'Inventory'}
         >
-          {busyAction === 'inventory' ? 'Collecting...' : 'Collect Inventory'}
+          {busyAction === 'Inventory' ? 'Collecting...' : 'Collect Inventory'}
         </button>
 
-        <button type="button" onClick={() => comingSoon('Ping')}>
-          Ping
+        <button type="button" onClick={() => void ping()} disabled={busyAction === 'Ping'}>
+          {busyAction === 'Ping' ? 'Pinging...' : 'Ping'}
         </button>
 
-        <button type="button" onClick={() => comingSoon('Backup')}>
-          Backup
+        <button type="button" onClick={() => void backup()} disabled={busyAction === 'Backup'}>
+          {busyAction === 'Backup' ? 'Creating...' : 'Backup'}
         </button>
 
-        <button type="button" onClick={() => comingSoon('Open Terminal')}>
-          Open Terminal
+        <button type="button" onClick={() => void supout()} disabled={busyAction === 'Supout'}>
+          {busyAction === 'Supout' ? 'Generating...' : 'Supout'}
         </button>
 
         <button type="button" onClick={() => comingSoon('Safe Mode')}>
           Safe Mode
         </button>
 
-        <button type="button" onClick={() => comingSoon('Reboot')}>
-          Reboot
+        <button type="button" onClick={() => void reboot()} disabled={busyAction === 'Reboot'}>
+          {busyAction === 'Reboot' ? 'Sending...' : 'Reboot'}
         </button>
       </div>
 
