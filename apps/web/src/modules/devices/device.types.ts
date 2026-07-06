@@ -60,3 +60,13 @@ export interface RouterOsInventorySnapshot {
   health?: Record<string, unknown>[];
   services?: Record<string, unknown>[];
 }
+
+export interface DeviceSyncSnapshot extends RouterOsInventorySnapshot {
+  latencyMs: number;
+  online: boolean;
+  error?: string;
+  interfaces?: Record<string, unknown>[];
+  addresses?: Record<string, unknown>[];
+  routes?: Record<string, unknown>[];
+  packages?: Record<string, unknown>[];
+}
