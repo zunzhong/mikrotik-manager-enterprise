@@ -34,17 +34,21 @@ export interface RouterOsProbeResult {
   serialNumber?: string;
   uptime?: string;
   error?: string;
-  raw?: {
-    identity?: unknown;
-    resource?: unknown;
-    routerboard?: unknown;
-  };
+  raw?: { identity?: unknown; resource?: unknown; routerboard?: unknown };
+}
+
+export interface RouterOsInventorySnapshot {
+  collectedAt: string;
+  identity: object;
+  resource: object;
+  routerboard: object;
+  health: object[];
+  services: object[];
 }
 
 function normalizeInput(input: RouterOsProbeInput): NormalizedRouterOsProbeInput {
   const parsed = routerOsProbeInputSchema.parse(input);
   const tls = parsed.tls ?? parsed.useTls ?? false;
-
   return {
     host: parsed.host,
     port: parsed.port ?? (tls ? 8729 : 8728),
@@ -57,9 +61,7 @@ function normalizeInput(input: RouterOsProbeInput): NormalizedRouterOsProbeInput
 }
 
 function value(...items: unknown[]): string | undefined {
-  for (const item of items) {
-    if (typeof item === 'string' && item.length > 0) return item;
-  }
+  for (const item of items) if (typeof item === 'string' && item.length > 0) return item;
   return undefined;
 }
 
@@ -68,16 +70,13 @@ export class RouterOsSdkAdapter {
     const normalized = normalizeInput(input);
     const startedAt = Date.now();
     const client = new RouterOsClient(normalized);
-
     try {
       await client.connect();
-
       const [identity, resource, routerboard] = await Promise.all([
         client.system.identity(),
         client.system.resource(),
         client.system.routerboard(),
       ]);
-
       return {
         online: true,
         latencyMs: Date.now() - startedAt,
@@ -90,11 +89,7 @@ export class RouterOsSdkAdapter {
         raw: { identity, resource, routerboard },
       };
     } catch (error) {
-      return {
-        online: false,
-        latencyMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : 'RouterOS probe failed',
-      };
+      return { online: false, latencyMs: Date.now() - startedAt, error: error instanceof Error ? error.message : 'RouterOS probe failed' };
     } finally {
       client.close();
     }
@@ -102,29 +97,41 @@ export class RouterOsSdkAdapter {
 
   public async identity(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-    try {
-      await client.connect();
-      return { ...(await client.system.identity()) };
-    } finally {
-      client.close();
-    }
+    try { await client.connect(); return { ...(await client.system.identity()) }; }
+    finally { client.close(); }
   }
 
   public async resource(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-    try {
-      await client.connect();
-      return { ...(await client.system.resource()) };
-    } finally {
-      client.close();
-    }
+    try { await client.connect(); return { ...(await client.system.resource()) }; }
+    finally { client.close(); }
   }
 
   public async routerboard(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
+    try { await client.connect(); return { ...(await client.system.routerboard()) }; }
+    finally { client.close(); }
+  }
+
+  public async inventory(input: RouterOsProbeInput): Promise<RouterOsInventorySnapshot> {
+    const client = new RouterOsClient(normalizeInput(input));
     try {
       await client.connect();
-      return { ...(await client.system.routerboard()) };
+      const [identity, resource, routerboard, health, services] = await Promise.all([
+        client.system.identity(),
+        client.system.resource(),
+        client.system.routerboard(),
+        client.print('/system/health/print').catch(() => []),
+        client.print('/ip/service/print').catch(() => []),
+      ]);
+      return {
+        collectedAt: new Date().toISOString(),
+        identity: { ...identity },
+        resource: { ...resource },
+        routerboard: { ...routerboard },
+        health,
+        services,
+      };
     } finally {
       client.close();
     }

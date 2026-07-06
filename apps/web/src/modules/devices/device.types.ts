@@ -51,3 +51,12 @@ export interface RouterOsProbeResult {
   error?: string;
   raw?: Record<string, unknown>;
 }
+
+export interface RouterOsInventorySnapshot {
+  collectedAt: string;
+  identity?: Record<string, unknown>;
+  resource?: Record<string, unknown>;
+  routerboard?: Record<string, unknown>;
+  health?: Record<string, unknown>[];
+  services?: Record<string, unknown>[];
+}

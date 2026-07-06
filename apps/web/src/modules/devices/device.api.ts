@@ -1,55 +1,24 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/api';
-import type {
-  Device,
-  DeviceInput,
-  RouterOsProbeInput,
-  RouterOsProbeResult,
-} from './device.types';
+import type { Device, DeviceInput, RouterOsInventorySnapshot, RouterOsProbeInput, RouterOsProbeResult } from './device.types';
 
 function normalizeProbeInput(input: RouterOsProbeInput): RouterOsProbeInput {
   const tls = input.tls ?? input.useTls ?? false;
-
-  return {
-    ...input,
-    tls,
-    port: input.port ?? (tls ? 8729 : 8728),
-    timeoutMs: input.timeoutMs ?? 10000,
-  };
+  return { ...input, tls, port: input.port ?? (tls ? 8729 : 8728), timeoutMs: input.timeoutMs ?? 10000 };
 }
 
 export const deviceApi = {
   list: () => apiGet<Device[]>('/api/v1/devices'),
-
   get: (id: string) => apiGet<Device>(`/api/v1/devices/${id}`),
-
   create: (input: DeviceInput) => apiPost<Device>('/api/v1/devices', input),
-
-  update: (id: string, input: Partial<DeviceInput>) =>
-    apiPut<Device>(`/api/v1/devices/${id}`, input),
-
+  update: (id: string, input: Partial<DeviceInput>) => apiPut<Device>(`/api/v1/devices/${id}`, input),
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
-
-  probe: (input: RouterOsProbeInput) =>
-    apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
-
-  identity: (input: RouterOsProbeInput) =>
-    apiPost<Record<string, unknown>>('/api/v1/routeros/identity', normalizeProbeInput(input)),
-
-  resource: (input: RouterOsProbeInput) =>
-    apiPost<Record<string, unknown>>('/api/v1/routeros/resource', normalizeProbeInput(input)),
-
-  routerboard: (input: RouterOsProbeInput) =>
-    apiPost<Record<string, unknown>>('/api/v1/routeros/routerboard', normalizeProbeInput(input)),
-
-  test: (input: RouterOsProbeInput) =>
-    apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
-
+  probe: (input: RouterOsProbeInput) => apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
+  inventory: (input: RouterOsProbeInput) => apiPost<RouterOsInventorySnapshot>('/api/v1/routeros/inventory', normalizeProbeInput(input)),
+  identity: (input: RouterOsProbeInput) => apiPost<Record<string, unknown>>('/api/v1/routeros/identity', normalizeProbeInput(input)),
+  resource: (input: RouterOsProbeInput) => apiPost<Record<string, unknown>>('/api/v1/routeros/resource', normalizeProbeInput(input)),
+  routerboard: (input: RouterOsProbeInput) => apiPost<Record<string, unknown>>('/api/v1/routeros/routerboard', normalizeProbeInput(input)),
+  test: (input: RouterOsProbeInput) => apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
   status: (id: string) => apiGet<RouterOsProbeResult>(`/api/v1/device/${id}/status`),
 };
 
-export type {
-  Device,
-  DeviceInput,
-  RouterOsProbeInput,
-  RouterOsProbeResult,
-} from './device.types';
+export type { Device, DeviceInput, RouterOsInventorySnapshot, RouterOsProbeInput, RouterOsProbeResult } from './device.types';
