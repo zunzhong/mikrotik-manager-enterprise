@@ -1,0 +1,57 @@
+.device-dashboard {
+  display: grid;
+  gap: 16px;
+}
+
+.device-dashboard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.device-dashboard__eyebrow,
+.device-dashboard__label,
+.device-dashboard__muted {
+  color: #667085;
+}
+
+.device-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.device-dashboard__card {
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+}
+
+.device-dashboard__button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.device-dashboard__error {
+  border: 1px solid #fda29b;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffbfa;
+  color: #b42318;
+}
+
+.device-dashboard__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.device-dashboard__table th,
+.device-dashboard__table td {
+  text-align: left;
+  border-bottom: 1px solid #eaecf0;
+  padding: 8px;
+}
