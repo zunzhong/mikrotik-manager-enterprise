@@ -3,6 +3,7 @@ import { useAsyncData } from '../../../hooks/useAsyncData';
 import { DeviceDashboard } from '../DeviceDashboard';
 import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
 import { DeviceInventoryTimeline } from '../DeviceInventoryTimeline';
+import { DeviceMetricCharts } from '../DeviceMetricCharts';
 import { DeviceRealtimeMonitor } from '../DeviceRealtimeMonitor';
 import { deviceApi, type Device } from '../device.api';
 import { DeviceDetailHeader } from './DeviceDetailHeader';
@@ -106,6 +107,7 @@ export function DeviceExplorer() {
                 {activeTab === 'Overview' ? (
                   <div className="device-explorer-section">
                     <DeviceQuickActions device={selected} />
+                    <DeviceMetricCharts deviceId={selected.id} />
                     <DeviceDashboard deviceId={selected.id} />
                   </div>
                 ) : null}
