@@ -1,0 +1,60 @@
+.device-interface-explorer {
+  display: grid;
+  gap: 16px;
+}
+
+.device-interface-explorer__header,
+.device-interface-explorer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.device-interface-explorer__toolbar input {
+  flex: 1;
+}
+
+.device-interface-explorer__eyebrow,
+.device-interface-explorer__muted {
+  color: #667085;
+}
+
+.device-interface-explorer__card {
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  background: #fff;
+  overflow: auto;
+}
+
+.device-interface-explorer__error {
+  border: 1px solid #fda29b;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffbfa;
+  color: #b42318;
+}
+
+.device-interface-explorer__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.device-interface-explorer__table th,
+.device-interface-explorer__table td {
+  text-align: left;
+  border-bottom: 1px solid #eaecf0;
+  padding: 10px;
+}
+
+.device-interface-explorer__table span[data-status='running'] {
+  color: #027a48;
+}
+
+.device-interface-explorer__table span[data-status='down'] {
+  color: #b42318;
+}
+
+.device-interface-explorer__table span[data-status='disabled'] {
+  color: #667085;
+}

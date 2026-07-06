@@ -2,5 +2,8 @@ export * from './device.api';
 export * from './device.types';
 export * from './device-inventory.types';
 export * from './device-dashboard.utils';
+export * from './device-interface.utils';
 export * from './DeviceDashboard';
 export * from './DeviceDashboardPage';
+export * from './DeviceInterfaceExplorer';
+export * from './DeviceInterfaceExplorerPage';
