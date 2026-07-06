@@ -1,0 +1,127 @@
+import { RouterOsClient } from '@mme/routeros-sdk';
+import { z } from 'zod';
+
+export const routerOsProbeInputSchema = z.object({
+  host: z.string().min(1),
+  port: z.number().int().positive().optional(),
+  username: z.string().min(1),
+  password: z.string().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  tls: z.boolean().optional(),
+  rejectUnauthorized: z.boolean().optional(),
+});
+
+export type RouterOsProbeInput = z.input<typeof routerOsProbeInputSchema>;
+
+interface NormalizedRouterOsProbeInput {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  timeoutMs: number;
+  tls: boolean;
+  rejectUnauthorized: boolean;
+}
+
+export interface RouterOsProbeResult {
+  online: boolean;
+  latencyMs: number;
+  identity?: string;
+  version?: string;
+  architecture?: string;
+  boardName?: string;
+  serialNumber?: string;
+  uptime?: string;
+  error?: string;
+  raw?: {
+    identity?: unknown;
+    resource?: unknown;
+    routerboard?: unknown;
+  };
+}
+
+function normalizeInput(input: RouterOsProbeInput): NormalizedRouterOsProbeInput {
+  const parsed = routerOsProbeInputSchema.parse(input);
+
+  return {
+    host: parsed.host,
+    port: parsed.port ?? (parsed.tls ? 8729 : 8728),
+    username: parsed.username,
+    password: parsed.password ?? '',
+    timeoutMs: parsed.timeoutMs ?? 10000,
+    tls: parsed.tls ?? false,
+    rejectUnauthorized: parsed.rejectUnauthorized ?? false,
+  };
+}
+
+function value(...items: unknown[]): string | undefined {
+  for (const item of items) {
+    if (typeof item === 'string' && item.length > 0) return item;
+  }
+
+  return undefined;
+}
+
+export class RouterOsSdkAdapter {
+  public async probe(input: RouterOsProbeInput): Promise<RouterOsProbeResult> {
+    const normalized = normalizeInput(input);
+    const startedAt = Date.now();
+    const client = new RouterOsClient(normalized);
+
+    try {
+      await client.connect();
+
+      const [identity, resource, routerboard] = await Promise.all([
+        client.system.identity(),
+        client.system.resource(),
+        client.system.routerboard(),
+      ]);
+
+      return {
+        online: true,
+        latencyMs: Date.now() - startedAt,
+        identity: value(identity.name),
+        version: value(resource.version),
+        architecture: value(resource.architectureName, resource.architecture),
+        boardName: value(routerboard.model, resource.boardName),
+        serialNumber: value(routerboard.serialNumber),
+        uptime: value(resource.uptime),
+        raw: { identity, resource, routerboard },
+      };
+    } catch (error) {
+      return {
+        online: false,
+        latencyMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message : 'RouterOS probe failed',
+      };
+    } finally {
+      client.close();
+    }
+  }
+
+  public async identity(input: RouterOsProbeInput): Promise<object> {
+    const client = new RouterOsClient(normalizeInput(input));
+
+    try {
+      await client.connect();
+      const identity = await client.system.identity();
+      return { ...identity };
+    } finally {
+      client.close();
+    }
+  }
+
+  public async resource(input: RouterOsProbeInput): Promise<object> {
+    const client = new RouterOsClient(normalizeInput(input));
+
+    try {
+      await client.connect();
+      const resource = await client.system.resource();
+      return { ...resource };
+    } finally {
+      client.close();
+    }
+  }
+}
+
+export const routerOsSdkAdapter = new RouterOsSdkAdapter();

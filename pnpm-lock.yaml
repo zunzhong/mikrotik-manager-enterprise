@@ -32,6 +32,9 @@ importers:
       '@mme/routeros-core':
         specifier: workspace:*
         version: link:../../packages/routeros-core
+      '@mme/routeros-sdk':
+        specifier: workspace:*
+        version: link:../../packages/routeros-sdk
       '@prisma/client':
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)

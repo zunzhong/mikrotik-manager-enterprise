@@ -16,6 +16,8 @@ export interface DeviceRecord {
   updatedAt: string;
 }
 
+export type Device = DeviceRecord;
+
 export interface DeviceInput {
   name: string;
   host: string;
@@ -54,9 +56,12 @@ export const deviceApi = {
   list: () => apiGet<DeviceRecord[]>('/api/v1/devices'),
   get: (id: string) => apiGet<DeviceRecord>(`/api/v1/devices/${id}`),
   create: (input: DeviceInput) => apiPost<DeviceRecord>('/api/v1/devices', input),
-  update: (id: string, input: Partial<DeviceInput>) => apiPut<DeviceRecord>(`/api/v1/devices/${id}`, input),
-  delete: (id: string) => apiDelete<DeviceRecord>(`/api/v1/devices/${id}`),
-  test: (input: RouterOsProbeInput) => apiPost<RouterOsProbeResult>('/api/v1/device/test', input),
-  probe: (input: RouterOsProbeInput) => apiPost<RouterOsProbeResult>('/api/v1/device/probe', input),
+  update: (id: string, input: Partial<DeviceInput>) =>
+    apiPut<DeviceRecord>(`/api/v1/devices/${id}`, input),
+  delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
+  test: (input: RouterOsProbeInput) =>
+    apiPost<RouterOsProbeResult>('/api/v1/device/test', input),
+  probe: (input: RouterOsProbeInput) =>
+    apiPost<RouterOsProbeResult>('/api/v1/device/probe', input),
   status: (id: string) => apiGet<RouterOsProbeResult>(`/api/v1/device/${id}/status`),
 };

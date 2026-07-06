@@ -45,6 +45,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
     return readJson<T>(response, path);
   } catch (error) {
     if (error instanceof ApiError) throw error;
+
     throw new ApiError(
       `Cannot reach backend API for ${path}. Make sure @mme/server is running.`,
       undefined,
@@ -53,11 +54,11 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 }
 
-export function apiGet<T>(path: string): Promise<T> {
+export function apiGet<T = unknown>(path: string): Promise<T> {
   return request<T>(path, { headers: { Accept: 'application/json' } });
 }
 
-export function apiPost<T>(path: string, body: unknown = {}): Promise<T> {
+export function apiPost<T = unknown>(path: string, body: unknown = {}): Promise<T> {
   return request<T>(path, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -65,7 +66,7 @@ export function apiPost<T>(path: string, body: unknown = {}): Promise<T> {
   });
 }
 
-export function apiPatch<T>(path: string, body: unknown = {}): Promise<T> {
+export function apiPatch<T = unknown>(path: string, body: unknown = {}): Promise<T> {
   return request<T>(path, {
     method: 'PATCH',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -73,7 +74,15 @@ export function apiPatch<T>(path: string, body: unknown = {}): Promise<T> {
   });
 }
 
-export function apiDelete<T>(path: string): Promise<T> {
+export function apiPut<T = unknown>(path: string, body: unknown = {}): Promise<T> {
+  return request<T>(path, {
+    method: 'PUT',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiDelete<T = unknown>(path: string): Promise<T> {
   return request<T>(path, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
