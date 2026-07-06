@@ -7,3 +7,5 @@ export * from './DeviceDashboard';
 export * from './DeviceDashboardPage';
 export * from './DeviceInterfaceExplorer';
 export * from './DeviceInterfaceExplorerPage';
+export * from './components/DeviceDetailHeader';
+export * from './components/DeviceQuickActions';

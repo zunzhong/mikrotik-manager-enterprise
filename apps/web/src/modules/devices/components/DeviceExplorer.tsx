@@ -3,10 +3,21 @@ import { useAsyncData } from '../../../hooks/useAsyncData';
 import { DeviceDashboard } from '../DeviceDashboard';
 import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
 import { deviceApi, type Device } from '../device.api';
+import { DeviceDetailHeader } from './DeviceDetailHeader';
 import { DeviceInventoryPanel } from './DeviceInventoryPanel';
+import { DeviceQuickActions } from './DeviceQuickActions';
 import { StatusBadge } from './StatusBadge';
 
-const tabs = ['Overview', 'Inventory', 'Interfaces', 'Backups', 'Compliance', 'Alerts'];
+const tabs = [
+  'Overview',
+  'Realtime',
+  'Interfaces',
+  'Inventory',
+  'Backups',
+  'Compliance',
+  'Alerts',
+  'Terminal',
+];
 
 export function DeviceExplorer() {
   const loadDevices = useCallback(() => deviceApi.list(), []);
@@ -72,78 +83,87 @@ export function DeviceExplorer() {
             <p>Device Explorer will show RouterOS inventory, services and configuration.</p>
           </div>
         ) : (
-          <>
-            <div className="detail-header">
-              <div>
-                <h2>{selected.name}</h2>
-                <p>
-                  {selected.host}:{selected.port}
-                </p>
-              </div>
-              <StatusBadge status={selected.status} />
+          <div className="device-detail-layout">
+            <DeviceDetailHeader device={selected} />
+
+            <div className="device-detail-layout__body">
+              <nav className="device-detail-nav" aria-label="Device detail tabs">
+                {tabs.map((tab) => (
+                  <button
+                    className={activeTab === tab ? 'active' : ''}
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </nav>
+
+              <main className="device-detail-content">
+                {activeTab === 'Overview' ? (
+                  <div className="device-explorer-section">
+                    <DeviceQuickActions device={selected} />
+                    <DeviceDashboard deviceId={selected.id} />
+                  </div>
+                ) : null}
+
+                {activeTab === 'Inventory' ? (
+                  <DeviceInventoryPanel deviceId={selected.id} />
+                ) : null}
+
+                {activeTab === 'Interfaces' ? (
+                  <DeviceInterfaceExplorer deviceId={selected.id} />
+                ) : null}
+
+                {activeTab === 'Realtime' ? (
+                  <ComingSoonPanel
+                    title="Realtime Monitoring"
+                    description="CPU, RAM, interface traffic and temperature streaming will be connected in the next tasks."
+                  />
+                ) : null}
+
+                {activeTab === 'Backups' ? (
+                  <ComingSoonPanel
+                    title="Backup Center"
+                    description="Manual backup, schedule backup and restore actions will be connected in the Backup epic."
+                  />
+                ) : null}
+
+                {activeTab === 'Compliance' ? (
+                  <ComingSoonPanel
+                    title="Compliance"
+                    description="Security baseline, risky services and remediation actions will be connected in the Compliance epic."
+                  />
+                ) : null}
+
+                {activeTab === 'Alerts' ? (
+                  <ComingSoonPanel
+                    title="Alerts"
+                    description="Device alert timeline and notification rules will be connected after realtime monitoring."
+                  />
+                ) : null}
+
+                {activeTab === 'Terminal' ? (
+                  <ComingSoonPanel
+                    title="Terminal"
+                    description="Browser RouterOS terminal with audit log will be connected in a dedicated Terminal sprint."
+                  />
+                ) : null}
+              </main>
             </div>
-
-            <div className="explorer-tabs">
-              {tabs.map((tab) => (
-                <button
-                  className={activeTab === tab ? 'active' : ''}
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === 'Overview' ? (
-              <div className="device-explorer-section">
-                <div className="detail-grid">
-                  <div className="detail-card">
-                    <span>Connection</span>
-                    <strong>{selected.useTls ? 'TLS' : 'Plain API'}</strong>
-                    <p>Login mode: {selected.loginMode}</p>
-                  </div>
-                  <div className="detail-card">
-                    <span>Credentials</span>
-                    <strong>{selected.username}</strong>
-                    <p>Password is encrypted and never displayed.</p>
-                  </div>
-                  <div className="detail-card">
-                    <span>Last Seen</span>
-                    <strong>
-                      {selected.lastSeenAt
-                        ? new Date(selected.lastSeenAt).toLocaleString()
-                        : 'Never'}
-                    </strong>
-                    <p>{selected.lastError ?? 'No error recorded'}</p>
-                  </div>
-                  <div className="detail-card">
-                    <span>Tags</span>
-                    <strong>{selected.tags.length}</strong>
-                    <p>{selected.tags.length ? selected.tags.join(', ') : 'No tags'}</p>
-                  </div>
-                </div>
-
-                <DeviceDashboard deviceId={selected.id} />
-              </div>
-            ) : null}
-
-            {activeTab === 'Inventory' ? <DeviceInventoryPanel deviceId={selected.id} /> : null}
-
-            {activeTab === 'Interfaces' ? (
-              <DeviceInterfaceExplorer deviceId={selected.id} />
-            ) : null}
-
-            {!['Overview', 'Inventory', 'Interfaces'].includes(activeTab) ? (
-              <div className="placeholder-panel">
-                <h3>{activeTab}</h3>
-                <p>This tab will be connected in an upcoming sprint task.</p>
-              </div>
-            ) : null}
-          </>
+          </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function ComingSoonPanel({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="placeholder-panel">
+      <h3>{title}</h3>
+      <p>{description}</p>
     </div>
   );
 }
