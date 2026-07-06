@@ -352,3 +352,25 @@ model MfaSecret {
 
   @@index([enabled])
 }
+
+model DeviceSnapshot {
+  id          String   @id @default(cuid())
+  deviceId    String
+  collectedAt DateTime @default(now())
+  online      Boolean  @default(false)
+  latencyMs   Int?
+  error       String?
+  identity    Json?
+  resource    Json?
+  routerboard Json?
+  health      Json?
+  services    Json?
+  interfaces  Json?
+  addresses   Json?
+  routes      Json?
+  packages    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([deviceId])
+  @@index([collectedAt])
+}
