@@ -20,13 +20,12 @@ import { complianceRoutes } from './modules/compliance/index.js';
 import { dashboardRoutes } from './modules/dashboard/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
-import { routerosRoutes } from './modules/routeros/index.js';
 import { routerOsApiRoutes } from './modules/routeros-api/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
-
+import { eventRoutes } from './modules/events/index.js';
 export async function buildApp() {
   const app = Fastify({ logger: createLoggerConfig() });
 
@@ -41,12 +40,12 @@ export async function buildApp() {
   moduleRegistry.register(alertModule);
 
   await app.register(healthRoutes);
+  await app.register(eventRoutes);
   await app.register(authRoutes);
   await app.register(coreRoutes);
   await app.register(adminRoutes);
   await app.register(deviceRoutes);
   await app.register(routerOsApiRoutes);
-  await app.register(routerosRoutes);
   await app.register(inventoryRoutes);
   await app.register(complianceRoutes);
   await app.register(collectorRoutes);
@@ -55,7 +54,7 @@ export async function buildApp() {
   await app.register(backupRoutes);
   await app.register(topologyRoutes);
   await app.register(systemRoutes);
-
+  
   await moduleRegistry.loadAll(app);
 
   return app;

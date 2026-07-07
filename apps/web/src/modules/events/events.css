@@ -1,0 +1,118 @@
+.event-feed {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+[data-theme='light'] .event-feed {
+  background: #fff;
+  border-color: #dbe3ef;
+}
+
+.event-feed__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.event-feed__eyebrow,
+.event-feed__muted,
+.event-timeline__item p,
+.event-timeline__item small,
+.event-timeline__head time {
+  color: #94a3b8;
+}
+
+.event-feed__header button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.52);
+  color: inherit;
+  padding: 9px 11px;
+  cursor: pointer;
+}
+
+[data-theme='light'] .event-feed__header button {
+  background: #fff;
+}
+
+.event-feed__error {
+  border: 1px solid #fda29b;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffbfa;
+  color: #b42318;
+}
+
+.event-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.event-timeline__empty {
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.event-timeline__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.event-timeline__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-top: 6px;
+  background: #38bdf8;
+}
+
+.event-timeline__item[data-severity='success'] .event-timeline__dot {
+  background: #22c55e;
+}
+
+.event-timeline__item[data-severity='warning'] .event-timeline__dot {
+  background: #f59e0b;
+}
+
+.event-timeline__item[data-severity='critical'] .event-timeline__dot {
+  background: #ef4444;
+}
+
+.event-timeline__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-bell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-bell em {
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.notification-bell em[data-severity='critical'] {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.notification-bell em[data-severity='warning'] {
+  background: #fef3c7;
+  color: #92400e;
+}
