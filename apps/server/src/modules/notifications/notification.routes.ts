@@ -1,0 +1,103 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { notificationService } from './notification.service.js';
+
+const channelTypeValues = ['email', 'webhook', 'slack', 'telegram', 'in_app'] as const;
+const severityValues = ['info', 'success', 'warning', 'critical'] as const;
+
+const createChannelSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(channelTypeValues),
+  enabled: z.boolean().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+});
+
+const createRuleSchema = z.object({
+  name: z.string().min(1),
+  enabled: z.boolean().optional(),
+  eventTypes: z.array(z.string().min(1)).min(1),
+  severities: z.array(z.enum(severityValues)).min(1),
+  channelIds: z.array(z.string().min(1)).min(1),
+});
+
+const listDeliveriesQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+});
+
+const enqueueTestSchema = z.object({
+  eventType: z.string().min(1).default('SYSTEM_EVENT'),
+  severity: z.enum(severityValues).default('info'),
+  title: z.string().min(1).default('Notification test'),
+  message: z.string().min(1).default('This is a notification test payload.'),
+  source: z.string().min(1).default('notification-api'),
+  deviceId: z.string().optional(),
+  deviceName: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export async function notificationRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/v1/notifications/channels', async () => ({
+    success: true,
+    data: notificationService.listChannels(),
+  }));
+
+  app.post('/api/v1/notifications/channels', async (request) => {
+    const body = createChannelSchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: notificationService.createChannel(body),
+    };
+  });
+
+  app.get('/api/v1/notifications/rules', async () => ({
+    success: true,
+    data: notificationService.listRules(),
+  }));
+
+  app.post('/api/v1/notifications/rules', async (request) => {
+    const body = createRuleSchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: notificationService.createRule(body),
+    };
+  });
+
+  app.get('/api/v1/notifications/deliveries', async (request) => {
+    const query = listDeliveriesQuerySchema.parse(request.query);
+
+    return {
+      success: true,
+      data: notificationService.listDeliveries(query.limit),
+    };
+  });
+
+  app.post('/api/v1/notifications/seed-defaults', async () => ({
+    success: true,
+    data: notificationService.seedDefaults(),
+  }));
+
+  app.post('/api/v1/notifications/test', async (request) => {
+    const body = enqueueTestSchema.parse(request.body ?? {});
+    const deliveries = notificationService.enqueue({
+      eventType: body.eventType,
+      severity: body.severity,
+      title: body.title,
+      message: body.message,
+      source: body.source,
+      deviceId: body.deviceId,
+      deviceName: body.deviceName,
+      metadata: body.metadata,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      data: {
+        queued: deliveries.length,
+        deliveries,
+      },
+    };
+  });
+}

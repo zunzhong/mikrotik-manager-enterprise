@@ -23,13 +23,15 @@ import { collectorRoutes } from './modules/collector/index.js';
 import { complianceRoutes } from './modules/compliance/index.js';
 import { dashboardRoutes } from './modules/dashboard/index.js';
 import { deviceRoutes } from './modules/device/index.js';
+import { eventRoutes } from './modules/events/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
+import { notificationRoutes } from './modules/notifications/index.js';
 import { routerOsApiRoutes } from './modules/routeros-api/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
-import { eventRoutes } from './modules/events/index.js';
+
 export async function buildApp() {
   const app = Fastify({ logger: createLoggerConfig() });
 
@@ -48,6 +50,7 @@ export async function buildApp() {
   await app.register(healthRoutes);
   await app.register(eventRoutes);
   await app.register(alertLifecycleRoutes);
+  await app.register(notificationRoutes);
   await app.register(authRoutes);
   await app.register(coreRoutes);
   await app.register(adminRoutes);
