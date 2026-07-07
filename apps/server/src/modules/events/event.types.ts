@@ -14,7 +14,10 @@ export type AppEventType =
   | 'BACKUP_COMPLETED'
   | 'BACKUP_FAILED'
   | 'USER_ACTION'
-  | 'AUDIT_EVENT';
+  | 'AUDIT_EVENT'
+  | 'ALERT_OPENED'
+  | 'ALERT_ACKNOWLEDGED'
+  | 'ALERT_RESOLVED';
 
 export interface AppEvent {
   id: string;

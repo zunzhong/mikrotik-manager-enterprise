@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/index.js';
+import { eventBus } from '../events/index.js';
 import type {
   AlertLifecycleBulkActionResult,
   AlertLifecycleSeverity,
@@ -16,6 +17,21 @@ export interface AlertLifecycleListQuery {
   statuses?: AlertLifecycleStatus[];
   severities?: AlertLifecycleSeverity[];
   limit?: number;
+}
+
+interface AlertEventLike {
+  id: string;
+  deviceId: string | null;
+  ruleKey: string;
+  severity: string;
+  status: string;
+  title: string;
+  message: string;
+  source: string;
+  metadata: Prisma.JsonValue | null;
+  createdAt: Date;
+  acknowledgedAt?: Date | null;
+  resolvedAt?: Date | null;
 }
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue | null {
@@ -92,6 +108,71 @@ function compact<T>(items: Array<T | null>): T[] {
   return items.filter((item): item is T => item !== null);
 }
 
+function deviceNameFromMetadata(metadata: Prisma.JsonValue | null): string | undefined {
+  const value = readJsonObject(metadata);
+  return typeof value.deviceName === 'string' ? value.deviceName : undefined;
+}
+
+function publishOpenedEvent(alert: AlertEventLike): void {
+  eventBus.publish({
+    type: 'ALERT_OPENED',
+    severity: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'warning' : 'info',
+    title: 'Alert opened',
+    message: alert.title,
+    source: 'alert-lifecycle',
+    deviceId: alert.deviceId ?? undefined,
+    deviceName: deviceNameFromMetadata(alert.metadata),
+    metadata: {
+      alertId: alert.id,
+      alertStatus: alert.status,
+      ruleKey: alert.ruleKey,
+      alertSeverity: alert.severity,
+      source: alert.source,
+      createdAt: alert.createdAt.toISOString(),
+    },
+  });
+}
+
+function publishAcknowledgedEvent(alert: AlertEventLike, reason: string): void {
+  eventBus.publish({
+    type: 'ALERT_ACKNOWLEDGED',
+    severity: 'info',
+    title: 'Alert acknowledged',
+    message: alert.title,
+    source: 'alert-lifecycle',
+    deviceId: alert.deviceId ?? undefined,
+    deviceName: deviceNameFromMetadata(alert.metadata),
+    metadata: {
+      alertId: alert.id,
+      alertStatus: alert.status,
+      ruleKey: alert.ruleKey,
+      alertSeverity: alert.severity,
+      reason,
+      acknowledgedAt: alert.acknowledgedAt?.toISOString(),
+    },
+  });
+}
+
+function publishResolvedEvent(alert: AlertEventLike, reason: string): void {
+  eventBus.publish({
+    type: 'ALERT_RESOLVED',
+    severity: 'success',
+    title: 'Alert resolved',
+    message: alert.title,
+    source: 'alert-lifecycle',
+    deviceId: alert.deviceId ?? undefined,
+    deviceName: deviceNameFromMetadata(alert.metadata),
+    metadata: {
+      alertId: alert.id,
+      alertStatus: alert.status,
+      ruleKey: alert.ruleKey,
+      alertSeverity: alert.severity,
+      reason,
+      resolvedAt: alert.resolvedAt?.toISOString(),
+    },
+  });
+}
+
 export class AlertLifecycleService {
   public async openOrUpdate(input: OpenAlertInput) {
     const now = new Date();
@@ -124,7 +205,7 @@ export class AlertLifecycleService {
       });
     }
 
-    return prisma.alert.create({
+    const alert = await prisma.alert.create({
       data: {
         deviceId: input.deviceId,
         ruleKey: input.ruleKey,
@@ -136,6 +217,10 @@ export class AlertLifecycleService {
         metadata: mergeMetadata(null, input.metadata, now),
       },
     });
+
+    publishOpenedEvent(alert);
+
+    return alert;
   }
 
   public async getById(alertId: string) {
@@ -167,7 +252,7 @@ export class AlertLifecycleService {
 
     if (!existing) return null;
 
-    return prisma.alert.update({
+    const alert = await prisma.alert.update({
       where: {
         id: alertId,
       },
@@ -185,6 +270,12 @@ export class AlertLifecycleService {
         ),
       },
     });
+
+    if (!existing.acknowledgedAt) {
+      publishAcknowledgedEvent(alert, input.reason);
+    }
+
+    return alert;
   }
 
   public async resolve(alertId: string, input: AlertResolutionInput) {
@@ -198,7 +289,7 @@ export class AlertLifecycleService {
 
     if (!existing) return null;
 
-    return prisma.alert.update({
+    const alert = await prisma.alert.update({
       where: {
         id: alertId,
       },
@@ -216,6 +307,12 @@ export class AlertLifecycleService {
         ),
       },
     });
+
+    if (!existing.resolvedAt) {
+      publishResolvedEvent(alert, input.reason);
+    }
+
+    return alert;
   }
 
   public async acknowledgeMany(
