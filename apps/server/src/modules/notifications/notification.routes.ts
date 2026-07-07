@@ -24,6 +24,10 @@ const listDeliveriesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
 });
 
+const processPendingSchema = z.object({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+});
+
 const enqueueTestSchema = z.object({
   eventType: z.string().min(1).default('SYSTEM_EVENT'),
   severity: z.enum(severityValues).default('info'),
@@ -36,6 +40,11 @@ const enqueueTestSchema = z.object({
 });
 
 export async function notificationRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/v1/notifications/summary', async () => ({
+    success: true,
+    data: notificationService.summary(),
+  }));
+
   app.get('/api/v1/notifications/channels', async () => ({
     success: true,
     data: notificationService.listChannels(),
@@ -70,6 +79,15 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     return {
       success: true,
       data: notificationService.listDeliveries(query.limit),
+    };
+  });
+
+  app.post('/api/v1/notifications/process-pending', async (request) => {
+    const body = processPendingSchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: await notificationService.processPending(body.limit),
     };
   });
 

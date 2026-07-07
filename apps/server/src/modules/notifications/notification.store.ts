@@ -3,8 +3,10 @@ import type {
   CreateNotificationRuleInput,
   NotificationChannel,
   NotificationDelivery,
+  NotificationDeliveryStatus,
   NotificationPayload,
   NotificationRule,
+  NotificationSummary,
 } from './notification.types.js';
 
 function createId(prefix: string): string {
@@ -13,6 +15,10 @@ function createId(prefix: string): string {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function normalizeLimit(limit = 100): number {
+  return Math.min(Math.max(limit, 1), 500);
 }
 
 export class NotificationStore {
@@ -95,6 +101,10 @@ export class NotificationStore {
     return delivery;
   }
 
+  public getDelivery(deliveryId: string): NotificationDelivery | null {
+    return this.deliveries.get(deliveryId) ?? null;
+  }
+
   public markSent(deliveryId: string): NotificationDelivery | null {
     const delivery = this.deliveries.get(deliveryId);
     if (!delivery) return null;
@@ -105,6 +115,8 @@ export class NotificationStore {
       attempts: delivery.attempts + 1,
       updatedAt: nowIso(),
       sentAt: nowIso(),
+      failedAt: undefined,
+      skippedAt: undefined,
       error: undefined,
     };
 
@@ -123,7 +135,25 @@ export class NotificationStore {
       attempts: delivery.attempts + 1,
       updatedAt: nowIso(),
       failedAt: nowIso(),
+      skippedAt: undefined,
       error,
+    };
+
+    this.deliveries.set(deliveryId, updated);
+
+    return updated;
+  }
+
+  public markSkipped(deliveryId: string, reason: string): NotificationDelivery | null {
+    const delivery = this.deliveries.get(deliveryId);
+    if (!delivery) return null;
+
+    const updated: NotificationDelivery = {
+      ...delivery,
+      status: 'skipped',
+      updatedAt: nowIso(),
+      skippedAt: nowIso(),
+      error: reason,
     };
 
     this.deliveries.set(deliveryId, updated);
@@ -134,7 +164,32 @@ export class NotificationStore {
   public listDeliveries(limit = 100): NotificationDelivery[] {
     return [...this.deliveries.values()]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, Math.min(Math.max(limit, 1), 500));
+      .slice(0, normalizeLimit(limit));
+  }
+
+  public listDeliveriesByStatus(
+    status: NotificationDeliveryStatus,
+    limit = 100,
+  ): NotificationDelivery[] {
+    return this.listDeliveries(limit).filter((delivery) => delivery.status === status);
+  }
+
+  public countDeliveriesByStatus(status: NotificationDeliveryStatus): number {
+    return [...this.deliveries.values()].filter((delivery) => delivery.status === status).length;
+  }
+
+  public summary(): NotificationSummary {
+    return {
+      channels: this.channels.size,
+      rules: this.rules.size,
+      deliveries: {
+        pending: this.countDeliveriesByStatus('pending'),
+        sent: this.countDeliveriesByStatus('sent'),
+        failed: this.countDeliveriesByStatus('failed'),
+        skipped: this.countDeliveriesByStatus('skipped'),
+      },
+      generatedAt: nowIso(),
+    };
   }
 
   public clear(): void {

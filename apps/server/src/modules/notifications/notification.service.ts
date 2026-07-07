@@ -1,6 +1,5 @@
-import {
-  notificationRuleMatches,
-} from './notification.matching.js';
+import { notificationRuleMatches } from './notification.matching.js';
+import { notificationDeliveryWorker } from './notification.delivery.js';
 import { notificationStore } from './notification.store.js';
 import type {
   CreateNotificationChannelInput,
@@ -28,6 +27,10 @@ export class NotificationService {
 
   public listDeliveries(limit?: number) {
     return notificationStore.listDeliveries(limit);
+  }
+
+  public summary() {
+    return notificationStore.summary();
   }
 
   public enqueue(payload: NotificationPayload): NotificationDelivery[] {
@@ -59,12 +62,20 @@ export class NotificationService {
     return deliveries;
   }
 
+  public async processPending(limit?: number) {
+    return notificationDeliveryWorker.processPending(limit);
+  }
+
   public markSent(deliveryId: string) {
     return notificationStore.markSent(deliveryId);
   }
 
   public markFailed(deliveryId: string, error: string) {
     return notificationStore.markFailed(deliveryId, error);
+  }
+
+  public markSkipped(deliveryId: string, reason: string) {
+    return notificationStore.markSkipped(deliveryId, reason);
   }
 
   public seedDefaults() {
