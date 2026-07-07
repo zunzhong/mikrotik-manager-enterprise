@@ -1,6 +1,11 @@
 import { RouterOsClient } from '@mme/routeros-sdk';
 import { HttpError } from '../../../errors/http-error.js';
 import { encryptionService } from '../../../security/encryption.service.js';
+import {
+  calculateHealthScore,
+  type HealthReport,
+  type RouterOsHealthLike,
+} from '../health/index.js';
 import { deviceRepository } from '../infrastructure/device.repository.js';
 
 export interface DeviceRealtimeSnapshot {
@@ -12,6 +17,7 @@ export interface DeviceRealtimeSnapshot {
   resource?: object;
   health?: object[];
   interfaces?: object[];
+  healthReport?: HealthReport;
 }
 
 export interface DeviceRealtimeCacheEntry {
@@ -110,6 +116,11 @@ export class DeviceRealtimeService {
         safePrint(client, '/interface/print'),
       ]);
 
+      const healthReport = calculateHealthScore(
+  resource,
+  health as RouterOsHealthLike[],
+);
+
       const snapshot: DeviceRealtimeSnapshot = {
         deviceId,
         collectedAt: new Date().toISOString(),
@@ -118,6 +129,7 @@ export class DeviceRealtimeService {
         resource,
         health,
         interfaces,
+        healthReport,
       };
 
       return this.storeSnapshot(deviceId, snapshot, ttlMs, source, options.pollIntervalMs);

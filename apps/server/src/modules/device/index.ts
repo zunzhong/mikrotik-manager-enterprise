@@ -5,6 +5,7 @@ export * from './application/device-test.service.js';
 export * from './application/routeros-device-action.service.js';
 export * from './application/routeros-device-probe.service.js';
 export * from './domain/routeros-connection.types.js';
+export * from './health/index.js';
 export * from './infrastructure/device.repository.js';
 export * from './infrastructure/routeros-sdk.adapter.js';
 export * from './presentation/device.routes.js';
