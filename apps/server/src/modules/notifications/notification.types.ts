@@ -1,0 +1,73 @@
+export type NotificationChannelType = 'email' | 'webhook' | 'slack' | 'telegram' | 'in_app';
+
+export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
+
+export type NotificationDeliveryStatus =
+  | 'pending'
+  | 'sent'
+  | 'failed'
+  | 'skipped';
+
+export interface NotificationChannel {
+  id: string;
+  name: string;
+  type: NotificationChannelType;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  config: Record<string, unknown>;
+}
+
+export interface NotificationRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  eventTypes: string[];
+  severities: NotificationSeverity[];
+  channelIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationPayload {
+  eventId?: string;
+  eventType: string;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  source: string;
+  deviceId?: string;
+  deviceName?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface NotificationDelivery {
+  id: string;
+  ruleId: string;
+  channelId: string;
+  channelType: NotificationChannelType;
+  status: NotificationDeliveryStatus;
+  payload: NotificationPayload;
+  attempts: number;
+  createdAt: string;
+  updatedAt: string;
+  sentAt?: string;
+  failedAt?: string;
+  error?: string;
+}
+
+export interface CreateNotificationChannelInput {
+  name: string;
+  type: NotificationChannelType;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface CreateNotificationRuleInput {
+  name: string;
+  enabled?: boolean;
+  eventTypes: string[];
+  severities: NotificationSeverity[];
+  channelIds: string[];
+}
