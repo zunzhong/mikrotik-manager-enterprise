@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { usePollingData } from '../hooks/usePollingData';
 import { dashboardApi } from '../modules/dashboard/dashboard.api';
+import { notificationApi } from '../modules/notifications/notification.api';
+import { NotificationPanel } from '../modules/notifications/NotificationPanel';
 import { alertLifecycleApi } from '../modules/alert-lifecycle/alert-lifecycle.api';
 import { AlertLifecyclePanel } from '../modules/alert-lifecycle/AlertLifecyclePanel';
 import { HealthDashboardSummary } from '../modules/dashboard/components/HealthDashboardSummary';
@@ -21,6 +23,9 @@ export function DashboardPage() {
   const loadHealthEvents = useCallback(() => eventApi.list({ limit: 25 }), []);
   const loadAlertLifecycleSummary = useCallback(() => alertLifecycleApi.summary(), []);
   const loadActiveAlerts = useCallback(() => alertLifecycleApi.active(), []);
+  const loadNotificationChannels = useCallback(() => notificationApi.channels(), []);
+  const loadNotificationRules = useCallback(() => notificationApi.rules(), []);
+  const loadNotificationDeliveries = useCallback(() => notificationApi.deliveries(100), []);
 
   const summary = usePollingData(loadSummary, { enabled: true, intervalMs: 30000 });
   const devices = usePollingData(loadDevices, { enabled: true, intervalMs: 30000 });
@@ -32,6 +37,9 @@ export function DashboardPage() {
   const healthEvents = usePollingData(loadHealthEvents, { enabled: true, intervalMs: 30000 });
   const alertLifecycleSummary = usePollingData(loadAlertLifecycleSummary, { enabled: true, intervalMs: 30000 });
   const activeAlerts = usePollingData(loadActiveAlerts, { enabled: true, intervalMs: 30000 });
+  const notificationChannels = usePollingData(loadNotificationChannels, { enabled: true, intervalMs: 30000 });
+  const notificationRules = usePollingData(loadNotificationRules, { enabled: true, intervalMs: 30000 });
+  const notificationDeliveries = usePollingData(loadNotificationDeliveries, { enabled: true, intervalMs: 30000 });
 
   const data = summary.data;
 
@@ -46,6 +54,9 @@ export function DashboardPage() {
     healthEvents.refresh();
     alertLifecycleSummary.refresh();
     activeAlerts.refresh();
+    notificationChannels.refresh();
+    notificationRules.refresh();
+    notificationDeliveries.refresh();
   }
 
   return (
@@ -70,6 +81,9 @@ export function DashboardPage() {
           healthEvents.setEnabled(enabled);
           alertLifecycleSummary.setEnabled(enabled);
           activeAlerts.setEnabled(enabled);
+          notificationChannels.setEnabled(enabled);
+          notificationRules.setEnabled(enabled);
+          notificationDeliveries.setEnabled(enabled);
         }}
         intervalMs={summary.intervalMs}
         setIntervalMs={(intervalMs) => {
@@ -83,6 +97,9 @@ export function DashboardPage() {
           healthEvents.setIntervalMs(intervalMs);
           alertLifecycleSummary.setIntervalMs(intervalMs);
           activeAlerts.setIntervalMs(intervalMs);
+          notificationChannels.setIntervalMs(intervalMs);
+          notificationRules.setIntervalMs(intervalMs);
+          notificationDeliveries.setIntervalMs(intervalMs);
         }}
         lastUpdatedAt={summary.lastUpdatedAt}
         onRefresh={refreshAll}
@@ -135,6 +152,20 @@ export function DashboardPage() {
           alertLifecycleSummary.refresh();
           activeAlerts.refresh();
           alerts.refresh();
+          activity.refresh();
+        }}
+      />
+
+      <NotificationPanel
+        channels={notificationChannels.data ?? []}
+        rules={notificationRules.data ?? []}
+        deliveries={notificationDeliveries.data ?? []}
+        loading={notificationChannels.loading || notificationRules.loading || notificationDeliveries.loading}
+        error={notificationChannels.error ?? notificationRules.error ?? notificationDeliveries.error}
+        onChanged={() => {
+          notificationChannels.refresh();
+          notificationRules.refresh();
+          notificationDeliveries.refresh();
           activity.refresh();
         }}
       />
