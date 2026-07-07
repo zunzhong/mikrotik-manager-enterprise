@@ -19,8 +19,16 @@ const alertParamsSchema = z.object({
   id: z.string().min(1),
 });
 
+const deviceParamsSchema = z.object({
+  deviceId: z.string().min(1),
+});
+
 const actionBodySchema = z.object({
   reason: z.string().min(1).optional(),
+});
+
+const bulkActionBodySchema = actionBodySchema.extend({
+  alertIds: z.array(z.string().min(1)).min(1).max(500),
 });
 
 function splitEnum<T extends readonly string[]>(
@@ -64,6 +72,49 @@ export async function alertLifecycleRoutes(app: FastifyInstance): Promise<void> 
     success: true,
     data: await alertLifecycleService.listActive(),
   }));
+
+  app.post('/api/v1/alert-lifecycle/bulk/acknowledge', async (request) => {
+    const body = bulkActionBodySchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: await alertLifecycleService.acknowledgeMany(body.alertIds, {
+        reason: body.reason ?? 'Bulk acknowledged manually',
+        metadata: {
+          action: 'bulk_manual_acknowledge',
+        },
+      }),
+    };
+  });
+
+  app.post('/api/v1/alert-lifecycle/bulk/resolve', async (request) => {
+    const body = bulkActionBodySchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: await alertLifecycleService.resolveMany(body.alertIds, {
+        reason: body.reason ?? 'Bulk resolved manually',
+        metadata: {
+          action: 'bulk_manual_resolve',
+        },
+      }),
+    };
+  });
+
+  app.post('/api/v1/alert-lifecycle/device/:deviceId/resolve-active', async (request) => {
+    const params = deviceParamsSchema.parse(request.params);
+    const body = actionBodySchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: await alertLifecycleService.resolveActiveForDevice(params.deviceId, {
+        reason: body.reason ?? 'Resolved all active device alerts manually',
+        metadata: {
+          action: 'manual_resolve_device_active',
+        },
+      }),
+    };
+  });
 
   app.get('/api/v1/alert-lifecycle/:id', async (request) => {
     const params = alertParamsSchema.parse(request.params);

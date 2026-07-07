@@ -18,3 +18,14 @@ export interface AlertResolutionInput {
   reason: string;
   metadata?: Record<string, unknown>;
 }
+
+export interface AlertLifecycleBulkActionInput extends AlertResolutionInput {
+  alertIds: string[];
+}
+
+export interface AlertLifecycleBulkActionResult<TAlert = unknown> {
+  requested: number;
+  updated: number;
+  missing: number;
+  alerts: TAlert[];
+}

@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/index.js';
 import type {
+  AlertLifecycleBulkActionResult,
   AlertLifecycleSeverity,
   AlertLifecycleStatus,
   AlertResolutionInput,
@@ -85,6 +86,10 @@ function mergeMetadata(
 
 function normalizeLimit(limit: number | undefined): number {
   return Math.min(Math.max(limit ?? 100, 1), 500);
+}
+
+function compact<T>(items: Array<T | null>): T[] {
+  return items.filter((item): item is T => item !== null);
 }
 
 export class AlertLifecycleService {
@@ -213,6 +218,36 @@ export class AlertLifecycleService {
     });
   }
 
+  public async acknowledgeMany(
+    alertIds: string[],
+    input: AlertResolutionInput,
+  ): Promise<AlertLifecycleBulkActionResult> {
+    const uniqueIds = [...new Set(alertIds)];
+    const alerts = compact(await Promise.all(uniqueIds.map((id) => this.acknowledge(id, input))));
+
+    return {
+      requested: uniqueIds.length,
+      updated: alerts.length,
+      missing: uniqueIds.length - alerts.length,
+      alerts,
+    };
+  }
+
+  public async resolveMany(
+    alertIds: string[],
+    input: AlertResolutionInput,
+  ): Promise<AlertLifecycleBulkActionResult> {
+    const uniqueIds = [...new Set(alertIds)];
+    const alerts = compact(await Promise.all(uniqueIds.map((id) => this.resolve(id, input))));
+
+    return {
+      requested: uniqueIds.length,
+      updated: alerts.length,
+      missing: uniqueIds.length - alerts.length,
+      alerts,
+    };
+  }
+
   public async resolveForDevice(
     deviceId: string,
     ruleKeys: string[],
@@ -238,6 +273,32 @@ export class AlertLifecycleService {
     });
 
     return Promise.all(alerts.map((alert) => this.resolve(alert.id, input)));
+  }
+
+  public async resolveActiveForDevice(
+    deviceId: string,
+    input: AlertResolutionInput,
+  ): Promise<AlertLifecycleBulkActionResult> {
+    const alerts = await prisma.alert.findMany({
+      where: {
+        deviceId,
+        status: {
+          in: ['open', 'acknowledged'],
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const resolved = compact(await Promise.all(alerts.map((alert) => this.resolve(alert.id, input))));
+
+    return {
+      requested: alerts.length,
+      updated: resolved.length,
+      missing: alerts.length - resolved.length,
+      alerts: resolved,
+    };
   }
 
   public async list(query: AlertLifecycleListQuery = {}) {
