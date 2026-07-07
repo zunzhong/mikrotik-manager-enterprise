@@ -52,3 +52,14 @@ export interface AlertLifecycleListQuery {
 export interface AlertLifecycleActionInput {
   reason?: string;
 }
+
+export interface AlertLifecycleBulkActionInput extends AlertLifecycleActionInput {
+  alertIds: string[];
+}
+
+export interface AlertLifecycleBulkActionResult {
+  requested: number;
+  updated: number;
+  missing: number;
+  alerts: AlertLifecycleItem[];
+}

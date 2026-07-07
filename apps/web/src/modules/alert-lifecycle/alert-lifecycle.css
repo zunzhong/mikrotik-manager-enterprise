@@ -23,7 +23,8 @@
 .alert-lifecycle-panel__eyebrow,
 .alert-lifecycle-panel__header p,
 .alert-lifecycle-panel__alert p,
-.alert-lifecycle-panel__alert small {
+.alert-lifecycle-panel__alert small,
+.alert-lifecycle-panel__toolbar span {
   color: #94a3b8;
 }
 
@@ -43,6 +44,32 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.alert-lifecycle-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+}
+
+.alert-lifecycle-panel__toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-lifecycle-panel__toolbar button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.45);
+  color: inherit;
+  cursor: pointer;
+}
+
 .alert-lifecycle-panel__list {
   display: grid;
   gap: 12px;
@@ -56,6 +83,11 @@
   padding: 14px;
 }
 
+.alert-lifecycle-panel__alert[data-selected='true'] {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
 .alert-lifecycle-panel__alert[data-severity='critical'] {
   border-color: rgba(239, 68, 68, 0.35);
 }
@@ -65,9 +97,14 @@
 }
 
 .alert-lifecycle-panel__alert-main {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.alert-lifecycle-panel__selector {
+  padding-top: 2px;
 }
 
 .alert-lifecycle-panel__alert-main span {
@@ -103,11 +140,13 @@
   cursor: pointer;
 }
 
-[data-theme='light'] .alert-lifecycle-panel__actions button {
+[data-theme='light'] .alert-lifecycle-panel__actions button,
+[data-theme='light'] .alert-lifecycle-panel__toolbar button {
   background: #f8fafc;
 }
 
-.alert-lifecycle-panel__actions button:disabled {
+.alert-lifecycle-panel__actions button:disabled,
+.alert-lifecycle-panel__toolbar button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -119,9 +158,16 @@
 }
 
 @media (max-width: 720px) {
-  .alert-lifecycle-panel__header,
-  .alert-lifecycle-panel__alert-main {
+  .alert-lifecycle-panel__header {
     flex-direction: column;
+  }
+
+  .alert-lifecycle-panel__alert-main {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .alert-lifecycle-panel__alert-main span {
+    grid-column: 2;
   }
 
   .alert-lifecycle-panel__cards {

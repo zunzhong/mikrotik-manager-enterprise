@@ -1,6 +1,8 @@
 import { apiGet, apiPost } from '../../lib/api';
 import type {
   AlertLifecycleActionInput,
+  AlertLifecycleBulkActionInput,
+  AlertLifecycleBulkActionResult,
   AlertLifecycleItem,
   AlertLifecycleListQuery,
   AlertLifecycleSummary,
@@ -43,4 +45,16 @@ export const alertLifecycleApi = {
 
   resolve: (id: string, input: AlertLifecycleActionInput = {}) =>
     apiPost<AlertLifecycleItem>(`/api/v1/alert-lifecycle/${id}/resolve`, input),
+
+  bulkAcknowledge: (input: AlertLifecycleBulkActionInput) =>
+    apiPost<AlertLifecycleBulkActionResult>('/api/v1/alert-lifecycle/bulk/acknowledge', input),
+
+  bulkResolve: (input: AlertLifecycleBulkActionInput) =>
+    apiPost<AlertLifecycleBulkActionResult>('/api/v1/alert-lifecycle/bulk/resolve', input),
+
+  resolveActiveForDevice: (deviceId: string, input: AlertLifecycleActionInput = {}) =>
+    apiPost<AlertLifecycleBulkActionResult>(
+      `/api/v1/alert-lifecycle/device/${deviceId}/resolve-active`,
+      input,
+    ),
 };
