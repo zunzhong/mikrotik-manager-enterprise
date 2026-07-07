@@ -6,6 +6,7 @@ import type {
   InventorySnapshotDetail,
   InventorySnapshotSummary,
 } from './device-inventory.types';
+import type { DeviceRealtimeSnapshot } from './device-realtime.types';
 import type {
   Device,
   DeviceInput,
@@ -36,6 +37,12 @@ export const deviceApi = {
     apiPatch<Device>(`/api/v1/devices/${id}`, input),
 
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
+
+  getRealtimeSnapshot: (id: string) =>
+    apiGet<DeviceRealtimeSnapshot>(`/api/v1/devices/${id}/realtime`),
+
+  refreshRealtimeSnapshot: (id: string) =>
+    apiPost<DeviceRealtimeSnapshot>(`/api/v1/devices/${id}/realtime/refresh`),
 
   pingDevice: (id: string, input: DevicePingInput = {}) =>
     apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping`, input),
@@ -102,6 +109,8 @@ export type {
   InventorySnapshotDetail,
   InventorySnapshotSummary,
 } from './device-inventory.types';
+
+export type { DeviceRealtimeSnapshot, RealtimeMetric } from './device-realtime.types';
 
 export type {
   Device,

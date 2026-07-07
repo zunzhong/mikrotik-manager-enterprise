@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { deviceRealtimeService } from '../application/device-realtime.service.js';
 import { deviceService } from '../application/device.service.js';
 import { deviceTestService } from '../application/device-test.service.js';
 import { routerOsDeviceActionService } from '../application/routeros-device-action.service.js';
@@ -61,6 +62,24 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
   app.delete('/api/v1/devices/:id', async (request) => {
     const params = deviceIdParamsSchema.parse(request.params);
     return { success: true, data: await deviceService.delete(params.id) };
+  });
+
+  app.get('/api/v1/devices/:id/realtime', async (request) => {
+    const params = deviceIdParamsSchema.parse(request.params);
+
+    return {
+      success: true,
+      data: await deviceRealtimeService.getSnapshot(params.id),
+    };
+  });
+
+  app.post('/api/v1/devices/:id/realtime/refresh', async (request) => {
+    const params = deviceIdParamsSchema.parse(request.params);
+
+    return {
+      success: true,
+      data: await deviceRealtimeService.refreshSnapshot(params.id),
+    };
   });
 
   app.post('/api/v1/devices/:id/actions/ping', async (request) => {

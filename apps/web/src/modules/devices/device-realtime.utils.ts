@@ -1,54 +1,53 @@
-import type { InventorySnapshotSummary } from './device-inventory.types';
-import { snapshotSummary } from './device-dashboard.utils';
+import type { DeviceRealtimeSnapshot, RealtimeMetric } from './device-realtime.types';
 
-export interface RealtimeMetric {
-  label: string;
-  value: string;
-  hint?: string;
+function text(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return undefined;
 }
 
-function safeValue(value: string | undefined, fallback = 'N/A'): string {
-  return value && value.length > 0 ? value : fallback;
+function safeValue(value: unknown, fallback = 'N/A'): string {
+  return text(value) ?? fallback;
 }
 
-export function buildRealtimeMetrics(snapshot: InventorySnapshotSummary | null): RealtimeMetric[] {
-  const summary = snapshotSummary(snapshot);
+export function buildRealtimeMetrics(snapshot: DeviceRealtimeSnapshot | null): RealtimeMetric[] {
+  const resource = snapshot?.resource ?? {};
 
   return [
     {
-      label: 'RouterOS',
-      value: safeValue(summary.version),
-      hint: 'Detected from latest inventory snapshot',
+      label: 'Status',
+      value: snapshot?.online ? 'Online' : 'Offline',
+      hint: snapshot?.error,
+    },
+    {
+      label: 'Latency',
+      value: snapshot ? `${snapshot.latencyMs}ms` : 'N/A',
+      hint: 'API round trip for realtime snapshot',
     },
     {
       label: 'CPU Load',
-      value: safeValue(summary.cpuLoad),
+      value: safeValue(resource.cpuLoad),
       hint: 'Current resource CPU load',
     },
     {
       label: 'Uptime',
-      value: safeValue(summary.uptime),
+      value: safeValue(resource.uptime),
       hint: 'Router uptime',
     },
     {
-      label: 'Architecture',
-      value: safeValue(summary.architecture),
-      hint: 'RouterOS architecture',
-    },
-    {
       label: 'Free Memory',
-      value: safeValue(summary.freeMemory),
-      hint: summary.totalMemory ? `Total: ${summary.totalMemory}` : undefined,
+      value: safeValue(resource.freeMemory),
+      hint: text(resource.totalMemory) ? `Total: ${String(resource.totalMemory)}` : undefined,
     },
     {
       label: 'Free Disk',
-      value: safeValue(summary.freeDisk),
-      hint: summary.totalDisk ? `Total: ${summary.totalDisk}` : undefined,
+      value: safeValue(resource.freeHddSpace),
+      hint: text(resource.totalHddSpace) ? `Total: ${String(resource.totalHddSpace)}` : undefined,
     },
   ];
 }
 
-export function snapshotAge(snapshot: InventorySnapshotSummary | null): string {
+export function snapshotAge(snapshot: DeviceRealtimeSnapshot | null): string {
   if (!snapshot?.collectedAt) return 'No snapshot';
 
   const collectedAt = new Date(snapshot.collectedAt).getTime();

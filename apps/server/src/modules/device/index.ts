@@ -1,3 +1,4 @@
+export * from './application/device-realtime.service.js';
 export * from './application/device.service.js';
 export * from './application/device-test.service.js';
 export * from './application/routeros-device-action.service.js';

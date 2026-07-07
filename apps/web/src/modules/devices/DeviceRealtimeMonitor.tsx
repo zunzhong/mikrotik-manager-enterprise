@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
-import type { InventorySnapshotSummary } from './device-inventory.types';
+import type { DeviceRealtimeSnapshot } from './device-realtime.types';
 import { buildRealtimeMetrics, snapshotAge } from './device-realtime.utils';
 
 export interface DeviceRealtimeMonitorProps {
@@ -10,7 +10,7 @@ export interface DeviceRealtimeMonitorProps {
 const refreshOptions = [5000, 10000, 30000];
 
 export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) {
-  const [snapshot, setSnapshot] = useState<InventorySnapshotSummary | null>(null);
+  const [snapshot, setSnapshot] = useState<DeviceRealtimeSnapshot | null>(null);
   const [refreshMs, setRefreshMs] = useState(5000);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
     setError(null);
 
     try {
-      const latest = await deviceApi.latestInventorySnapshot(deviceId);
+      const latest = await deviceApi.getRealtimeSnapshot(deviceId);
       setSnapshot(latest);
       setLastLoadedAt(new Date().toLocaleTimeString());
     } catch (err) {
@@ -31,15 +31,17 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
     }
   }
 
-  async function syncAndLoad() {
+  async function refresh() {
     setLoading(true);
     setError(null);
 
     try {
-      await deviceApi.collectInventory(deviceId);
-      await load();
+      const latest = await deviceApi.refreshRealtimeSnapshot(deviceId);
+      setSnapshot(latest);
+      setLastLoadedAt(new Date().toLocaleTimeString());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cannot sync realtime data');
+      setError(err instanceof Error ? err.message : 'Cannot refresh realtime data');
+    } finally {
       setLoading(false);
     }
   }
@@ -65,9 +67,9 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       <header className="device-realtime-monitor__header">
         <div>
           <p className="device-realtime-monitor__eyebrow">Realtime Monitor</p>
-          <h3>Live Status Foundation</h3>
+          <h3>Realtime Cache</h3>
           <p className="device-realtime-monitor__muted">
-            Source: latest inventory snapshot · Age: {snapshotAge(snapshot)} · Last UI refresh: {lastLoadedAt || 'N/A'}
+            Source: backend realtime cache · Age: {snapshotAge(snapshot)} · Last UI refresh: {lastLoadedAt || 'N/A'}
           </p>
         </div>
 
@@ -94,11 +96,11 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
           </select>
 
           <button type="button" onClick={() => void load()}>
-            Refresh Now
+            Read Cache
           </button>
 
-          <button type="button" onClick={() => void syncAndLoad()} disabled={loading}>
-            {loading ? 'Syncing...' : 'Sync Snapshot'}
+          <button type="button" onClick={() => void refresh()} disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh Router'}
           </button>
         </div>
       </header>
@@ -106,11 +108,10 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       {error ? <div className="device-realtime-monitor__error">{error}</div> : null}
 
       <div className="device-realtime-monitor__status">
-        <span data-state={snapshot ? 'online' : 'unknown'} />
-        <strong>{snapshot ? 'Snapshot Available' : 'No Snapshot'}</strong>
+        <span data-state={snapshot?.online ? 'online' : 'unknown'} />
+        <strong>{snapshot?.online ? 'Online' : 'Offline / Unknown'}</strong>
         <p>
-          True streaming telemetry will be connected after backend WebSocket/SSE is added.
-          This screen is the UI foundation and already refreshes automatically.
+          This screen now reads from backend realtime cache. WebSocket/SSE streaming will be added in the next realtime task.
         </p>
       </div>
 
