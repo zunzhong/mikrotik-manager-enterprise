@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import { usePollingData } from '../hooks/usePollingData';
 import { dashboardApi } from '../modules/dashboard/dashboard.api';
+import { HealthDashboardSummary } from '../modules/dashboard/components/HealthDashboardSummary';
+import { deviceApi } from '../modules/devices/device.api';
+import { eventApi } from '../modules/events/event.api';
 import { DashboardRefreshBar } from '../modules/dashboard/components/DashboardRefreshBar';
 import { SummaryCard } from '../modules/dashboard/components/SummaryCard';
 import { WidgetCard } from '../modules/dashboard/components/WidgetCard';
@@ -12,6 +15,8 @@ export function DashboardPage() {
   const loadCompliance = useCallback(() => dashboardApi.compliance(), []);
   const loadInventory = useCallback(() => dashboardApi.inventory(), []);
   const loadActivity = useCallback(() => dashboardApi.activity(), []);
+  const loadRealtimeOverview = useCallback(() => deviceApi.getRealtimeOverview(), []);
+  const loadHealthEvents = useCallback(() => eventApi.list({ limit: 25 }), []);
 
   const summary = usePollingData(loadSummary, { enabled: true, intervalMs: 30000 });
   const devices = usePollingData(loadDevices, { enabled: true, intervalMs: 30000 });
@@ -19,6 +24,8 @@ export function DashboardPage() {
   const compliance = usePollingData(loadCompliance, { enabled: true, intervalMs: 60000 });
   const inventory = usePollingData(loadInventory, { enabled: true, intervalMs: 60000 });
   const activity = usePollingData(loadActivity, { enabled: true, intervalMs: 30000 });
+  const realtimeOverview = usePollingData(loadRealtimeOverview, { enabled: true, intervalMs: 30000 });
+  const healthEvents = usePollingData(loadHealthEvents, { enabled: true, intervalMs: 30000 });
 
   const data = summary.data;
 
@@ -29,6 +36,8 @@ export function DashboardPage() {
     compliance.refresh();
     inventory.refresh();
     activity.refresh();
+    realtimeOverview.refresh();
+    healthEvents.refresh();
   }
 
   return (
@@ -49,6 +58,8 @@ export function DashboardPage() {
           compliance.setEnabled(enabled);
           inventory.setEnabled(enabled);
           activity.setEnabled(enabled);
+          realtimeOverview.setEnabled(enabled);
+          healthEvents.setEnabled(enabled);
         }}
         intervalMs={summary.intervalMs}
         setIntervalMs={(intervalMs) => {
@@ -58,6 +69,8 @@ export function DashboardPage() {
           compliance.setIntervalMs(intervalMs);
           inventory.setIntervalMs(intervalMs);
           activity.setIntervalMs(intervalMs);
+          realtimeOverview.setIntervalMs(intervalMs);
+          healthEvents.setIntervalMs(intervalMs);
         }}
         lastUpdatedAt={summary.lastUpdatedAt}
         onRefresh={refreshAll}
@@ -89,6 +102,17 @@ export function DashboardPage() {
           hint="inventory records"
         />
       </div>
+
+      <HealthDashboardSummary
+        overview={realtimeOverview.data}
+        events={healthEvents.data ?? []}
+        loading={realtimeOverview.loading || healthEvents.loading}
+        error={realtimeOverview.error ?? healthEvents.error}
+        onRefresh={() => {
+          realtimeOverview.refresh();
+          healthEvents.refresh();
+        }}
+      />
 
       <div className="dashboard-grid">
         <WidgetCard title="Device Status" description="Latest managed device states">

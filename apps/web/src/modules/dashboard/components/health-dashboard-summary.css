@@ -1,0 +1,108 @@
+.health-dashboard-summary {
+  display: grid;
+  gap: 16px;
+  margin: 18px 0;
+}
+
+.health-dashboard-summary__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+[data-theme='light'] .health-dashboard-summary__header {
+  background: #fff;
+  border-color: #dbe3ef;
+}
+
+.health-dashboard-summary__eyebrow,
+.health-dashboard-summary__header p,
+.health-dashboard-summary__row small {
+  color: #94a3b8;
+}
+
+.health-dashboard-summary__header h3 {
+  margin: 4px 0;
+}
+
+.health-dashboard-summary__cards {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.health-dashboard-summary__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.health-dashboard-summary__device-list,
+.health-dashboard-summary__event-list {
+  display: grid;
+  gap: 10px;
+}
+
+.health-dashboard-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.health-dashboard-summary__row div {
+  display: grid;
+  gap: 4px;
+}
+
+.health-dashboard-summary__row span {
+  white-space: nowrap;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.health-dashboard-summary__row[data-status='healthy'] span,
+.health-dashboard-summary__row[data-status='success'] span {
+  color: #22c55e;
+}
+
+.health-dashboard-summary__row[data-status='warning'] span {
+  color: #f59e0b;
+}
+
+.health-dashboard-summary__row[data-status='critical'] span {
+  color: #ef4444;
+}
+
+.health-dashboard-summary__row[data-status='unknown'] span,
+.health-dashboard-summary__row[data-status='info'] span {
+  color: #94a3b8;
+}
+
+@media (max-width: 1100px) {
+  .health-dashboard-summary__cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .health-dashboard-summary__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .health-dashboard-summary__header {
+    flex-direction: column;
+  }
+
+  .health-dashboard-summary__cards {
+    grid-template-columns: 1fr;
+  }
+}
