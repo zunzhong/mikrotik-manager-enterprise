@@ -1,3 +1,31 @@
+export type HealthStatus = 'healthy' | 'warning' | 'critical';
+
+export type HealthIssueCode =
+  | 'CPU_HIGH'
+  | 'MEMORY_LOW'
+  | 'DISK_LOW'
+  | 'TEMPERATURE_HIGH'
+  | 'VOLTAGE_WARNING'
+  | 'UNKNOWN';
+
+export interface HealthIssue {
+  code: HealthIssueCode;
+  status: HealthStatus;
+  title: string;
+  message: string;
+  value?: number;
+  threshold?: number;
+  unit?: string;
+  recommendation?: string;
+}
+
+export interface HealthReport {
+  score: number;
+  status: HealthStatus;
+  issues: HealthIssue[];
+  evaluatedAt: string;
+}
+
 export interface DeviceRealtimeSnapshot {
   deviceId: string;
   collectedAt: string;
@@ -7,6 +35,7 @@ export interface DeviceRealtimeSnapshot {
   resource?: Record<string, unknown>;
   health?: Record<string, unknown>[];
   interfaces?: Record<string, unknown>[];
+  healthReport?: HealthReport;
   cache?: {
     source: 'manual' | 'scheduler' | 'cache-miss';
     expiresAt: string;

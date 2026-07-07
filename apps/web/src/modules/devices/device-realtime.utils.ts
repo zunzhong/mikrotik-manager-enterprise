@@ -84,3 +84,18 @@ export function ageFromIso(value: string): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
+
+
+export function healthStatusLabel(status: string | undefined): string {
+  if (status === 'healthy') return 'Healthy';
+  if (status === 'warning') return 'Warning';
+  if (status === 'critical') return 'Critical';
+  return 'Unknown';
+}
+
+export function healthStatusHint(status: string | undefined): string {
+  if (status === 'healthy') return 'No active health issues detected.';
+  if (status === 'warning') return 'Device has warning-level health issues.';
+  if (status === 'critical') return 'Device has critical health issues that need attention.';
+  return 'Health report is not available yet.';
+}

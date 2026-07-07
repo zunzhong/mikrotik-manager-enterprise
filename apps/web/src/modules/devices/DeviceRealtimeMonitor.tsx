@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
+import { DeviceHealthCard } from './DeviceHealthCard';
 import type {
   DeviceRealtimeSchedulerStatus,
   DeviceRealtimeSnapshot,
@@ -265,6 +266,8 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
           Devices in scheduler: {scheduler?.deviceCount ?? 0}
         </p>
       </div>
+
+      <DeviceHealthCard report={snapshot?.healthReport} online={snapshot?.online} />
 
       {scheduler?.lastError ? (
         <div className="device-realtime-monitor__error">{scheduler.lastError}</div>
