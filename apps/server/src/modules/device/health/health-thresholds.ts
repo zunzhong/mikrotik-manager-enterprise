@@ -1,0 +1,18 @@
+export const HEALTH_SCORE_MAX = 100;
+export const HEALTH_WARNING_PENALTY = 10;
+export const HEALTH_CRITICAL_PENALTY = 25;
+
+export const CPU_WARNING_PERCENT = 70;
+export const CPU_CRITICAL_PERCENT = 90;
+
+export const MEMORY_WARNING_PERCENT = 80;
+export const MEMORY_CRITICAL_PERCENT = 90;
+
+export const DISK_WARNING_PERCENT = 80;
+export const DISK_CRITICAL_PERCENT = 90;
+
+export const TEMPERATURE_WARNING_CELSIUS = 55;
+export const TEMPERATURE_CRITICAL_CELSIUS = 65;
+
+export const VOLTAGE_LOW_WARNING = 10;
+export const VOLTAGE_HIGH_WARNING = 60;
