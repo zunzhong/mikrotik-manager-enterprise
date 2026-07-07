@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { usePollingData } from '../hooks/usePollingData';
 import { dashboardApi } from '../modules/dashboard/dashboard.api';
+import { alertLifecycleApi } from '../modules/alert-lifecycle/alert-lifecycle.api';
+import { AlertLifecyclePanel } from '../modules/alert-lifecycle/AlertLifecyclePanel';
 import { HealthDashboardSummary } from '../modules/dashboard/components/HealthDashboardSummary';
 import { deviceApi } from '../modules/devices/device.api';
 import { eventApi } from '../modules/events/event.api';
@@ -17,6 +19,8 @@ export function DashboardPage() {
   const loadActivity = useCallback(() => dashboardApi.activity(), []);
   const loadRealtimeOverview = useCallback(() => deviceApi.getRealtimeOverview(), []);
   const loadHealthEvents = useCallback(() => eventApi.list({ limit: 25 }), []);
+  const loadAlertLifecycleSummary = useCallback(() => alertLifecycleApi.summary(), []);
+  const loadActiveAlerts = useCallback(() => alertLifecycleApi.active(), []);
 
   const summary = usePollingData(loadSummary, { enabled: true, intervalMs: 30000 });
   const devices = usePollingData(loadDevices, { enabled: true, intervalMs: 30000 });
@@ -26,6 +30,8 @@ export function DashboardPage() {
   const activity = usePollingData(loadActivity, { enabled: true, intervalMs: 30000 });
   const realtimeOverview = usePollingData(loadRealtimeOverview, { enabled: true, intervalMs: 30000 });
   const healthEvents = usePollingData(loadHealthEvents, { enabled: true, intervalMs: 30000 });
+  const alertLifecycleSummary = usePollingData(loadAlertLifecycleSummary, { enabled: true, intervalMs: 30000 });
+  const activeAlerts = usePollingData(loadActiveAlerts, { enabled: true, intervalMs: 30000 });
 
   const data = summary.data;
 
@@ -38,6 +44,8 @@ export function DashboardPage() {
     activity.refresh();
     realtimeOverview.refresh();
     healthEvents.refresh();
+    alertLifecycleSummary.refresh();
+    activeAlerts.refresh();
   }
 
   return (
@@ -60,6 +68,8 @@ export function DashboardPage() {
           activity.setEnabled(enabled);
           realtimeOverview.setEnabled(enabled);
           healthEvents.setEnabled(enabled);
+          alertLifecycleSummary.setEnabled(enabled);
+          activeAlerts.setEnabled(enabled);
         }}
         intervalMs={summary.intervalMs}
         setIntervalMs={(intervalMs) => {
@@ -71,6 +81,8 @@ export function DashboardPage() {
           activity.setIntervalMs(intervalMs);
           realtimeOverview.setIntervalMs(intervalMs);
           healthEvents.setIntervalMs(intervalMs);
+          alertLifecycleSummary.setIntervalMs(intervalMs);
+          activeAlerts.setIntervalMs(intervalMs);
         }}
         lastUpdatedAt={summary.lastUpdatedAt}
         onRefresh={refreshAll}
@@ -111,6 +123,19 @@ export function DashboardPage() {
         onRefresh={() => {
           realtimeOverview.refresh();
           healthEvents.refresh();
+        }}
+      />
+
+      <AlertLifecyclePanel
+        summary={alertLifecycleSummary.data}
+        alerts={activeAlerts.data ?? []}
+        loading={alertLifecycleSummary.loading || activeAlerts.loading}
+        error={alertLifecycleSummary.error ?? activeAlerts.error}
+        onChanged={() => {
+          alertLifecycleSummary.refresh();
+          activeAlerts.refresh();
+          alerts.refresh();
+          activity.refresh();
         }}
       />
 

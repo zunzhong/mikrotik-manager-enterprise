@@ -1,0 +1,130 @@
+.alert-lifecycle-panel {
+  display: grid;
+  gap: 16px;
+  margin: 18px 0;
+}
+
+.alert-lifecycle-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+[data-theme='light'] .alert-lifecycle-panel__header {
+  background: #fff;
+  border-color: #dbe3ef;
+}
+
+.alert-lifecycle-panel__eyebrow,
+.alert-lifecycle-panel__header p,
+.alert-lifecycle-panel__alert p,
+.alert-lifecycle-panel__alert small {
+  color: #94a3b8;
+}
+
+.alert-lifecycle-panel__header h3 {
+  margin: 4px 0;
+}
+
+.alert-lifecycle-panel__header > strong {
+  font-size: 36px;
+  line-height: 1;
+  color: #f59e0b;
+}
+
+.alert-lifecycle-panel__cards {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.alert-lifecycle-panel__list {
+  display: grid;
+  gap: 12px;
+}
+
+.alert-lifecycle-panel__alert {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.alert-lifecycle-panel__alert[data-severity='critical'] {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.alert-lifecycle-panel__alert[data-severity='warning'] {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.alert-lifecycle-panel__alert-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.alert-lifecycle-panel__alert-main span {
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.alert-lifecycle-panel__alert[data-severity='critical'] .alert-lifecycle-panel__alert-main span {
+  color: #ef4444;
+}
+
+.alert-lifecycle-panel__alert[data-severity='warning'] .alert-lifecycle-panel__alert-main span {
+  color: #f59e0b;
+}
+
+.alert-lifecycle-panel__alert[data-severity='info'] .alert-lifecycle-panel__alert-main span {
+  color: #94a3b8;
+}
+
+.alert-lifecycle-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.alert-lifecycle-panel__actions button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.45);
+  color: inherit;
+  cursor: pointer;
+}
+
+[data-theme='light'] .alert-lifecycle-panel__actions button {
+  background: #f8fafc;
+}
+
+.alert-lifecycle-panel__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 1100px) {
+  .alert-lifecycle-panel__cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .alert-lifecycle-panel__header,
+  .alert-lifecycle-panel__alert-main {
+    flex-direction: column;
+  }
+
+  .alert-lifecycle-panel__cards {
+    grid-template-columns: 1fr;
+  }
+}
