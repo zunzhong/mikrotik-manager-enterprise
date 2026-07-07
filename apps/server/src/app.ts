@@ -12,7 +12,10 @@ import {
   schedulerModule,
 } from './core/index.js';
 import { adminRoutes } from './modules/admin/index.js';
-import { registerAlertLifecycleBridge } from './modules/alert-lifecycle/index.js';
+import {
+  alertLifecycleRoutes,
+  registerAlertLifecycleBridge,
+} from './modules/alert-lifecycle/index.js';
 import { alertRoutes } from './modules/alerts/index.js';
 import { authRoutes } from './modules/auth/index.js';
 import { backupRoutes } from './modules/backup/index.js';
@@ -44,6 +47,7 @@ export async function buildApp() {
 
   await app.register(healthRoutes);
   await app.register(eventRoutes);
+  await app.register(alertLifecycleRoutes);
   await app.register(authRoutes);
   await app.register(coreRoutes);
   await app.register(adminRoutes);

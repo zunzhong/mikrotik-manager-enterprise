@@ -1,12 +1,21 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/index.js';
 import type {
+  AlertLifecycleSeverity,
   AlertLifecycleStatus,
   AlertResolutionInput,
   OpenAlertInput,
 } from './alert-lifecycle.types.js';
 
 type MutableInputJsonObject = Record<string, Prisma.InputJsonValue | null>;
+
+export interface AlertLifecycleListQuery {
+  deviceId?: string;
+  ruleKey?: string;
+  statuses?: AlertLifecycleStatus[];
+  severities?: AlertLifecycleSeverity[];
+  limit?: number;
+}
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue | null {
   if (value === null || value === undefined) return null;
@@ -74,6 +83,10 @@ function mergeMetadata(
   });
 }
 
+function normalizeLimit(limit: number | undefined): number {
+  return Math.min(Math.max(limit ?? 100, 1), 500);
+}
+
 export class AlertLifecycleService {
   public async openOrUpdate(input: OpenAlertInput) {
     const now = new Date();
@@ -116,6 +129,24 @@ export class AlertLifecycleService {
         message: input.message,
         source: input.source,
         metadata: mergeMetadata(null, input.metadata, now),
+      },
+    });
+  }
+
+  public async getById(alertId: string) {
+    return prisma.alert.findUnique({
+      where: {
+        id: alertId,
+      },
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+            status: true,
+          },
+        },
       },
     });
   }
@@ -209,18 +240,70 @@ export class AlertLifecycleService {
     return Promise.all(alerts.map((alert) => this.resolve(alert.id, input)));
   }
 
-  public async listActive(statuses: AlertLifecycleStatus[] = ['open', 'acknowledged']) {
+  public async list(query: AlertLifecycleListQuery = {}) {
     return prisma.alert.findMany({
       where: {
-        status: {
-          in: statuses,
-        },
+        deviceId: query.deviceId,
+        ruleKey: query.ruleKey,
+        status: query.statuses?.length
+          ? {
+              in: query.statuses,
+            }
+          : undefined,
+        severity: query.severities?.length
+          ? {
+              in: query.severities,
+            }
+          : undefined,
       },
       orderBy: {
         createdAt: 'desc',
       },
-      take: 100,
+      take: normalizeLimit(query.limit),
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            host: true,
+            status: true,
+          },
+        },
+      },
     });
+  }
+
+  public async listActive(statuses: AlertLifecycleStatus[] = ['open', 'acknowledged']) {
+    return this.list({
+      statuses,
+      limit: 100,
+    });
+  }
+
+  public async summary() {
+    const [open, acknowledged, resolved, critical, warning, info] = await Promise.all([
+      prisma.alert.count({ where: { status: 'open' } }),
+      prisma.alert.count({ where: { status: 'acknowledged' } }),
+      prisma.alert.count({ where: { status: 'resolved' } }),
+      prisma.alert.count({ where: { status: { in: ['open', 'acknowledged'] }, severity: 'critical' } }),
+      prisma.alert.count({ where: { status: { in: ['open', 'acknowledged'] }, severity: 'warning' } }),
+      prisma.alert.count({ where: { status: { in: ['open', 'acknowledged'] }, severity: 'info' } }),
+    ]);
+
+    return {
+      status: {
+        open,
+        acknowledged,
+        resolved,
+      },
+      activeSeverity: {
+        critical,
+        warning,
+        info,
+      },
+      activeTotal: open + acknowledged,
+      generatedAt: new Date().toISOString(),
+    };
   }
 }
 
