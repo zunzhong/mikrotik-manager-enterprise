@@ -25,7 +25,10 @@ import { dashboardRoutes } from './modules/dashboard/index.js';
 import { deviceRoutes } from './modules/device/index.js';
 import { eventRoutes } from './modules/events/index.js';
 import { inventoryRoutes } from './modules/inventory/index.js';
-import { notificationRoutes } from './modules/notifications/index.js';
+import {
+  notificationRoutes,
+  registerNotificationEventBridge,
+} from './modules/notifications/index.js';
 import { routerOsApiRoutes } from './modules/routeros-api/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
@@ -46,6 +49,7 @@ export async function buildApp() {
   moduleRegistry.register(alertModule);
 
   registerAlertLifecycleBridge();
+  registerNotificationEventBridge();
 
   await app.register(healthRoutes);
   await app.register(eventRoutes);
