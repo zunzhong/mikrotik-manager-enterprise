@@ -1,3 +1,4 @@
+export * from './application/device-realtime-scheduler.service.js';
 export * from './application/device-realtime.service.js';
 export * from './application/device.service.js';
 export * from './application/device-test.service.js';

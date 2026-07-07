@@ -6,7 +6,11 @@ import type {
   InventorySnapshotDetail,
   InventorySnapshotSummary,
 } from './device-inventory.types';
-import type { DeviceRealtimeSnapshot } from './device-realtime.types';
+import type {
+  DeviceRealtimeOverview,
+  DeviceRealtimeSchedulerStatus,
+  DeviceRealtimeSnapshot,
+} from './device-realtime.types';
 import type {
   Device,
   DeviceInput,
@@ -16,6 +20,8 @@ import type {
   RouterOsProbeResult,
 } from './device.types';
 
+const explicitApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+
 function normalizeProbeInput(input: RouterOsProbeInput): RouterOsProbeInput {
   const tls = input.tls ?? input.useTls ?? false;
   return {
@@ -24,6 +30,12 @@ function normalizeProbeInput(input: RouterOsProbeInput): RouterOsProbeInput {
     port: input.port ?? (tls ? 8729 : 8728),
     timeoutMs: input.timeoutMs ?? 10000,
   };
+}
+
+function buildApiUrl(path: string): string {
+  return explicitApiBaseUrl && explicitApiBaseUrl.length > 0
+    ? `${explicitApiBaseUrl}${path}`
+    : path;
 }
 
 export const deviceApi = {
@@ -38,11 +50,26 @@ export const deviceApi = {
 
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
 
+  getRealtimeOverview: () =>
+    apiGet<DeviceRealtimeOverview>('/api/v1/realtime/devices'),
+
+  getRealtimeSchedulerStatus: () =>
+    apiGet<DeviceRealtimeSchedulerStatus>('/api/v1/realtime/scheduler/status'),
+
+  startRealtimeScheduler: (input: { intervalMs?: number; ttlMs?: number } = {}) =>
+    apiPost<DeviceRealtimeSchedulerStatus>('/api/v1/realtime/scheduler/start', input),
+
+  stopRealtimeScheduler: () =>
+    apiPost<DeviceRealtimeSchedulerStatus>('/api/v1/realtime/scheduler/stop'),
+
   getRealtimeSnapshot: (id: string) =>
-    apiGet<DeviceRealtimeSnapshot>(`/api/v1/devices/${id}/realtime`),
+    apiGet<DeviceRealtimeSnapshot>(`/api/v1/realtime/devices/${id}`),
 
   refreshRealtimeSnapshot: (id: string) =>
-    apiPost<DeviceRealtimeSnapshot>(`/api/v1/devices/${id}/realtime/refresh`),
+    apiPost<DeviceRealtimeSnapshot>(`/api/v1/realtime/devices/${id}/refresh`),
+
+  realtimeStreamUrl: (id: string) =>
+    buildApiUrl(`/api/v1/realtime/devices/${id}/stream`),
 
   pingDevice: (id: string, input: DevicePingInput = {}) =>
     apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping`, input),
@@ -110,7 +137,13 @@ export type {
   InventorySnapshotSummary,
 } from './device-inventory.types';
 
-export type { DeviceRealtimeSnapshot, RealtimeMetric } from './device-realtime.types';
+export type {
+  DeviceRealtimeOverview,
+  DeviceRealtimeSchedulerStatus,
+  DeviceRealtimeSnapshot,
+  DeviceRealtimeStreamState,
+  RealtimeMetric,
+} from './device-realtime.types';
 
 export type {
   Device,
