@@ -5,6 +5,7 @@ import { auditApi } from './audit.api';
 import type {
   AuditEntityType,
   AuditEvent,
+  AuditPageResult,
   AuditQueryInput,
   AuditSeverity,
   AuditStatus,
@@ -26,6 +27,7 @@ const entityOptions: Array<AuditEntityType | 'all'> = [
   'auth',
   'config',
 ];
+const pageSizeOptions = [10, 25, 50, 100];
 
 function formatTime(value: string): string {
   return new Date(value).toLocaleString();
@@ -53,35 +55,58 @@ function entityLabel(event: AuditEvent): string {
   return event.entity.name ?? event.entity.id ?? event.entity.type;
 }
 
+function emptyPage(page: number, pageSize: number): AuditPageResult {
+  return {
+    items: [],
+    total: 0,
+    page,
+    pageSize,
+    totalPages: 0,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export function AuditLogPanel() {
-  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [pageResult, setPageResult] = useState<AuditPageResult>(() => emptyPage(1, 25));
   const [summary, setSummary] = useState<AuditSummary | null>(null);
   const [status, setStatus] = useState<AuditStatus | 'all'>('all');
   const [severity, setSeverity] = useState<AuditSeverity | 'all'>('all');
   const [entityType, setEntityType] = useState<AuditEntityType | 'all'>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const query = useMemo<AuditQueryInput>(() => ({
-    limit: 50,
+  const filterQuery = useMemo<AuditQueryInput>(() => ({
     status: status === 'all' ? undefined : status,
     severity: severity === 'all' ? undefined : severity,
     entityType: entityType === 'all' ? undefined : entityType,
   }), [entityType, severity, status]);
+
+  const pageQuery = useMemo<AuditQueryInput>(() => ({
+    ...filterQuery,
+    page,
+    pageSize,
+  }), [filterQuery, page, pageSize]);
+
+  const events = pageResult.items;
+  const totalPages = Math.max(pageResult.totalPages, 1);
+  const canPrevious = pageResult.page > 1;
+  const canNext = pageResult.page < totalPages;
 
   async function refresh() {
     setLoading(true);
     setError(null);
 
     try {
-      const [nextSummary, nextEvents] = await Promise.all([
-        auditApi.summary(query),
-        auditApi.list(query),
+      const [nextSummary, nextPage] = await Promise.all([
+        auditApi.summary(filterQuery),
+        auditApi.page(pageQuery),
       ]);
 
       setSummary(nextSummary);
-      setEvents(nextEvents);
+      setPageResult(nextPage);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot load audit logs');
     } finally {
@@ -95,7 +120,19 @@ export function AuditLogPanel() {
 
     try {
       await auditApi.seedDemo();
-      await refresh();
+      setPage(1);
+      const nextPageQuery = {
+        ...filterQuery,
+        page: 1,
+        pageSize,
+      };
+      const [nextSummary, nextPage] = await Promise.all([
+        auditApi.summary(filterQuery),
+        auditApi.page(nextPageQuery),
+      ]);
+
+      setSummary(nextSummary);
+      setPageResult(nextPage);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot seed demo audit events');
     } finally {
@@ -103,9 +140,29 @@ export function AuditLogPanel() {
     }
   }
 
+  function updateStatus(value: AuditStatus | 'all') {
+    setStatus(value);
+    setPage(1);
+  }
+
+  function updateSeverity(value: AuditSeverity | 'all') {
+    setSeverity(value);
+    setPage(1);
+  }
+
+  function updateEntityType(value: AuditEntityType | 'all') {
+    setEntityType(value);
+    setPage(1);
+  }
+
+  function updatePageSize(value: number) {
+    setPageSize(value);
+    setPage(1);
+  }
+
   useEffect(() => {
     void refresh();
-  }, [query]);
+  }, [pageQuery]);
 
   return (
     <section className="audit-log-panel">
@@ -129,17 +186,17 @@ export function AuditLogPanel() {
       {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="audit-log-panel__cards">
-        <SummaryCard label="Audit Events" value={summary?.total ?? events.length} hint="matching filter" />
+        <SummaryCard label="Audit Events" value={summary?.total ?? pageResult.total} hint="matching filter" />
         <SummaryCard label="Success" value={summary?.success ?? 0} hint="successful actions" />
         <SummaryCard label="Failures" value={summary?.failure ?? 0} hint="failed actions" />
         <SummaryCard label="Critical" value={summary?.critical ?? 0} hint="critical severity" />
       </div>
 
-      <WidgetCard title="Audit Filters" description="Filter the activity trail by status, severity, and entity type">
+      <WidgetCard title="Audit Filters" description="Filter and paginate the activity trail">
         <div className="audit-log-panel__filters">
           <label>
             Status
-            <select value={status} onChange={(event) => setStatus(event.target.value as AuditStatus | 'all')}>
+            <select value={status} onChange={(event) => updateStatus(event.target.value as AuditStatus | 'all')}>
               {statusOptions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -148,7 +205,7 @@ export function AuditLogPanel() {
 
           <label>
             Severity
-            <select value={severity} onChange={(event) => setSeverity(event.target.value as AuditSeverity | 'all')}>
+            <select value={severity} onChange={(event) => updateSeverity(event.target.value as AuditSeverity | 'all')}>
               {severityOptions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -157,8 +214,17 @@ export function AuditLogPanel() {
 
           <label>
             Entity
-            <select value={entityType} onChange={(event) => setEntityType(event.target.value as AuditEntityType | 'all')}>
+            <select value={entityType} onChange={(event) => updateEntityType(event.target.value as AuditEntityType | 'all')}>
               {entityOptions.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Page size
+            <select value={pageSize} onChange={(event) => updatePageSize(Number(event.target.value))}>
+              {pageSizeOptions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
@@ -166,7 +232,19 @@ export function AuditLogPanel() {
         </div>
       </WidgetCard>
 
-      <WidgetCard title="Recent Audit Events" description={`Showing ${events.length} audit event(s)`}>
+      <WidgetCard title="Recent Audit Events" description={`Showing ${events.length} of ${pageResult.total} audit event(s)`}>
+        <div className="audit-log-panel__pagination">
+          <button type="button" disabled={loading || !canPrevious} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+            Previous
+          </button>
+          <span>
+            Page {pageResult.page} / {totalPages}
+          </span>
+          <button type="button" disabled={loading || !canNext} onClick={() => setPage((value) => value + 1)}>
+            Next
+          </button>
+        </div>
+
         <div className="audit-log-panel__list">
           {events.map((event) => (
             <article className="audit-log-panel__event" data-status={event.status} data-severity={event.severity} key={event.id}>

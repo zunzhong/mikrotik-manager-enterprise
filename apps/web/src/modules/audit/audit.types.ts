@@ -64,6 +64,8 @@ export interface CreateAuditEventInput {
 
 export interface AuditQueryInput {
   limit?: number;
+  page?: number;
+  pageSize?: number;
   action?: string;
   actorType?: AuditActorType;
   actorId?: string;
@@ -73,6 +75,15 @@ export interface AuditQueryInput {
   status?: AuditStatus;
   from?: string;
   to?: string;
+}
+
+export interface AuditPageResult {
+  items: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  generatedAt: string;
 }
 
 export interface AuditSummary {

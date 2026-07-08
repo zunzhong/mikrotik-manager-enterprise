@@ -1,6 +1,7 @@
 import { apiGet, apiPost } from '../../lib/api';
 import type {
   AuditEvent,
+  AuditPageResult,
   AuditQueryInput,
   AuditSeedDemoResult,
   AuditSummary,
@@ -27,6 +28,9 @@ export const auditApi = {
 
   list: (query?: AuditQueryInput) =>
     apiGet<AuditEvent[]>(`/api/v1/audit${queryToSearchParams(query)}`),
+
+  page: (query?: AuditQueryInput) =>
+    apiGet<AuditPageResult>(`/api/v1/audit/page${queryToSearchParams(query)}`),
 
   get: (id: string) =>
     apiGet<AuditEvent>(`/api/v1/audit/${id}`),
