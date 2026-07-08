@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { SummaryCard } from '../dashboard/components/SummaryCard';
 import { WidgetCard } from '../dashboard/components/WidgetCard';
 import { notificationApi } from './notification.api';
@@ -31,6 +31,11 @@ function channelName(channels: NotificationChannel[], channelId: string): string
   return channels.find((channel) => channel.id === channelId)?.name ?? channelId;
 }
 
+function channelUrl(channel: NotificationChannel): string {
+  const value = channel.config.url;
+  return typeof value === 'string' ? value : '';
+}
+
 export function NotificationPanel({
   channels = [],
   rules = [],
@@ -41,6 +46,14 @@ export function NotificationPanel({
 }: NotificationPanelProps) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [webhookName, setWebhookName] = useState('Enterprise Webhook');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [createRule, setCreateRule] = useState(true);
+
+  const webhookChannels = useMemo(
+    () => channels.filter((channel) => channel.type === 'webhook'),
+    [channels],
+  );
 
   async function seedDefaults() {
     setBusy(true);
@@ -62,9 +75,69 @@ export function NotificationPanel({
 
     try {
       await notificationApi.test();
+      await notificationApi.processPending();
       onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Cannot send notification test');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function processPending() {
+    setBusy(true);
+    setActionError(null);
+
+    try {
+      await notificationApi.processPending();
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot process pending deliveries');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createWebhookChannel() {
+    const url = webhookUrl.trim();
+
+    if (!url) {
+      setActionError('Webhook URL is required.');
+      return;
+    }
+
+    setBusy(true);
+    setActionError(null);
+
+    try {
+      const channel = await notificationApi.createChannel({
+        name: webhookName.trim() || 'Enterprise Webhook',
+        type: 'webhook',
+        enabled: true,
+        config: {
+          url,
+          method: 'POST',
+          timeoutMs: 10000,
+          headers: {
+            'x-source': 'mikrotik-manager-enterprise',
+          },
+        },
+      });
+
+      if (createRule) {
+        await notificationApi.createRule({
+          name: `${channel.name} Critical Alerts`,
+          enabled: true,
+          eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
+          severities: ['critical', 'warning'],
+          channelIds: [channel.id],
+        });
+      }
+
+      setWebhookUrl('');
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot create webhook channel');
     } finally {
       setBusy(false);
     }
@@ -88,6 +161,9 @@ export function NotificationPanel({
           <button type="button" disabled={busy} onClick={() => void sendTest()}>
             Send Test
           </button>
+          <button type="button" disabled={busy} onClick={() => void processPending()}>
+            Process Pending
+          </button>
         </div>
       </div>
 
@@ -95,11 +171,59 @@ export function NotificationPanel({
       {actionError ? <div className="error-banner">{actionError}</div> : null}
 
       <div className="notification-panel__cards">
-        <SummaryCard label="Channels" value={channels.length} hint="notification targets" />
+        <SummaryCard label="Channels" value={channels.length} hint={`${webhookChannels.length} webhook`} />
         <SummaryCard label="Rules" value={rules.length} hint="event matchers" />
         <SummaryCard label="Sent" value={countByStatus(deliveries, 'sent')} hint="successful deliveries" />
         <SummaryCard label="Pending" value={countByStatus(deliveries, 'pending')} hint="waiting for worker" />
       </div>
+
+      <WidgetCard title="Create Webhook Channel" description="Send critical events to n8n, webhook.site, or an internal receiver">
+        <div className="notification-panel__form">
+          <label>
+            Name
+            <input
+              type="text"
+              value={webhookName}
+              onChange={(event) => setWebhookName(event.target.value)}
+              placeholder="Enterprise Webhook"
+            />
+          </label>
+
+          <label>
+            Webhook URL
+            <input
+              type="url"
+              value={webhookUrl}
+              onChange={(event) => setWebhookUrl(event.target.value)}
+              placeholder="https://example.com/webhook"
+            />
+          </label>
+
+          <label className="notification-panel__checkbox">
+            <input
+              type="checkbox"
+              checked={createRule}
+              onChange={(event) => setCreateRule(event.target.checked)}
+            />
+            Create critical alert rule
+          </label>
+
+          <button type="button" disabled={busy} onClick={() => void createWebhookChannel()}>
+            Create Webhook
+          </button>
+        </div>
+
+        {webhookChannels.length > 0 ? (
+          <div className="notification-panel__webhooks">
+            {webhookChannels.slice(0, 4).map((channel) => (
+              <article key={channel.id}>
+                <strong>{channel.name}</strong>
+                <small>{channelUrl(channel)}</small>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </WidgetCard>
 
       <div className="notification-panel__grid">
         <WidgetCard title="Notification Rules" description="Active event-to-channel rules">
@@ -133,6 +257,7 @@ export function NotificationPanel({
                   <small>
                     {delivery.payload.eventType} · {delivery.channelType} · {channelName(channels, delivery.channelId)}
                   </small>
+                  {delivery.error ? <small>{delivery.error}</small> : null}
                 </div>
                 <span>{delivery.status}</span>
               </article>
