@@ -87,6 +87,12 @@ export interface NotificationDeliveryWorkerResult {
   deliveries: NotificationDelivery[];
 }
 
+export interface NotificationRetryResult extends NotificationDeliveryWorkerResult {
+  requested: number;
+  reset: number;
+  missing: number;
+}
+
 export interface NotificationSummary {
   channels: number;
   rules: number;

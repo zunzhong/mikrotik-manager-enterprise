@@ -5,6 +5,7 @@ import type {
   NotificationChannel,
   NotificationDelivery,
   NotificationDeliveryWorkerResult,
+  NotificationRetryResult,
   NotificationRule,
   NotificationSeedResult,
   NotificationSummary,
@@ -41,6 +42,14 @@ export const notificationApi = {
 
   processPending: () =>
     apiPost<NotificationDeliveryWorkerResult>('/api/v1/notifications/process-pending', {
+      limit: 50,
+    }),
+
+  retryDelivery: (id: string) =>
+    apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/deliveries/${id}/retry`, {}),
+
+  retryFailed: () =>
+    apiPost<NotificationRetryResult>('/api/v1/notifications/retry-failed', {
       limit: 50,
     }),
 };

@@ -36,6 +36,17 @@ function channelUrl(channel: NotificationChannel): string {
   return typeof value === 'string' ? value : '';
 }
 
+function canRetry(delivery: NotificationDelivery): boolean {
+  return delivery.status === 'failed' || delivery.status === 'skipped';
+}
+
+function deliveryTimestamp(delivery: NotificationDelivery): string {
+  if (delivery.sentAt) return `sent ${new Date(delivery.sentAt).toLocaleString()}`;
+  if (delivery.failedAt) return `failed ${new Date(delivery.failedAt).toLocaleString()}`;
+  if (delivery.skippedAt) return `skipped ${new Date(delivery.skippedAt).toLocaleString()}`;
+  return `created ${new Date(delivery.createdAt).toLocaleString()}`;
+}
+
 export function NotificationPanel({
   channels = [],
   rules = [],
@@ -45,6 +56,7 @@ export function NotificationPanel({
   onChanged,
 }: NotificationPanelProps) {
   const [busy, setBusy] = useState(false);
+  const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [webhookName, setWebhookName] = useState('Enterprise Webhook');
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -53,6 +65,11 @@ export function NotificationPanel({
   const webhookChannels = useMemo(
     () => channels.filter((channel) => channel.type === 'webhook'),
     [channels],
+  );
+
+  const retryableCount = useMemo(
+    () => deliveries.filter((delivery) => canRetry(delivery)).length,
+    [deliveries],
   );
 
   async function seedDefaults() {
@@ -95,6 +112,34 @@ export function NotificationPanel({
       setActionError(err instanceof Error ? err.message : 'Cannot process pending deliveries');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function retryFailed() {
+    setBusy(true);
+    setActionError(null);
+
+    try {
+      await notificationApi.retryFailed();
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot retry failed deliveries');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retryDelivery(delivery: NotificationDelivery) {
+    setBusyDeliveryId(delivery.id);
+    setActionError(null);
+
+    try {
+      await notificationApi.retryDelivery(delivery.id);
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot retry delivery');
+    } finally {
+      setBusyDeliveryId(null);
     }
   }
 
@@ -164,6 +209,9 @@ export function NotificationPanel({
           <button type="button" disabled={busy} onClick={() => void processPending()}>
             Process Pending
           </button>
+          <button type="button" disabled={busy || retryableCount === 0} onClick={() => void retryFailed()}>
+            Retry Failed
+          </button>
         </div>
       </div>
 
@@ -174,7 +222,7 @@ export function NotificationPanel({
         <SummaryCard label="Channels" value={channels.length} hint={`${webhookChannels.length} webhook`} />
         <SummaryCard label="Rules" value={rules.length} hint="event matchers" />
         <SummaryCard label="Sent" value={countByStatus(deliveries, 'sent')} hint="successful deliveries" />
-        <SummaryCard label="Pending" value={countByStatus(deliveries, 'pending')} hint="waiting for worker" />
+        <SummaryCard label="Retryable" value={retryableCount} hint="failed or skipped" />
       </div>
 
       <WidgetCard title="Create Webhook Channel" description="Send critical events to n8n, webhook.site, or an internal receiver">
@@ -257,9 +305,24 @@ export function NotificationPanel({
                   <small>
                     {delivery.payload.eventType} · {delivery.channelType} · {channelName(channels, delivery.channelId)}
                   </small>
+                  <small>
+                    Attempts: {delivery.attempts} · {deliveryTimestamp(delivery)}
+                  </small>
                   {delivery.error ? <small>{delivery.error}</small> : null}
                 </div>
-                <span>{delivery.status}</span>
+
+                <div className="notification-panel__delivery-actions">
+                  <span>{delivery.status}</span>
+                  {canRetry(delivery) ? (
+                    <button
+                      type="button"
+                      disabled={busyDeliveryId === delivery.id}
+                      onClick={() => void retryDelivery(delivery)}
+                    >
+                      {busyDeliveryId === delivery.id ? 'Retrying...' : 'Retry'}
+                    </button>
+                  ) : null}
+                </div>
               </article>
             ))}
 
