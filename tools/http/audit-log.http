@@ -12,6 +12,18 @@ Content-Type: application/json
 ### List audit events
 GET {{baseUrl}}/audit?limit=20
 
+### Paginated audit events
+GET {{baseUrl}}/audit/page?page=1&pageSize=25
+
+### Export audit JSON
+GET {{baseUrl}}/audit/export?format=json&limit=1000
+
+### Export audit CSV
+GET {{baseUrl}}/audit/export?format=csv&limit=1000
+
+### Export failed audit CSV
+GET {{baseUrl}}/audit/export?format=csv&status=failure&limit=500
+
 ### List audit failures
 GET {{baseUrl}}/audit?status=failure&limit=20
 
