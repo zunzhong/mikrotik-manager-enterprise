@@ -30,11 +30,11 @@ async function handleEvent(event: AppEvent): Promise<void> {
   const payload = payloadFromEvent(event);
   const deliveries = notificationService.enqueue(payload);
 
-  for (const delivery of deliveries) {
-    if (delivery.channelType === 'in_app') {
-      notificationService.markSent(delivery.id);
-    }
+  if (deliveries.length === 0) {
+    return;
   }
+
+  await notificationService.processPending(deliveries.length);
 }
 
 export function registerNotificationEventBridge(): void {
