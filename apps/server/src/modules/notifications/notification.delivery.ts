@@ -92,46 +92,76 @@ function webhookPayload(delivery: NotificationDelivery) {
   };
 }
 
+function emptyResult(): NotificationDeliveryWorkerResult {
+  return {
+    processed: 0,
+    sent: 0,
+    failed: 0,
+    skipped: 0,
+    deliveries: [],
+  };
+}
+
+function summarize(deliveries: NotificationDelivery[]): NotificationDeliveryWorkerResult {
+  return {
+    processed: deliveries.length,
+    sent: deliveries.filter((delivery) => delivery.status === 'sent').length,
+    failed: deliveries.filter((delivery) => delivery.status === 'failed').length,
+    skipped: deliveries.filter((delivery) => delivery.status === 'skipped').length,
+    deliveries,
+  };
+}
+
 export class NotificationDeliveryWorker {
   public async processPending(limit = 50): Promise<NotificationDeliveryWorkerResult> {
     const pending = notificationStore.listDeliveriesByStatus('pending', limit);
-    const deliveries: NotificationDelivery[] = [];
 
-    let sent = 0;
-    let failed = 0;
-    let skipped = 0;
-
-    for (const delivery of pending) {
-      try {
-        const updated = await this.processDelivery(delivery);
-
-        if (updated) {
-          deliveries.push(updated);
-
-          if (updated.status === 'sent') sent += 1;
-          if (updated.status === 'failed') failed += 1;
-          if (updated.status === 'skipped') skipped += 1;
-        }
-      } catch (error) {
-        const updated = notificationStore.markFailed(
-          delivery.id,
-          error instanceof Error ? error.message : 'Notification delivery failed',
-        );
-
-        if (updated) {
-          failed += 1;
-          deliveries.push(updated);
-        }
-      }
+    if (pending.length === 0) {
+      return emptyResult();
     }
 
-    return {
-      processed: pending.length,
-      sent,
-      failed,
-      skipped,
-      deliveries,
-    };
+    const deliveries: NotificationDelivery[] = [];
+
+    for (const delivery of pending) {
+      const updated = await this.processDeliveryWithCatch(delivery);
+      if (updated) deliveries.push(updated);
+    }
+
+    return summarize(deliveries);
+  }
+
+  public async processOne(deliveryId: string): Promise<NotificationDeliveryWorkerResult> {
+    const delivery = notificationStore.getDelivery(deliveryId);
+
+    if (!delivery) {
+      return emptyResult();
+    }
+
+    const pending =
+      delivery.status === 'pending'
+        ? delivery
+        : notificationStore.markPending(delivery.id, 'Manual retry requested');
+
+    if (!pending) {
+      return emptyResult();
+    }
+
+    const updated = await this.processDeliveryWithCatch(pending);
+
+    return updated ? summarize([updated]) : emptyResult();
+  }
+
+  private async processDeliveryWithCatch(
+    delivery: NotificationDelivery,
+  ): Promise<NotificationDelivery | null> {
+    try {
+      return await this.processDelivery(delivery);
+    } catch (error) {
+      return notificationStore.markFailed(
+        delivery.id,
+        error instanceof Error ? error.message : 'Notification delivery failed',
+      );
+    }
   }
 
   private async processDelivery(delivery: NotificationDelivery): Promise<NotificationDelivery | null> {

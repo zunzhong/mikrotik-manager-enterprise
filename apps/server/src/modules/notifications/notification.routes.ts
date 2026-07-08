@@ -28,6 +28,10 @@ const processPendingSchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
 });
 
+const deliveryParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
 const enqueueTestSchema = z.object({
   eventType: z.string().min(1).default('SYSTEM_EVENT'),
   severity: z.enum(severityValues).default('info'),
@@ -82,12 +86,30 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
+  app.post('/api/v1/notifications/deliveries/:id/retry', async (request) => {
+    const params = deliveryParamsSchema.parse(request.params);
+
+    return {
+      success: true,
+      data: await notificationService.retryDelivery(params.id),
+    };
+  });
+
   app.post('/api/v1/notifications/process-pending', async (request) => {
     const body = processPendingSchema.parse(request.body ?? {});
 
     return {
       success: true,
       data: await notificationService.processPending(body.limit),
+    };
+  });
+
+  app.post('/api/v1/notifications/retry-failed', async (request) => {
+    const body = processPendingSchema.parse(request.body ?? {});
+
+    return {
+      success: true,
+      data: await notificationService.retryFailed(body.limit),
     };
   });
 

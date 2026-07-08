@@ -39,7 +39,6 @@ export class NotificationStore {
     };
 
     this.channels.set(channel.id, channel);
-
     return channel;
   }
 
@@ -65,7 +64,6 @@ export class NotificationStore {
     };
 
     this.rules.set(rule.id, rule);
-
     return rule;
   }
 
@@ -97,12 +95,29 @@ export class NotificationStore {
     };
 
     this.deliveries.set(delivery.id, delivery);
-
     return delivery;
   }
 
   public getDelivery(deliveryId: string): NotificationDelivery | null {
     return this.deliveries.get(deliveryId) ?? null;
+  }
+
+  public markPending(deliveryId: string, reason = 'Retry requested'): NotificationDelivery | null {
+    const delivery = this.deliveries.get(deliveryId);
+    if (!delivery) return null;
+
+    const updated: NotificationDelivery = {
+      ...delivery,
+      status: 'pending',
+      updatedAt: nowIso(),
+      sentAt: undefined,
+      failedAt: undefined,
+      skippedAt: undefined,
+      error: reason,
+    };
+
+    this.deliveries.set(deliveryId, updated);
+    return updated;
   }
 
   public markSent(deliveryId: string): NotificationDelivery | null {
@@ -121,7 +136,6 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
-
     return updated;
   }
 
@@ -140,7 +154,6 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
-
     return updated;
   }
 
@@ -157,7 +170,6 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
-
     return updated;
   }
 
@@ -171,7 +183,10 @@ export class NotificationStore {
     status: NotificationDeliveryStatus,
     limit = 100,
   ): NotificationDelivery[] {
-    return this.listDeliveries(limit).filter((delivery) => delivery.status === status);
+    return [...this.deliveries.values()]
+      .filter((delivery) => delivery.status === status)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, normalizeLimit(limit));
   }
 
   public countDeliveriesByStatus(status: NotificationDeliveryStatus): number {

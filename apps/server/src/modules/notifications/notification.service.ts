@@ -6,7 +6,26 @@ import type {
   CreateNotificationRuleInput,
   NotificationDelivery,
   NotificationPayload,
+  NotificationRetryResult,
 } from './notification.types.js';
+
+function retryResult(
+  requested: number,
+  reset: number,
+  missing: number,
+  workerResult: Awaited<ReturnType<typeof notificationDeliveryWorker.processPending>>,
+): NotificationRetryResult {
+  return {
+    requested,
+    reset,
+    missing,
+    processed: workerResult.processed,
+    sent: workerResult.sent,
+    failed: workerResult.failed,
+    skipped: workerResult.skipped,
+    deliveries: workerResult.deliveries,
+  };
+}
 
 export class NotificationService {
   public createChannel(input: CreateNotificationChannelInput) {
@@ -64,6 +83,26 @@ export class NotificationService {
 
   public async processPending(limit?: number) {
     return notificationDeliveryWorker.processPending(limit);
+  }
+
+  public async retryDelivery(deliveryId: string) {
+    return notificationDeliveryWorker.processOne(deliveryId);
+  }
+
+  public async retryFailed(limit = 50): Promise<NotificationRetryResult> {
+    const failed = notificationStore.listDeliveriesByStatus('failed', limit);
+    const skipped = notificationStore.listDeliveriesByStatus('skipped', limit);
+    const retryable = [...failed, ...skipped].slice(0, Math.max(1, Math.min(limit, 500)));
+    let reset = 0;
+
+    for (const delivery of retryable) {
+      const updated = notificationStore.markPending(delivery.id, 'Retry failed/skipped requested');
+      if (updated) reset += 1;
+    }
+
+    const workerResult = await notificationDeliveryWorker.processPending(reset);
+
+    return retryResult(retryable.length, reset, retryable.length - reset, workerResult);
   }
 
   public markSent(deliveryId: string) {
