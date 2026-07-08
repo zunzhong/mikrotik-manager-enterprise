@@ -1,4 +1,4 @@
-import { auditStore } from './audit.store.js';
+import { auditRepository } from './audit.repository.js';
 import type {
   AuditActor,
   AuditEntity,
@@ -9,19 +9,19 @@ import type {
 
 export class AuditService {
   public record(input: CreateAuditEventInput) {
-    return auditStore.create(input);
+    return auditRepository.create(input);
   }
 
   public list(query?: AuditQueryInput) {
-    return auditStore.list(query);
+    return auditRepository.list(query);
   }
 
   public get(eventId: string) {
-    return auditStore.get(eventId);
+    return auditRepository.get(eventId);
   }
 
   public summary(query?: AuditQueryInput) {
-    return auditStore.summary(query);
+    return auditRepository.summary(query);
   }
 
   public logSuccess(input: {
@@ -63,7 +63,7 @@ export class AuditService {
   }
 
   public clear() {
-    auditStore.clear();
+    return auditRepository.clear();
   }
 }
 

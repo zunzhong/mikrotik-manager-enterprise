@@ -65,7 +65,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       success: true,
-      data: auditService.summary(query),
+      data: await auditService.summary(query),
     };
   });
 
@@ -74,13 +74,13 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       success: true,
-      data: auditService.list(query),
+      data: await auditService.list(query),
     };
   });
 
   app.get('/api/v1/audit/:id', async (request, reply) => {
     const params = auditIdParamsSchema.parse(request.params);
-    const event = auditService.get(params.id);
+    const event = await auditService.get(params.id);
 
     if (!event) {
       reply.code(404);
@@ -101,12 +101,12 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       success: true,
-      data: auditService.record(body),
+      data: await auditService.record(body),
     };
   });
 
   app.post('/api/v1/audit/seed-demo', async () => {
-    const created = [
+    const created = await Promise.all([
       auditService.logSuccess({
         action: 'audit.seed_demo',
         summary: 'Audit demo events were seeded',
@@ -156,7 +156,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
           error: 'Demo webhook timeout',
         },
       }),
-    ];
+    ]);
 
     return {
       success: true,
