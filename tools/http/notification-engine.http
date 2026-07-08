@@ -1,0 +1,114 @@
+@baseUrl = http://localhost:3000/api/v1
+
+### Notification summary
+GET {{baseUrl}}/notifications/summary
+
+### Seed defaults
+POST {{baseUrl}}/notifications/seed-defaults
+Content-Type: application/json
+
+{}
+
+### List channels
+GET {{baseUrl}}/notifications/channels
+
+### Create webhook channel
+POST {{baseUrl}}/notifications/channels
+Content-Type: application/json
+
+{
+  "name": "Enterprise Webhook",
+  "type": "webhook",
+  "enabled": true,
+  "config": {
+    "url": "http://localhost:5678/webhook/mme",
+    "method": "POST",
+    "timeoutMs": 10000,
+    "headers": {
+      "x-source": "mikrotik-manager-enterprise"
+    }
+  }
+}
+
+### Update channel
+PATCH {{baseUrl}}/notifications/channels/channel_xxx
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### Delete channel
+DELETE {{baseUrl}}/notifications/channels/channel_xxx
+
+### List rules
+GET {{baseUrl}}/notifications/rules
+
+### Create rule
+POST {{baseUrl}}/notifications/rules
+Content-Type: application/json
+
+{
+  "name": "Critical Alert Webhook",
+  "enabled": true,
+  "eventTypes": [
+    "ALERT_OPENED",
+    "DEVICE_OFFLINE",
+    "DEVICE_CRITICAL"
+  ],
+  "severities": [
+    "critical",
+    "warning"
+  ],
+  "channelIds": [
+    "channel_xxx"
+  ]
+}
+
+### Update rule
+PATCH {{baseUrl}}/notifications/rules/rule_xxx
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### Delete rule
+DELETE {{baseUrl}}/notifications/rules/rule_xxx
+
+### Queue test payload
+POST {{baseUrl}}/notifications/test
+Content-Type: application/json
+
+{
+  "eventType": "ALERT_OPENED",
+  "severity": "critical",
+  "title": "Notification REST Client test",
+  "message": "Queued from tools/http/notification-engine.http",
+  "source": "rest-client"
+}
+
+### Process pending
+POST {{baseUrl}}/notifications/process-pending
+Content-Type: application/json
+
+{
+  "limit": 50
+}
+
+### List deliveries
+GET {{baseUrl}}/notifications/deliveries?limit=20
+
+### Retry failed/skipped
+POST {{baseUrl}}/notifications/retry-failed
+Content-Type: application/json
+
+{
+  "limit": 50
+}
+
+### Retry one delivery
+POST {{baseUrl}}/notifications/deliveries/delivery_xxx/retry
+Content-Type: application/json
+
+{}
