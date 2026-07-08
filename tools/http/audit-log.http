@@ -1,0 +1,46 @@
+@baseUrl = http://localhost:3000/api/v1
+
+### Audit summary
+GET {{baseUrl}}/audit/summary
+
+### Seed demo audit events
+POST {{baseUrl}}/audit/seed-demo
+Content-Type: application/json
+
+{}
+
+### List audit events
+GET {{baseUrl}}/audit?limit=20
+
+### List audit failures
+GET {{baseUrl}}/audit?status=failure&limit=20
+
+### List notification audit events
+GET {{baseUrl}}/audit?entityType=notification_channel&limit=20
+
+### Create audit event
+POST {{baseUrl}}/audit
+Content-Type: application/json
+
+{
+  "action": "manual.audit.test",
+  "summary": "Manual audit event from REST Client",
+  "severity": "info",
+  "status": "success",
+  "actor": {
+    "type": "api",
+    "id": "rest-client",
+    "name": "VS Code REST Client"
+  },
+  "entity": {
+    "type": "system",
+    "id": "audit",
+    "name": "Audit Log Engine"
+  },
+  "metadata": {
+    "manual": true
+  }
+}
+
+### Get audit by ID
+GET {{baseUrl}}/audit/audit_xxx

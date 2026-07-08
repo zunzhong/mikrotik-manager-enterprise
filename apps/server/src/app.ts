@@ -34,6 +34,7 @@ import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { healthRoutes } from './routes/health.js';
+import { auditRoutes } from './modules/audit/index.js';
 
 export async function buildApp() {
   const app = Fastify({ logger: createLoggerConfig() });
@@ -70,6 +71,7 @@ export async function buildApp() {
   await app.register(systemRoutes);
 
   await moduleRegistry.loadAll(app);
+  await app.register(auditRoutes);
 
   return app;
 }
