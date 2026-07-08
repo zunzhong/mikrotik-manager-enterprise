@@ -51,6 +51,23 @@ function Assert-ApiSuccess {
   }
 }
 
+function Assert-PageShape {
+  param(
+    [object]$Response,
+    [string]$Message
+  )
+
+  Assert-ApiSuccess $Response $Message
+
+  $data = $Response.data
+
+  foreach ($field in @("items", "total", "page", "pageSize", "totalPages", "generatedAt")) {
+    if (-not ($data.PSObject.Properties.Name -contains $field)) {
+      throw "$Message missing page field: $field"
+    }
+  }
+}
+
 Write-Host "Audit Log Engine Smoke Test" -ForegroundColor Green
 Write-Host "BaseUrl: $BaseUrl"
 
@@ -102,6 +119,26 @@ Write-Step "List recent audit events"
 $recent = Invoke-JsonApi -Path "/api/v1/audit?limit=20"
 Assert-ApiSuccess $recent "List recent audit events"
 $recent | ConvertTo-Json -Depth 30
+
+Write-Step "Paginated audit events page 1"
+$page1 = Invoke-JsonApi -Path "/api/v1/audit/page?page=1&pageSize=5"
+Assert-PageShape $page1 "Audit page 1"
+$page1 | ConvertTo-Json -Depth 30
+
+Write-Step "Paginated audit events page 2"
+$page2 = Invoke-JsonApi -Path "/api/v1/audit/page?page=2&pageSize=5"
+Assert-PageShape $page2 "Audit page 2"
+$page2 | ConvertTo-Json -Depth 30
+
+Write-Step "Paginated audit failures"
+$pageFailures = Invoke-JsonApi -Path "/api/v1/audit/page?page=1&pageSize=10&status=failure"
+Assert-PageShape $pageFailures "Audit failures page"
+$pageFailures | ConvertTo-Json -Depth 30
+
+Write-Step "Paginated notification channel audit events"
+$pageNotificationChannels = Invoke-JsonApi -Path "/api/v1/audit/page?page=1&pageSize=10&entityType=notification_channel"
+Assert-PageShape $pageNotificationChannels "Audit notification channel page"
+$pageNotificationChannels | ConvertTo-Json -Depth 30
 
 Write-Step "Filter audit failures"
 $failures = Invoke-JsonApi -Path "/api/v1/audit?status=failure&limit=20"
