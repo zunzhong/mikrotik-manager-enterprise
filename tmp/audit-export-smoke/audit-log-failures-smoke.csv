@@ -1,0 +1,3 @@
+id,createdAt,status,severity,action,actorType,actorId,actorName,entityType,entityId,entityName,summary,metadata
+"cmrca3xzs0001pv8cgyxvmthl","2026-07-08T16:15:07.480Z","failure","warning","notification.delivery.failed","system","notification-worker","Notification Worker","notification_delivery","demo-delivery","Demo Delivery","Demo notification delivery failed","{""error"":""Demo webhook timeout""}"
+"cmrc5vm59000dpvgsdgo11fhp","2026-07-08T14:16:40.412Z","failure","warning","notification.delivery.failed","system","notification-worker","Notification Worker","notification_delivery","demo-delivery","Demo Delivery","Demo notification delivery failed","{""error"":""Demo webhook timeout""}"
