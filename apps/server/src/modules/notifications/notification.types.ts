@@ -65,12 +65,26 @@ export interface CreateNotificationChannelInput {
   config?: Record<string, unknown>;
 }
 
+export interface UpdateNotificationChannelInput {
+  name?: string;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
 export interface CreateNotificationRuleInput {
   name: string;
   enabled?: boolean;
   eventTypes: string[];
   severities: NotificationSeverity[];
   channelIds: string[];
+}
+
+export interface UpdateNotificationRuleInput {
+  name?: string;
+  enabled?: boolean;
+  eventTypes?: string[];
+  severities?: NotificationSeverity[];
+  channelIds?: string[];
 }
 
 export interface NotificationDeliveryWorkerResult {
@@ -85,6 +99,11 @@ export interface NotificationRetryResult extends NotificationDeliveryWorkerResul
   requested: number;
   reset: number;
   missing: number;
+}
+
+export interface NotificationDeleteResult {
+  deleted: boolean;
+  id: string;
 }
 
 export interface NotificationSummary {

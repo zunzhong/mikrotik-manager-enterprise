@@ -7,6 +7,8 @@ import type {
   NotificationDelivery,
   NotificationPayload,
   NotificationRetryResult,
+  UpdateNotificationChannelInput,
+  UpdateNotificationRuleInput,
 } from './notification.types.js';
 
 function retryResult(
@@ -36,12 +38,34 @@ export class NotificationService {
     return notificationStore.listChannels();
   }
 
+  public updateChannel(channelId: string, input: UpdateNotificationChannelInput) {
+    return notificationStore.updateChannel(channelId, input);
+  }
+
+  public deleteChannel(channelId: string) {
+    return {
+      id: channelId,
+      deleted: notificationStore.deleteChannel(channelId),
+    };
+  }
+
   public createRule(input: CreateNotificationRuleInput) {
     return notificationStore.createRule(input);
   }
 
   public listRules() {
     return notificationStore.listRules();
+  }
+
+  public updateRule(ruleId: string, input: UpdateNotificationRuleInput) {
+    return notificationStore.updateRule(ruleId, input);
+  }
+
+  public deleteRule(ruleId: string) {
+    return {
+      id: ruleId,
+      deleted: notificationStore.deleteRule(ruleId),
+    };
   }
 
   public listDeliveries(limit?: number) {

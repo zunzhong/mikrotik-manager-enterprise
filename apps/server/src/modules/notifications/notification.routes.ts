@@ -5,9 +5,19 @@ import { notificationService } from './notification.service.js';
 const channelTypeValues = ['email', 'webhook', 'slack', 'telegram', 'in_app'] as const;
 const severityValues = ['info', 'success', 'warning', 'critical'] as const;
 
+const idParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
 const createChannelSchema = z.object({
   name: z.string().min(1),
   type: z.enum(channelTypeValues),
+  enabled: z.boolean().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+});
+
+const updateChannelSchema = z.object({
+  name: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
 });
@@ -20,16 +30,20 @@ const createRuleSchema = z.object({
   channelIds: z.array(z.string().min(1)).min(1),
 });
 
+const updateRuleSchema = z.object({
+  name: z.string().min(1).optional(),
+  enabled: z.boolean().optional(),
+  eventTypes: z.array(z.string().min(1)).min(1).optional(),
+  severities: z.array(z.enum(severityValues)).min(1).optional(),
+  channelIds: z.array(z.string().min(1)).min(1).optional(),
+});
+
 const listDeliveriesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
 });
 
 const processPendingSchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
-});
-
-const deliveryParamsSchema = z.object({
-  id: z.string().min(1),
 });
 
 const enqueueTestSchema = z.object({
@@ -63,6 +77,34 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
+  app.patch('/api/v1/notifications/channels/:id', async (request, reply) => {
+    const params = idParamsSchema.parse(request.params);
+    const body = updateChannelSchema.parse(request.body ?? {});
+    const channel = notificationService.updateChannel(params.id, body);
+
+    if (!channel) {
+      reply.code(404);
+      return {
+        success: false,
+        error: 'Notification channel not found',
+      };
+    }
+
+    return {
+      success: true,
+      data: channel,
+    };
+  });
+
+  app.delete('/api/v1/notifications/channels/:id', async (request) => {
+    const params = idParamsSchema.parse(request.params);
+
+    return {
+      success: true,
+      data: notificationService.deleteChannel(params.id),
+    };
+  });
+
   app.get('/api/v1/notifications/rules', async () => ({
     success: true,
     data: notificationService.listRules(),
@@ -77,6 +119,34 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
+  app.patch('/api/v1/notifications/rules/:id', async (request, reply) => {
+    const params = idParamsSchema.parse(request.params);
+    const body = updateRuleSchema.parse(request.body ?? {});
+    const rule = notificationService.updateRule(params.id, body);
+
+    if (!rule) {
+      reply.code(404);
+      return {
+        success: false,
+        error: 'Notification rule not found',
+      };
+    }
+
+    return {
+      success: true,
+      data: rule,
+    };
+  });
+
+  app.delete('/api/v1/notifications/rules/:id', async (request) => {
+    const params = idParamsSchema.parse(request.params);
+
+    return {
+      success: true,
+      data: notificationService.deleteRule(params.id),
+    };
+  });
+
   app.get('/api/v1/notifications/deliveries', async (request) => {
     const query = listDeliveriesQuerySchema.parse(request.query);
 
@@ -87,7 +157,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/api/v1/notifications/deliveries/:id/retry', async (request) => {
-    const params = deliveryParamsSchema.parse(request.params);
+    const params = idParamsSchema.parse(request.params);
 
     return {
       success: true,

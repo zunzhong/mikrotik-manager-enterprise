@@ -7,6 +7,8 @@ import type {
   NotificationPayload,
   NotificationRule,
   NotificationSummary,
+  UpdateNotificationChannelInput,
+  UpdateNotificationRuleInput,
 } from './notification.types.js';
 
 function createId(prefix: string): string {
@@ -19,6 +21,10 @@ function nowIso(): string {
 
 function normalizeLimit(limit = 100): number {
   return Math.min(Math.max(limit, 1), 500);
+}
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)];
 }
 
 export class NotificationStore {
@@ -50,15 +56,54 @@ export class NotificationStore {
     return this.channels.get(channelId) ?? null;
   }
 
+  public updateChannel(
+    channelId: string,
+    input: UpdateNotificationChannelInput,
+  ): NotificationChannel | null {
+    const channel = this.channels.get(channelId);
+    if (!channel) return null;
+
+    const updated: NotificationChannel = {
+      ...channel,
+      name: input.name ?? channel.name,
+      enabled: input.enabled ?? channel.enabled,
+      config: input.config ?? channel.config,
+      updatedAt: nowIso(),
+    };
+
+    this.channels.set(channelId, updated);
+    return updated;
+  }
+
+  public deleteChannel(channelId: string): boolean {
+    const deleted = this.channels.delete(channelId);
+
+    if (deleted) {
+      for (const rule of this.rules.values()) {
+        if (!rule.channelIds.includes(channelId)) {
+          continue;
+        }
+
+        this.rules.set(rule.id, {
+          ...rule,
+          channelIds: rule.channelIds.filter((id) => id !== channelId),
+          updatedAt: nowIso(),
+        });
+      }
+    }
+
+    return deleted;
+  }
+
   public createRule(input: CreateNotificationRuleInput): NotificationRule {
     const now = nowIso();
     const rule: NotificationRule = {
       id: createId('rule'),
       name: input.name,
       enabled: input.enabled ?? true,
-      eventTypes: [...new Set(input.eventTypes)],
-      severities: [...new Set(input.severities)],
-      channelIds: [...new Set(input.channelIds)],
+      eventTypes: unique(input.eventTypes),
+      severities: unique(input.severities),
+      channelIds: unique(input.channelIds),
       createdAt: now,
       updatedAt: now,
     };
@@ -73,6 +118,28 @@ export class NotificationStore {
 
   public getRule(ruleId: string): NotificationRule | null {
     return this.rules.get(ruleId) ?? null;
+  }
+
+  public updateRule(ruleId: string, input: UpdateNotificationRuleInput): NotificationRule | null {
+    const rule = this.rules.get(ruleId);
+    if (!rule) return null;
+
+    const updated: NotificationRule = {
+      ...rule,
+      name: input.name ?? rule.name,
+      enabled: input.enabled ?? rule.enabled,
+      eventTypes: input.eventTypes ? unique(input.eventTypes) : rule.eventTypes,
+      severities: input.severities ? unique(input.severities) : rule.severities,
+      channelIds: input.channelIds ? unique(input.channelIds) : rule.channelIds,
+      updatedAt: nowIso(),
+    };
+
+    this.rules.set(ruleId, updated);
+    return updated;
+  }
+
+  public deleteRule(ruleId: string): boolean {
+    return this.rules.delete(ruleId);
   }
 
   public createDelivery(input: {
