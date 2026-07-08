@@ -33,7 +33,7 @@ function channelName(channels: NotificationChannel[], channelId: string): string
 
 function channelUrl(channel: NotificationChannel): string {
   const value = channel.config.url;
-  return typeof value === 'string' ? value : '';
+  return typeof value === 'string' ? value : channel.type;
 }
 
 function canRetry(delivery: NotificationDelivery): boolean {
@@ -57,6 +57,7 @@ export function NotificationPanel({
 }: NotificationPanelProps) {
   const [busy, setBusy] = useState(false);
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
+  const [busyEntityId, setBusyEntityId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [webhookName, setWebhookName] = useState('Enterprise Webhook');
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -72,60 +73,118 @@ export function NotificationPanel({
     [deliveries],
   );
 
-  async function seedDefaults() {
+  async function runAction(action: () => Promise<void>, fallbackMessage: string) {
     setBusy(true);
     setActionError(null);
 
     try {
-      await notificationApi.seedDefaults();
+      await action();
       onChanged?.();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Cannot seed notification defaults');
+      setActionError(err instanceof Error ? err.message : fallbackMessage);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function seedDefaults() {
+    await runAction(
+      async () => {
+        await notificationApi.seedDefaults();
+      },
+      'Cannot seed notification defaults',
+    );
   }
 
   async function sendTest() {
-    setBusy(true);
-    setActionError(null);
-
-    try {
-      await notificationApi.test();
-      await notificationApi.processPending();
-      onChanged?.();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Cannot send notification test');
-    } finally {
-      setBusy(false);
-    }
+    await runAction(
+      async () => {
+        await notificationApi.test();
+        await notificationApi.processPending();
+      },
+      'Cannot send notification test',
+    );
   }
 
   async function processPending() {
-    setBusy(true);
-    setActionError(null);
-
-    try {
-      await notificationApi.processPending();
-      onChanged?.();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Cannot process pending deliveries');
-    } finally {
-      setBusy(false);
-    }
+    await runAction(
+      async () => {
+        await notificationApi.processPending();
+      },
+      'Cannot process pending deliveries',
+    );
   }
 
   async function retryFailed() {
-    setBusy(true);
+    await runAction(
+      async () => {
+        await notificationApi.retryFailed();
+      },
+      'Cannot retry failed deliveries',
+    );
+  }
+
+  async function toggleChannel(channel: NotificationChannel) {
+    setBusyEntityId(channel.id);
     setActionError(null);
 
     try {
-      await notificationApi.retryFailed();
+      await notificationApi.updateChannel(channel.id, { enabled: !channel.enabled });
       onChanged?.();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Cannot retry failed deliveries');
+      setActionError(err instanceof Error ? err.message : 'Cannot update channel');
     } finally {
-      setBusy(false);
+      setBusyEntityId(null);
+    }
+  }
+
+  async function deleteChannel(channel: NotificationChannel) {
+    if (!window.confirm(`Delete notification channel "${channel.name}"?`)) {
+      return;
+    }
+
+    setBusyEntityId(channel.id);
+    setActionError(null);
+
+    try {
+      await notificationApi.deleteChannel(channel.id);
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot delete channel');
+    } finally {
+      setBusyEntityId(null);
+    }
+  }
+
+  async function toggleRule(rule: NotificationRule) {
+    setBusyEntityId(rule.id);
+    setActionError(null);
+
+    try {
+      await notificationApi.updateRule(rule.id, { enabled: !rule.enabled });
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot update rule');
+    } finally {
+      setBusyEntityId(null);
+    }
+  }
+
+  async function deleteRule(rule: NotificationRule) {
+    if (!window.confirm(`Delete notification rule "${rule.name}"?`)) {
+      return;
+    }
+
+    setBusyEntityId(rule.id);
+    setActionError(null);
+
+    try {
+      await notificationApi.deleteRule(rule.id);
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot delete rule');
+    } finally {
+      setBusyEntityId(null);
     }
   }
 
@@ -151,41 +210,36 @@ export function NotificationPanel({
       return;
     }
 
-    setBusy(true);
-    setActionError(null);
-
-    try {
-      const channel = await notificationApi.createChannel({
-        name: webhookName.trim() || 'Enterprise Webhook',
-        type: 'webhook',
-        enabled: true,
-        config: {
-          url,
-          method: 'POST',
-          timeoutMs: 10000,
-          headers: {
-            'x-source': 'mikrotik-manager-enterprise',
-          },
-        },
-      });
-
-      if (createRule) {
-        await notificationApi.createRule({
-          name: `${channel.name} Critical Alerts`,
+    await runAction(
+      async () => {
+        const channel = await notificationApi.createChannel({
+          name: webhookName.trim() || 'Enterprise Webhook',
+          type: 'webhook',
           enabled: true,
-          eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
-          severities: ['critical', 'warning'],
-          channelIds: [channel.id],
+          config: {
+            url,
+            method: 'POST',
+            timeoutMs: 10000,
+            headers: {
+              'x-source': 'mikrotik-manager-enterprise',
+            },
+          },
         });
-      }
 
-      setWebhookUrl('');
-      onChanged?.();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Cannot create webhook channel');
-    } finally {
-      setBusy(false);
-    }
+        if (createRule) {
+          await notificationApi.createRule({
+            name: `${channel.name} Critical Alerts`,
+            enabled: true,
+            eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
+            severities: ['critical', 'warning'],
+            channelIds: [channel.id],
+          });
+        }
+
+        setWebhookUrl('');
+      },
+      'Cannot create webhook channel',
+    );
   }
 
   return (
@@ -260,31 +314,79 @@ export function NotificationPanel({
             Create Webhook
           </button>
         </div>
-
-        {webhookChannels.length > 0 ? (
-          <div className="notification-panel__webhooks">
-            {webhookChannels.slice(0, 4).map((channel) => (
-              <article key={channel.id}>
-                <strong>{channel.name}</strong>
-                <small>{channelUrl(channel)}</small>
-              </article>
-            ))}
-          </div>
-        ) : null}
       </WidgetCard>
 
       <div className="notification-panel__grid">
-        <WidgetCard title="Notification Rules" description="Active event-to-channel rules">
+        <WidgetCard title="Notification Channels" description="Enable, disable, or delete notification targets">
           <div className="notification-panel__list">
-            {rules.slice(0, 8).map((rule) => (
+            {channels.slice(0, 10).map((channel) => (
+              <article className="notification-panel__row" data-state={channel.enabled ? 'enabled' : 'disabled'} key={channel.id}>
+                <div>
+                  <strong>{channel.name}</strong>
+                  <small>
+                    {channel.type} · {channelUrl(channel)}
+                  </small>
+                </div>
+
+                <div className="notification-panel__entity-actions">
+                  <span>{channel.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <button
+                    type="button"
+                    disabled={busyEntityId === channel.id}
+                    onClick={() => void toggleChannel(channel)}
+                  >
+                    {channel.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyEntityId === channel.id}
+                    onClick={() => void deleteChannel(channel)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+
+            {!loading && channels.length === 0 ? (
+              <p className="muted">No notification channels yet.</p>
+            ) : null}
+
+            {loading ? <p className="muted">Loading notification channels...</p> : null}
+          </div>
+        </WidgetCard>
+
+        <WidgetCard title="Notification Rules" description="Enable, disable, or delete event-to-channel rules">
+          <div className="notification-panel__list">
+            {rules.slice(0, 10).map((rule) => (
               <article className="notification-panel__row" data-state={rule.enabled ? 'enabled' : 'disabled'} key={rule.id}>
                 <div>
                   <strong>{rule.name}</strong>
                   <small>
                     {rule.eventTypes.join(', ')} · {rule.severities.join(', ')}
                   </small>
+                  <small>
+                    Channels: {rule.channelIds.length}
+                  </small>
                 </div>
-                <span>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+
+                <div className="notification-panel__entity-actions">
+                  <span>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <button
+                    type="button"
+                    disabled={busyEntityId === rule.id}
+                    onClick={() => void toggleRule(rule)}
+                  >
+                    {rule.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyEntityId === rule.id}
+                    onClick={() => void deleteRule(rule)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </article>
             ))}
 
@@ -295,45 +397,45 @@ export function NotificationPanel({
             {loading ? <p className="muted">Loading notification rules...</p> : null}
           </div>
         </WidgetCard>
-
-        <WidgetCard title="Recent Deliveries" description={`Latest delivery: ${latestDeliveryAt(deliveries)}`}>
-          <div className="notification-panel__list">
-            {deliveries.slice(0, 8).map((delivery) => (
-              <article className="notification-panel__row" data-state={delivery.status} key={delivery.id}>
-                <div>
-                  <strong>{delivery.payload.title}</strong>
-                  <small>
-                    {delivery.payload.eventType} · {delivery.channelType} · {channelName(channels, delivery.channelId)}
-                  </small>
-                  <small>
-                    Attempts: {delivery.attempts} · {deliveryTimestamp(delivery)}
-                  </small>
-                  {delivery.error ? <small>{delivery.error}</small> : null}
-                </div>
-
-                <div className="notification-panel__delivery-actions">
-                  <span>{delivery.status}</span>
-                  {canRetry(delivery) ? (
-                    <button
-                      type="button"
-                      disabled={busyDeliveryId === delivery.id}
-                      onClick={() => void retryDelivery(delivery)}
-                    >
-                      {busyDeliveryId === delivery.id ? 'Retrying...' : 'Retry'}
-                    </button>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-
-            {!loading && deliveries.length === 0 ? (
-              <p className="muted">No notification deliveries yet.</p>
-            ) : null}
-
-            {loading ? <p className="muted">Loading notification deliveries...</p> : null}
-          </div>
-        </WidgetCard>
       </div>
+
+      <WidgetCard title="Recent Deliveries" description={`Latest delivery: ${latestDeliveryAt(deliveries)}`}>
+        <div className="notification-panel__list">
+          {deliveries.slice(0, 8).map((delivery) => (
+            <article className="notification-panel__row" data-state={delivery.status} key={delivery.id}>
+              <div>
+                <strong>{delivery.payload.title}</strong>
+                <small>
+                  {delivery.payload.eventType} · {delivery.channelType} · {channelName(channels, delivery.channelId)}
+                </small>
+                <small>
+                  Attempts: {delivery.attempts} · {deliveryTimestamp(delivery)}
+                </small>
+                {delivery.error ? <small>{delivery.error}</small> : null}
+              </div>
+
+              <div className="notification-panel__delivery-actions">
+                <span>{delivery.status}</span>
+                {canRetry(delivery) ? (
+                  <button
+                    type="button"
+                    disabled={busyDeliveryId === delivery.id}
+                    onClick={() => void retryDelivery(delivery)}
+                  >
+                    {busyDeliveryId === delivery.id ? 'Retrying...' : 'Retry'}
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          ))}
+
+          {!loading && deliveries.length === 0 ? (
+            <p className="muted">No notification deliveries yet.</p>
+          ) : null}
+
+          {loading ? <p className="muted">Loading notification deliveries...</p> : null}
+        </div>
+      </WidgetCard>
     </section>
   );
 }

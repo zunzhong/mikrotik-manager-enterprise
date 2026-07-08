@@ -22,8 +22,7 @@
 
 .notification-panel__eyebrow,
 .notification-panel__header p,
-.notification-panel__row small,
-.notification-panel__webhooks small {
+.notification-panel__row small {
   color: #94a3b8;
 }
 
@@ -39,7 +38,8 @@
 
 .notification-panel__header-actions button,
 .notification-panel__form button,
-.notification-panel__delivery-actions button {
+.notification-panel__delivery-actions button,
+.notification-panel__entity-actions button {
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 999px;
   padding: 8px 12px;
@@ -50,13 +50,15 @@
 
 [data-theme='light'] .notification-panel__header-actions button,
 [data-theme='light'] .notification-panel__form button,
-[data-theme='light'] .notification-panel__delivery-actions button {
+[data-theme='light'] .notification-panel__delivery-actions button,
+[data-theme='light'] .notification-panel__entity-actions button {
   background: #f8fafc;
 }
 
 .notification-panel__header-actions button:disabled,
 .notification-panel__form button:disabled,
-.notification-panel__delivery-actions button:disabled {
+.notification-panel__delivery-actions button:disabled,
+.notification-panel__entity-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -100,20 +102,6 @@
   gap: 8px !important;
 }
 
-.notification-panel__webhooks {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.notification-panel__webhooks article {
-  display: grid;
-  gap: 4px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 14px;
-  padding: 12px;
-}
-
 .notification-panel__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -146,14 +134,16 @@
   font-weight: 700;
 }
 
-.notification-panel__delivery-actions {
+.notification-panel__delivery-actions,
+.notification-panel__entity-actions {
   display: flex !important;
   align-items: center;
   justify-items: end;
   gap: 10px !important;
 }
 
-.notification-panel__delivery-actions button {
+.notification-panel__delivery-actions button,
+.notification-panel__entity-actions button {
   padding: 6px 10px;
   font-size: 12px;
 }
@@ -200,8 +190,10 @@
     align-items: flex-start;
   }
 
-  .notification-panel__delivery-actions {
+  .notification-panel__delivery-actions,
+  .notification-panel__entity-actions {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 }
