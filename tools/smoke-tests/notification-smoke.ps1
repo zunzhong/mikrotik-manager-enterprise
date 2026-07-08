@@ -1,19 +1,17 @@
 param(
   [string]$BaseUrl = "http://localhost:3000",
-  [string]$WebhookUrl = "",
-  [switch]$CreateWebhookChannel,
+  [switch]$SkipManagementTest,
   [switch]$ForceFailedWebhook
 )
 
 $ErrorActionPreference = "Stop"
 
-function Write-Step {
-  param([string]$Message)
+function Step([string]$Message) {
   Write-Host ""
   Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
-function Invoke-JsonApi {
+function Api {
   param(
     [string]$Method = "GET",
     [string]$Path,
@@ -21,9 +19,8 @@ function Invoke-JsonApi {
   )
 
   $uri = "$BaseUrl$Path"
-  $upperMethod = $Method.ToUpperInvariant()
 
-  if ($null -eq $Body -and $upperMethod -eq "GET") {
+  if ($null -eq $Body -and $Method.ToUpperInvariant() -eq "GET") {
     return Invoke-RestMethod -Method $Method -Uri $uri
   }
 
@@ -31,19 +28,15 @@ function Invoke-JsonApi {
     $Body = @{}
   }
 
-  $json = $Body | ConvertTo-Json -Depth 30
-
   return Invoke-RestMethod `
     -Method $Method `
     -Uri $uri `
     -ContentType "application/json" `
-    -Body $json
+    -Body ($Body | ConvertTo-Json -Depth 30)
 }
 
-function Get-FirstRetryableDeliveryId {
-  param([object[]]$Deliveries)
-
-  foreach ($item in $Deliveries) {
+function First-RetryableId($Items) {
+  foreach ($item in $Items) {
     if ($item.status -eq "failed" -or $item.status -eq "skipped") {
       return $item.id
     }
@@ -52,159 +45,126 @@ function Get-FirstRetryableDeliveryId {
   return ""
 }
 
+function Management-Test {
+  Step "Create management-test channel"
+  $channel = Api POST "/api/v1/notifications/channels" @{
+    name = "Smoke Test Management Channel"
+    type = "webhook"
+    enabled = $true
+    config = @{
+      url = "http://127.0.0.1:1/management-smoke"
+      method = "POST"
+      timeoutMs = 1000
+      headers = @{
+        "x-source" = "mikrotik-manager-enterprise"
+      }
+    }
+  }
+  $channel | ConvertTo-Json -Depth 30
+  $channelId = $channel.data.id
+
+  Step "Create management-test rule"
+  $rule = Api POST "/api/v1/notifications/rules" @{
+    name = "Smoke Test Management Rule"
+    enabled = $true
+    eventTypes = @("ALERT_OPENED")
+    severities = @("critical")
+    channelIds = @($channelId)
+  }
+  $rule | ConvertTo-Json -Depth 30
+  $ruleId = $rule.data.id
+
+  Step "Patch channel disabled/enabled"
+  Api PATCH "/api/v1/notifications/channels/$channelId" @{ enabled = $false } | ConvertTo-Json -Depth 30
+  Api PATCH "/api/v1/notifications/channels/$channelId" @{
+    enabled = $true
+    name = "Smoke Test Management Channel Updated"
+  } | ConvertTo-Json -Depth 30
+
+  Step "Patch rule disabled/enabled"
+  Api PATCH "/api/v1/notifications/rules/$ruleId" @{ enabled = $false } | ConvertTo-Json -Depth 30
+  Api PATCH "/api/v1/notifications/rules/$ruleId" @{
+    enabled = $true
+    name = "Smoke Test Management Rule Updated"
+  } | ConvertTo-Json -Depth 30
+
+  Step "Delete management-test rule/channel"
+  Api DELETE "/api/v1/notifications/rules/$ruleId" @{} | ConvertTo-Json -Depth 30
+  Api DELETE "/api/v1/notifications/channels/$channelId" @{} | ConvertTo-Json -Depth 30
+}
+
 Write-Host "Notification Engine Smoke Test" -ForegroundColor Green
 Write-Host "BaseUrl: $BaseUrl"
 
-Write-Step "Seed default notification channel and rule"
-$seed = Invoke-JsonApi -Method "POST" -Path "/api/v1/notifications/seed-defaults" -Body @{}
-$seed | ConvertTo-Json -Depth 30
+Step "Seed defaults"
+Api POST "/api/v1/notifications/seed-defaults" @{} | ConvertTo-Json -Depth 30
 
-if ($CreateWebhookChannel -and $WebhookUrl.Trim().Length -gt 0) {
-  Write-Step "Create webhook notification channel"
-  $webhookChannel = Invoke-JsonApi `
-    -Method "POST" `
-    -Path "/api/v1/notifications/channels" `
-    -Body @{
-      name = "Smoke Test Webhook"
-      type = "webhook"
-      enabled = $true
-      config = @{
-        url = $WebhookUrl
-        method = "POST"
-        timeoutMs = 10000
-        headers = @{
-          "x-source" = "mikrotik-manager-enterprise"
-          "x-smoke-test" = "notification-engine"
-        }
-      }
-    }
-
-  $webhookChannel | ConvertTo-Json -Depth 30
-
-  $channelId = $webhookChannel.data.id
-
-  Write-Step "Create webhook notification rule"
-  $webhookRule = Invoke-JsonApi `
-    -Method "POST" `
-    -Path "/api/v1/notifications/rules" `
-    -Body @{
-      name = "Smoke Test Webhook Rule"
-      enabled = $true
-      eventTypes = @("ALERT_OPENED", "DEVICE_OFFLINE")
-      severities = @("critical", "warning")
-      channelIds = @($channelId)
-    }
-
-  $webhookRule | ConvertTo-Json -Depth 30
+if (-not $SkipManagementTest) {
+  Management-Test
 }
 
 if ($ForceFailedWebhook) {
-  Write-Step "Create intentionally failing webhook channel"
-  $badWebhookChannel = Invoke-JsonApi `
-    -Method "POST" `
-    -Path "/api/v1/notifications/channels" `
-    -Body @{
-      name = "Smoke Test Failing Webhook"
-      type = "webhook"
-      enabled = $true
-      config = @{
-        url = "http://127.0.0.1:1/unreachable"
-        method = "POST"
-        timeoutMs = 1000
-        headers = @{
-          "x-source" = "mikrotik-manager-enterprise"
-          "x-smoke-test" = "notification-engine-failure"
-        }
-      }
+  Step "Create intentionally failing webhook channel/rule"
+  $badChannel = Api POST "/api/v1/notifications/channels" @{
+    name = "Smoke Test Failing Webhook"
+    type = "webhook"
+    enabled = $true
+    config = @{
+      url = "http://127.0.0.1:1/unreachable"
+      method = "POST"
+      timeoutMs = 1000
     }
+  }
+  $badChannel | ConvertTo-Json -Depth 30
+  $badId = $badChannel.data.id
 
-  $badWebhookChannel | ConvertTo-Json -Depth 30
-
-  $badChannelId = $badWebhookChannel.data.id
-
-  Write-Step "Create intentionally failing webhook rule"
-  $badWebhookRule = Invoke-JsonApi `
-    -Method "POST" `
-    -Path "/api/v1/notifications/rules" `
-    -Body @{
-      name = "Smoke Test Failing Webhook Rule"
-      enabled = $true
-      eventTypes = @("ALERT_OPENED")
-      severities = @("critical")
-      channelIds = @($badChannelId)
-    }
-
-  $badWebhookRule | ConvertTo-Json -Depth 30
+  Api POST "/api/v1/notifications/rules" @{
+    name = "Smoke Test Failing Webhook Rule"
+    enabled = $true
+    eventTypes = @("ALERT_OPENED")
+    severities = @("critical")
+    channelIds = @($badId)
+  } | ConvertTo-Json -Depth 30
 }
 
-Write-Step "List notification channels"
-$channels = Invoke-JsonApi -Path "/api/v1/notifications/channels"
-$channels | ConvertTo-Json -Depth 30
+Step "List channels/rules"
+Api GET "/api/v1/notifications/channels" | ConvertTo-Json -Depth 30
+Api GET "/api/v1/notifications/rules" | ConvertTo-Json -Depth 30
 
-Write-Step "List notification rules"
-$rules = Invoke-JsonApi -Path "/api/v1/notifications/rules"
-$rules | ConvertTo-Json -Depth 30
-
-Write-Step "Queue notification test payload"
-$test = Invoke-JsonApi `
-  -Method "POST" `
-  -Path "/api/v1/notifications/test" `
-  -Body @{
-    eventType = "ALERT_OPENED"
-    severity = "critical"
-    title = "Notification smoke test"
-    message = "This payload was generated by tools/smoke-tests/notification-smoke.ps1"
-    source = "notification-smoke-test"
-    metadata = @{
-      smokeTest = $true
-      generatedBy = "PowerShell"
-    }
+Step "Queue test payload"
+Api POST "/api/v1/notifications/test" @{
+  eventType = "ALERT_OPENED"
+  severity = "critical"
+  title = "Notification smoke test"
+  message = "Smoke test from tools/smoke-tests/notification-smoke.ps1"
+  source = "notification-smoke-test"
+  metadata = @{
+    smokeTest = $true
+    generatedBy = "PowerShell"
   }
+} | ConvertTo-Json -Depth 30
 
-$test | ConvertTo-Json -Depth 30
+Step "Process pending"
+Api POST "/api/v1/notifications/process-pending" @{ limit = 50 } | ConvertTo-Json -Depth 30
 
-Write-Step "Process pending notification deliveries"
-$processed = Invoke-JsonApi `
-  -Method "POST" `
-  -Path "/api/v1/notifications/process-pending" `
-  -Body @{
-    limit = 50
-  }
+Step "Retry failed/skipped"
+Api POST "/api/v1/notifications/retry-failed" @{ limit = 50 } | ConvertTo-Json -Depth 30
 
-$processed | ConvertTo-Json -Depth 30
+Step "Recent deliveries"
+$deliveries = Api GET "/api/v1/notifications/deliveries?limit=20"
+$deliveries | ConvertTo-Json -Depth 30
 
-Write-Step "Retry all failed/skipped notification deliveries"
-$retryFailed = Invoke-JsonApi `
-  -Method "POST" `
-  -Path "/api/v1/notifications/retry-failed" `
-  -Body @{
-    limit = 50
-  }
-
-$retryFailed | ConvertTo-Json -Depth 30
-
-Write-Step "Recent deliveries"
-$deliveriesResponse = Invoke-JsonApi -Path "/api/v1/notifications/deliveries?limit=20"
-$deliveriesResponse | ConvertTo-Json -Depth 30
-
-$retryableId = Get-FirstRetryableDeliveryId -Deliveries $deliveriesResponse.data
-
-if ($retryableId.Trim().Length -gt 0) {
-  Write-Step "Retry one delivery: $retryableId"
-  $singleRetry = Invoke-JsonApi `
-    -Method "POST" `
-    -Path "/api/v1/notifications/deliveries/$retryableId/retry" `
-    -Body @{}
-
-  $singleRetry | ConvertTo-Json -Depth 30
+$retryId = First-RetryableId $deliveries.data
+if ($retryId.Trim().Length -gt 0) {
+  Step "Retry one delivery: $retryId"
+  Api POST "/api/v1/notifications/deliveries/$retryId/retry" @{} | ConvertTo-Json -Depth 30
 }
 else {
-  Write-Step "No failed/skipped delivery found for single retry"
+  Step "No failed/skipped delivery found for single retry"
 }
 
-Write-Step "Notification summary"
-$summary = Invoke-JsonApi -Path "/api/v1/notifications/summary"
-$summary | ConvertTo-Json -Depth 30
+Step "Summary"
+Api GET "/api/v1/notifications/summary" | ConvertTo-Json -Depth 30
 
-Write-Step "Done"
+Write-Host ""
 Write-Host "Notification smoke test completed." -ForegroundColor Green
