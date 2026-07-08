@@ -1,9 +1,4 @@
-export type AuditActorType =
-  | 'system'
-  | 'user'
-  | 'api'
-  | 'agent'
-  | 'scheduler';
+export type AuditActorType = 'system' | 'user' | 'api' | 'agent' | 'scheduler';
 
 export type AuditEntityType =
   | 'system'
@@ -16,14 +11,9 @@ export type AuditEntityType =
   | 'auth'
   | 'config';
 
-export type AuditSeverity =
-  | 'info'
-  | 'warning'
-  | 'critical';
+export type AuditSeverity = 'info' | 'warning' | 'critical';
 
-export type AuditStatus =
-  | 'success'
-  | 'failure';
+export type AuditStatus = 'success' | 'failure';
 
 export interface AuditActor {
   type: AuditActorType;
@@ -64,6 +54,8 @@ export interface CreateAuditEventInput {
 
 export interface AuditQueryInput {
   limit?: number;
+  page?: number;
+  pageSize?: number;
   action?: string;
   actorType?: AuditActorType;
   actorId?: string;
@@ -73,6 +65,15 @@ export interface AuditQueryInput {
   status?: AuditStatus;
   from?: string;
   to?: string;
+}
+
+export interface AuditPageResult {
+  items: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  generatedAt: string;
 }
 
 export interface AuditSummary {

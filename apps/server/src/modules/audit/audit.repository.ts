@@ -4,6 +4,7 @@ import type {
   AuditActor,
   AuditEntity,
   AuditEvent,
+  AuditPageResult,
   AuditQueryInput,
   AuditSeverity,
   AuditStatus,
@@ -28,15 +29,19 @@ function normalizeLimit(limit = 100): number {
   return Math.min(Math.max(limit, 1), 1000);
 }
 
+function normalizePage(page = 1): number {
+  return Math.max(1, page);
+}
+
+function normalizePageSize(pageSize = 25): number {
+  return Math.min(Math.max(pageSize, 1), 100);
+}
+
 function toJsonValue(value: unknown): Prisma.InputJsonValue | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
 
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
 
@@ -77,10 +82,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function readEnvelope(value: Prisma.JsonValue | null): AuditMetadataEnvelope {
-  if (!isPlainObject(value)) {
-    return {};
-  }
-
+  if (!isPlainObject(value)) return {};
   return value as AuditMetadataEnvelope;
 }
 
@@ -96,11 +98,7 @@ function createMetadataEnvelope(input: CreateAuditEventInput): Prisma.InputJsonO
 }
 
 function defaultActor(): AuditActor {
-  return {
-    type: 'system',
-    id: 'system',
-    name: 'System',
-  };
+  return { type: 'system', id: 'system', name: 'System' };
 }
 
 function defaultEntity(record: AuditLog): AuditEntity {
@@ -112,7 +110,6 @@ function defaultEntity(record: AuditLog): AuditEntity {
 
 function toAuditEvent(record: AuditLog): AuditEvent {
   const envelope = readEnvelope(record.metadata);
-
   return {
     id: record.id,
     action: record.action,
@@ -131,32 +128,20 @@ function eventMatches(event: AuditEvent, query: AuditQueryInput): boolean {
   if (query.actorId && event.actor.id !== query.actorId) return false;
   if (query.severity && event.severity !== query.severity) return false;
   if (query.status && event.status !== query.status) return false;
-
   return true;
 }
 
 function prismaWhere(query: AuditQueryInput): Prisma.AuditLogWhereInput {
   const where: Prisma.AuditLogWhereInput = {};
-
-  if (query.action) {
-    where.action = query.action;
-  }
-
-  if (query.entityType) {
-    where.entity = query.entityType;
-  }
-
-  if (query.entityId) {
-    where.entityId = query.entityId;
-  }
-
+  if (query.action) where.action = query.action;
+  if (query.entityType) where.entity = query.entityType;
+  if (query.entityId) where.entityId = query.entityId;
   if (query.from || query.to) {
     where.createdAt = {
       gte: query.from ? new Date(query.from) : undefined,
       lte: query.to ? new Date(query.to) : undefined,
     };
   }
-
   return where;
 }
 
@@ -172,40 +157,47 @@ export class AuditRepository {
         createdAt: input.createdAt ? new Date(input.createdAt) : undefined,
       },
     });
-
     return toAuditEvent(record);
   }
 
   public async list(query: AuditQueryInput = {}): Promise<AuditEvent[]> {
     const records = await prisma.auditLog.findMany({
       where: prismaWhere(query),
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
       take: normalizeLimit(query.limit),
     });
+    return records.map(toAuditEvent).filter((event) => eventMatches(event, query));
+  }
 
-    return records
-      .map((record) => toAuditEvent(record))
-      .filter((event) => eventMatches(event, query));
+  public async paginate(query: AuditQueryInput = {}): Promise<AuditPageResult> {
+    const page = normalizePage(query.page);
+    const pageSize = normalizePageSize(query.pageSize);
+    const records = await prisma.auditLog.findMany({
+      where: prismaWhere(query),
+      orderBy: { createdAt: 'desc' },
+      take: 1000,
+    });
+    const filtered = records.map(toAuditEvent).filter((event) => eventMatches(event, query));
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / pageSize);
+    const start = (page - 1) * pageSize;
+    return {
+      items: filtered.slice(start, start + pageSize),
+      total,
+      page,
+      pageSize,
+      totalPages,
+      generatedAt: nowIso(),
+    };
   }
 
   public async get(eventId: string): Promise<AuditEvent | null> {
-    const record = await prisma.auditLog.findUnique({
-      where: {
-        id: eventId,
-      },
-    });
-
+    const record = await prisma.auditLog.findUnique({ where: { id: eventId } });
     return record ? toAuditEvent(record) : null;
   }
 
   public async summary(query: AuditQueryInput = {}): Promise<AuditSummary> {
-    const events = await this.list({
-      ...query,
-      limit: 1000,
-    });
-
+    const events = await this.list({ ...query, limit: 1000 });
     return {
       total: events.length,
       success: events.filter((event) => event.status === 'success').length,

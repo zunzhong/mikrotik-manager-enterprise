@@ -16,6 +16,10 @@ export class AuditService {
     return auditRepository.list(query);
   }
 
+  public paginate(query?: AuditQueryInput) {
+    return auditRepository.paginate(query);
+  }
+
   public get(eventId: string) {
     return auditRepository.get(eventId);
   }
