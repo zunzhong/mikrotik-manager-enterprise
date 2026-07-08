@@ -56,6 +56,11 @@ const auditExportQuerySchema = auditQuerySchema.extend({
   format: z.enum(exportFormatValues).default('json'),
 });
 
+const auditRetentionSchema = z.object({
+  days: z.coerce.number().int().positive().max(3650),
+  dryRun: z.coerce.boolean().optional().default(true),
+});
+
 const auditIdParamsSchema = z.object({
   id: z.string().min(1),
 });
@@ -119,6 +124,36 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
         count: events.length,
         items: events,
       },
+    };
+  });
+
+  app.post('/api/v1/audit/retention/prune', async (request) => {
+    const body = auditRetentionSchema.parse(request.body ?? {});
+    const result = await auditService.pruneRetention(body);
+
+    await auditService.logSuccess({
+      action: body.dryRun ? 'audit.retention.dry_run' : 'audit.retention.pruned',
+      summary: body.dryRun
+        ? `Audit retention dry-run matched ${result.matched} event(s)`
+        : `Audit retention deleted ${result.deleted} event(s)`,
+      actor: {
+        type: 'api',
+        id: 'audit-retention',
+        name: 'Audit Retention API',
+      },
+      entity: {
+        type: 'system',
+        id: 'audit',
+        name: 'Audit Log Engine',
+      },
+      metadata: {
+        retention: result,
+      },
+    });
+
+    return {
+      success: true,
+      data: result,
     };
   });
 

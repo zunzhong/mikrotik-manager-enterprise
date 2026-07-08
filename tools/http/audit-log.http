@@ -24,6 +24,24 @@ GET {{baseUrl}}/audit/export?format=csv&limit=1000
 ### Export failed audit CSV
 GET {{baseUrl}}/audit/export?format=csv&status=failure&limit=500
 
+### Audit retention dry-run
+POST {{baseUrl}}/audit/retention/prune
+Content-Type: application/json
+
+{
+  "days": 90,
+  "dryRun": true
+}
+
+### Audit retention delete old logs
+POST {{baseUrl}}/audit/retention/prune
+Content-Type: application/json
+
+{
+  "days": 90,
+  "dryRun": false
+}
+
 ### List audit failures
 GET {{baseUrl}}/audit?status=failure&limit=20
 

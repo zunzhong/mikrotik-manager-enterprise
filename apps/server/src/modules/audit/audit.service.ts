@@ -1,4 +1,9 @@
 import { auditRepository } from './audit.repository.js';
+import {
+  auditRetentionCutoff,
+  type AuditRetentionInput,
+  type AuditRetentionResult,
+} from './audit.retention.js';
 import type {
   AuditActor,
   AuditEntity,
@@ -26,6 +31,22 @@ export class AuditService {
 
   public summary(query?: AuditQueryInput) {
     return auditRepository.summary(query);
+  }
+
+  public async pruneRetention(input: AuditRetentionInput): Promise<AuditRetentionResult> {
+    const dryRun = input.dryRun ?? true;
+    const cutoff = auditRetentionCutoff(input.days);
+    const matched = await auditRepository.countOlderThan(cutoff);
+    const deleted = dryRun ? 0 : await auditRepository.deleteOlderThan(cutoff);
+
+    return {
+      dryRun,
+      days: input.days,
+      cutoff: cutoff.toISOString(),
+      matched,
+      deleted,
+      generatedAt: new Date().toISOString(),
+    };
   }
 
   public logSuccess(input: {
