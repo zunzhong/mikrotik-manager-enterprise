@@ -66,6 +66,10 @@ function emptyPage(page: number, pageSize: number): AuditPageResult {
   };
 }
 
+function triggerDownload(url: string) {
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 export function AuditLogPanel() {
   const [pageResult, setPageResult] = useState<AuditPageResult>(() => emptyPage(1, 25));
   const [summary, setSummary] = useState<AuditSummary | null>(null);
@@ -83,6 +87,11 @@ export function AuditLogPanel() {
     severity: severity === 'all' ? undefined : severity,
     entityType: entityType === 'all' ? undefined : entityType,
   }), [entityType, severity, status]);
+
+  const exportQuery = useMemo<AuditQueryInput>(() => ({
+    ...filterQuery,
+    limit: 1000,
+  }), [filterQuery]);
 
   const pageQuery = useMemo<AuditQueryInput>(() => ({
     ...filterQuery,
@@ -140,6 +149,10 @@ export function AuditLogPanel() {
     }
   }
 
+  function exportAudit(format: 'json' | 'csv') {
+    triggerDownload(auditApi.exportUrl(format, exportQuery));
+  }
+
   function updateStatus(value: AuditStatus | 'all') {
     setStatus(value);
     setPage(1);
@@ -180,6 +193,12 @@ export function AuditLogPanel() {
           <button type="button" disabled={loading || busy} onClick={() => void seedDemo()}>
             Seed Demo
           </button>
+          <button type="button" disabled={loading || busy} onClick={() => exportAudit('json')}>
+            Export JSON
+          </button>
+          <button type="button" disabled={loading || busy} onClick={() => exportAudit('csv')}>
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -192,7 +211,7 @@ export function AuditLogPanel() {
         <SummaryCard label="Critical" value={summary?.critical ?? 0} hint="critical severity" />
       </div>
 
-      <WidgetCard title="Audit Filters" description="Filter and paginate the activity trail">
+      <WidgetCard title="Audit Filters" description="Filter, paginate, and export the activity trail">
         <div className="audit-log-panel__filters">
           <label>
             Status
@@ -230,6 +249,10 @@ export function AuditLogPanel() {
             </select>
           </label>
         </div>
+
+        <p className="audit-log-panel__export-note">
+          Export uses the current status, severity, and entity filters. Maximum export size: 1000 events.
+        </p>
       </WidgetCard>
 
       <WidgetCard title="Recent Audit Events" description={`Showing ${events.length} of ${pageResult.total} audit event(s)`}>

@@ -22,8 +22,14 @@
 
 .audit-log-panel__eyebrow,
 .audit-log-panel__header p,
-.audit-log-panel__event small {
+.audit-log-panel__event small,
+.audit-log-panel__export-note {
   color: #94a3b8;
+}
+
+.audit-log-panel__export-note {
+  margin: 12px 0 0;
+  font-size: 13px;
 }
 
 .audit-log-panel__header h3 {

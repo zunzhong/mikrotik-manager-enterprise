@@ -22,6 +22,17 @@ function queryToSearchParams(query: AuditQueryInput = {}): string {
   return queryString ? `?${queryString}` : '';
 }
 
+function exportQueryToSearchParams(
+  format: 'json' | 'csv',
+  query: AuditQueryInput = {},
+): string {
+  return queryToSearchParams({
+    ...query,
+    limit: query.limit ?? 1000,
+    format,
+  } as AuditQueryInput & { format: 'json' | 'csv' });
+}
+
 export const auditApi = {
   summary: (query?: AuditQueryInput) =>
     apiGet<AuditSummary>(`/api/v1/audit/summary${queryToSearchParams(query)}`),
@@ -40,4 +51,7 @@ export const auditApi = {
 
   seedDemo: () =>
     apiPost<AuditSeedDemoResult>('/api/v1/audit/seed-demo', {}),
+
+  exportUrl: (format: 'json' | 'csv', query?: AuditQueryInput) =>
+    `/api/v1/audit/export${exportQueryToSearchParams(format, query)}`,
 };
