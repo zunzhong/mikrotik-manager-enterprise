@@ -1,0 +1,73 @@
+@baseUrl = http://localhost:3000/api/v1
+
+### List permissions
+GET {{baseUrl}}/rbac/permissions
+
+### List roles
+GET {{baseUrl}}/rbac/roles
+
+### Get owner role
+GET {{baseUrl}}/rbac/roles/owner
+
+### Get admin role
+GET {{baseUrl}}/rbac/roles/admin
+
+### Assign admin role to demo user
+POST {{baseUrl}}/rbac/users/demo-user/roles
+Content-Type: application/json
+
+{
+  "roleId": "admin",
+  "assignedBy": "rest-client"
+}
+
+### Assign auditor role to demo user
+POST {{baseUrl}}/rbac/users/demo-user/roles
+Content-Type: application/json
+
+{
+  "roleId": "auditor",
+  "assignedBy": "rest-client"
+}
+
+### List user roles
+GET {{baseUrl}}/rbac/users/demo-user/roles
+
+### Get user permissions
+GET {{baseUrl}}/rbac/users/demo-user/permissions
+
+### Check user permission
+POST {{baseUrl}}/rbac/check
+Content-Type: application/json
+
+{
+  "principal": {
+    "userId": "demo-user"
+  },
+  "permission": "audit:export"
+}
+
+### Check explicit role permission
+POST {{baseUrl}}/rbac/check
+Content-Type: application/json
+
+{
+  "principal": {
+    "roleIds": ["viewer"]
+  },
+  "permission": "audit:export"
+}
+
+### Check super admin permission
+POST {{baseUrl}}/rbac/check
+Content-Type: application/json
+
+{
+  "principal": {
+    "isSuperAdmin": true
+  },
+  "permission": "rbac:manage"
+}
+
+### Remove auditor role from demo user
+DELETE {{baseUrl}}/rbac/users/demo-user/roles/auditor
