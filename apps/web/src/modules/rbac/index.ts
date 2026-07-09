@@ -1,3 +1,4 @@
+export * from './RbacDashboardSection';
 export * from './RbacPanel';
 export { rbacApi } from './rbac.api';
 export type {

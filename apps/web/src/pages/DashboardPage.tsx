@@ -4,6 +4,7 @@ import { dashboardApi } from '../modules/dashboard/dashboard.api';
 import { notificationApi } from '../modules/notifications/notification.api';
 import { NotificationPanel } from '../modules/notifications/NotificationPanel';
 import { AuditLogPanel } from '../modules/audit/AuditLogPanel';
+import { RbacDashboardSection } from '../modules/rbac';
 import { alertLifecycleApi } from '../modules/alert-lifecycle/alert-lifecycle.api';
 import { AlertLifecyclePanel } from '../modules/alert-lifecycle/AlertLifecyclePanel';
 import { HealthDashboardSummary } from '../modules/dashboard/components/HealthDashboardSummary';
@@ -172,6 +173,8 @@ export function DashboardPage() {
       />
 
       <AuditLogPanel />
+
+      <RbacDashboardSection />
 
       <div className="dashboard-grid">
         <WidgetCard title="Device Status" description="Latest managed device states">
