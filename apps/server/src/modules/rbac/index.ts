@@ -1,4 +1,5 @@
 export * from './rbac.permissions.js';
+export * from './rbac.repository.js';
 export * from './rbac.roles.js';
 export * from './rbac.routes.js';
 export * from './rbac.service.js';
