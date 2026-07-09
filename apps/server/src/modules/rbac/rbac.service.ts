@@ -1,4 +1,4 @@
-import { rbacStore } from './rbac.store.js';
+import { rbacRepository } from './rbac.repository.js';
 import type {
   AssignUserRoleInput,
   RbacPermission,
@@ -6,6 +6,7 @@ import type {
   RbacPermissionCheckResult,
   RbacPrincipal,
   RbacRole,
+  RbacUserRoleAssignment,
   UserPermissionResult,
 } from './rbac.types.js';
 
@@ -33,31 +34,49 @@ function permissionMatches(granted: RbacPermission, required: RbacPermission): b
 }
 
 export class RbacService {
-  public listRoles(): RbacRole[] {
-    return rbacStore.listRoles();
+  private readyPromise: Promise<void> | null = null;
+
+  public async seedDefaults(): Promise<void> {
+    await this.ensureReady();
   }
 
-  public getRole(roleId: string): RbacRole | null {
-    return rbacStore.getRole(roleId);
+  public async listRoles(): Promise<RbacRole[]> {
+    await this.ensureReady();
+
+    return rbacRepository.listRoles();
   }
 
-  public assignUserRole(input: AssignUserRoleInput) {
-    return rbacStore.assignUserRole(input);
+  public async getRole(roleId: string): Promise<RbacRole | null> {
+    await this.ensureReady();
+
+    return rbacRepository.getRole(roleId);
   }
 
-  public removeUserRole(userId: string, roleId: string): boolean {
-    return rbacStore.removeUserRole(userId, roleId);
+  public async assignUserRole(input: AssignUserRoleInput): Promise<RbacUserRoleAssignment> {
+    await this.ensureReady();
+
+    return rbacRepository.assignUserRole(input);
   }
 
-  public listUserRoleAssignments(userId: string) {
-    return rbacStore.listUserRoleAssignments(userId);
+  public async removeUserRole(userId: string, roleId: string): Promise<boolean> {
+    await this.ensureReady();
+
+    return rbacRepository.removeUserRole(userId, roleId);
   }
 
-  public getUserPermissions(userId: string): UserPermissionResult {
-    const assignments = rbacStore.listUserRoleAssignments(userId);
-    const roles = assignments
-      .map((assignment) => rbacStore.getRole(assignment.roleId))
-      .filter((role): role is RbacRole => Boolean(role));
+  public async listUserRoleAssignments(userId: string): Promise<RbacUserRoleAssignment[]> {
+    await this.ensureReady();
+
+    return rbacRepository.listUserRoleAssignments(userId);
+  }
+
+  public async getUserPermissions(userId: string): Promise<UserPermissionResult> {
+    await this.ensureReady();
+
+    const assignments = await rbacRepository.listUserRoleAssignments(userId);
+    const roles = (
+      await Promise.all(assignments.map((assignment) => rbacRepository.getRole(assignment.roleId)))
+    ).filter((role): role is RbacRole => Boolean(role));
 
     return {
       userId,
@@ -67,17 +86,24 @@ export class RbacService {
     };
   }
 
-  public resolvePrincipalPermissions(principal: RbacPrincipal): {
+  public async resolvePrincipalPermissions(principal: RbacPrincipal): Promise<{
     roleIds: string[];
     permissions: RbacPermission[];
-  } {
-    const roleIds = unique([
-      ...(principal.roleIds ?? []),
-      ...(principal.userId ? this.getUserPermissions(principal.userId).roleIds : []),
-    ]);
+  }> {
+    await this.ensureReady();
 
-    const rolePermissions = roleIds
-      .map((roleId) => rbacStore.getRole(roleId))
+    const userPermissions = principal.userId
+      ? await this.getUserPermissions(principal.userId)
+      : {
+          roleIds: [],
+          permissions: [],
+        };
+
+    const roleIds = unique([...(principal.roleIds ?? []), ...userPermissions.roleIds]);
+
+    const rolePermissions = (
+      await Promise.all(roleIds.map((roleId) => rbacRepository.getRole(roleId)))
+    )
       .filter((role): role is RbacRole => Boolean(role))
       .flatMap((role) => role.permissions);
 
@@ -87,7 +113,9 @@ export class RbacService {
     };
   }
 
-  public checkPermission(input: RbacPermissionCheckInput): RbacPermissionCheckResult {
+  public async checkPermission(
+    input: RbacPermissionCheckInput,
+  ): Promise<RbacPermissionCheckResult> {
     if (input.principal.isSuperAdmin) {
       return {
         allowed: true,
@@ -98,7 +126,7 @@ export class RbacService {
       };
     }
 
-    const resolved = this.resolvePrincipalPermissions(input.principal);
+    const resolved = await this.resolvePrincipalPermissions(input.principal);
     const matchedBy = resolved.permissions.find((permission) =>
       permissionMatches(permission, input.permission),
     );
@@ -112,12 +140,20 @@ export class RbacService {
     };
   }
 
-  public assertPermission(input: RbacPermissionCheckInput): void {
-    const result = this.checkPermission(input);
+  public async assertPermission(input: RbacPermissionCheckInput): Promise<void> {
+    const result = await this.checkPermission(input);
 
     if (!result.allowed) {
       throw new Error(`Permission denied: ${input.permission}`);
     }
+  }
+
+  private async ensureReady(): Promise<void> {
+    if (!this.readyPromise) {
+      this.readyPromise = rbacRepository.seedDefaults();
+    }
+
+    return this.readyPromise;
   }
 }
 

@@ -51,12 +51,12 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/v1/rbac/roles', async () => ({
     success: true,
-    data: rbacService.listRoles(),
+    data: await rbacService.listRoles(),
   }));
 
   app.get('/api/v1/rbac/roles/:id', async (request, reply) => {
     const params = roleParamsSchema.parse(request.params);
-    const role = rbacService.getRole(params.id);
+    const role = await rbacService.getRole(params.id);
 
     if (!role) {
       reply.code(404);
@@ -77,7 +77,7 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       success: true,
-      data: rbacService.getUserPermissions(params.userId),
+      data: await rbacService.getUserPermissions(params.userId),
     };
   });
 
@@ -86,14 +86,14 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       success: true,
-      data: rbacService.listUserRoleAssignments(params.userId),
+      data: await rbacService.listUserRoleAssignments(params.userId),
     };
   });
 
   app.post('/api/v1/rbac/users/:userId/roles', async (request, reply) => {
     const params = userParamsSchema.parse(request.params);
     const body = assignRoleSchema.parse(request.body ?? {});
-    const role = rbacService.getRole(body.roleId);
+    const role = await rbacService.getRole(body.roleId);
 
     if (!role) {
       await auditService.logFailure({
@@ -120,7 +120,7 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
       };
     }
 
-    const assignment = rbacService.assignUserRole({
+    const assignment = await rbacService.assignUserRole({
       userId: params.userId,
       roleId: body.roleId,
       assignedBy: body.assignedBy,
@@ -150,7 +150,7 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/api/v1/rbac/users/:userId/roles/:roleId', async (request, reply) => {
     const params = userRoleParamsSchema.parse(request.params);
-    const removed = rbacService.removeUserRole(params.userId, params.roleId);
+    const removed = await rbacService.removeUserRole(params.userId, params.roleId);
 
     if (!removed) {
       await auditService.logFailure({
@@ -210,14 +210,16 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
       permissions: body.principal.permissions as RbacPermission[] | undefined,
     };
 
-    const result = rbacService.checkPermission({
+    const result = await rbacService.checkPermission({
       principal,
       permission: body.permission as RbacPermission,
     });
 
     await auditService.logSuccess({
       action: 'rbac.permission.checked',
-      summary: `RBAC permission check ${result.allowed ? 'allowed' : 'denied'} for ${body.permission}`,
+      summary: `RBAC permission check ${result.allowed ? 'allowed' : 'denied'} for ${
+        body.permission
+      }`,
       actor: apiActor(principal.userId),
       entity: {
         type: 'auth',

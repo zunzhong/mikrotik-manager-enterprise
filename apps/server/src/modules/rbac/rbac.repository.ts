@@ -44,6 +44,26 @@ function permissionName(permissionKey: string): string {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
+function localUserEmail(userId: string): string {
+  if (userId.includes('@')) {
+    return userId;
+  }
+
+  const safe = userId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+
+  let hash = 0;
+
+  for (const char of userId) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+
+  return `${safe || 'user'}.${hash.toString(16)}@rbac.local`;
+}
+
 function toRbacRole(record: RoleWithPermissions): RbacRole {
   return {
     id: record.key,
@@ -152,11 +172,14 @@ export class RbacRepository {
   }
 
   public async assignUserRole(input: AssignUserRoleInput): Promise<RbacUserRoleAssignment> {
-    const role = await prisma.role.findUnique({
-      where: {
-        key: input.roleId,
-      },
-    });
+    const [userId, role] = await Promise.all([
+      this.resolveOrCreateUserId(input.userId),
+      prisma.role.findUnique({
+        where: {
+          key: input.roleId,
+        },
+      }),
+    ]);
 
     if (!role) {
       throw new Error(`RBAC role not found: ${input.roleId}`);
@@ -165,12 +188,12 @@ export class RbacRepository {
     const assignment = await prisma.userRole.upsert({
       where: {
         userId_roleId: {
-          userId: input.userId,
+          userId,
           roleId: role.id,
         },
       },
       create: {
-        userId: input.userId,
+        userId,
         roleId: role.id,
       },
       update: {},
@@ -182,14 +205,17 @@ export class RbacRepository {
     return toAssignment(assignment);
   }
 
-  public async removeUserRole(userId: string, roleId: string): Promise<boolean> {
-    const role = await prisma.role.findUnique({
-      where: {
-        key: roleId,
-      },
-    });
+  public async removeUserRole(userIdOrEmail: string, roleId: string): Promise<boolean> {
+    const [userId, role] = await Promise.all([
+      this.resolveExistingUserId(userIdOrEmail),
+      prisma.role.findUnique({
+        where: {
+          key: roleId,
+        },
+      }),
+    ]);
 
-    if (!role) {
+    if (!userId || !role) {
       return false;
     }
 
@@ -203,7 +229,13 @@ export class RbacRepository {
     return result.count > 0;
   }
 
-  public async listUserRoleAssignments(userId: string): Promise<RbacUserRoleAssignment[]> {
+  public async listUserRoleAssignments(userIdOrEmail: string): Promise<RbacUserRoleAssignment[]> {
+    const userId = await this.resolveExistingUserId(userIdOrEmail);
+
+    if (!userId) {
+      return [];
+    }
+
     const records = await prisma.userRole.findMany({
       where: {
         userId,
@@ -249,6 +281,55 @@ export class RbacRepository {
         category: permissionCategory(permissionKey),
       },
     });
+  }
+
+  private async resolveExistingUserId(userIdOrEmail: string): Promise<string | null> {
+    const byId = await prisma.user.findUnique({
+      where: {
+        id: userIdOrEmail,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (byId) {
+      return byId.id;
+    }
+
+    const byEmail = await prisma.user.findUnique({
+      where: {
+        email: userIdOrEmail,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return byEmail?.id ?? null;
+  }
+
+  private async resolveOrCreateUserId(userIdOrEmail: string): Promise<string> {
+    const existing = await this.resolveExistingUserId(userIdOrEmail);
+
+    if (existing) {
+      return existing;
+    }
+
+    const created = await prisma.user.create({
+      data: {
+        id: userIdOrEmail,
+        email: localUserEmail(userIdOrEmail),
+        name: userIdOrEmail,
+        role: 'admin',
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return created.id;
   }
 
   public createTransientAssignment(input: AssignUserRoleInput): RbacUserRoleAssignment {
