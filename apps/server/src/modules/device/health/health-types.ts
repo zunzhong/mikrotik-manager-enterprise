@@ -1,12 +1,7 @@
 export type HealthStatus = 'healthy' | 'warning' | 'critical';
 
 export type HealthIssueCode =
-  | 'CPU_HIGH'
-  | 'MEMORY_LOW'
-  | 'DISK_LOW'
-  | 'TEMPERATURE_HIGH'
-  | 'VOLTAGE_WARNING'
-  | 'UNKNOWN';
+  'CPU_HIGH' | 'MEMORY_LOW' | 'DISK_LOW' | 'TEMPERATURE_HIGH' | 'VOLTAGE_WARNING' | 'UNKNOWN';
 
 export interface HealthIssue {
   code: HealthIssueCode;

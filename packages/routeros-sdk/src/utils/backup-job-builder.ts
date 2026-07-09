@@ -12,7 +12,11 @@ export function createBinaryBackupJob(name: string, fileName?: string): RouterOs
   };
 }
 
-export function createExportJob(name: string, fileName?: string, includeSensitive = false): RouterOsBackupJob {
+export function createExportJob(
+  name: string,
+  fileName?: string,
+  includeSensitive = false,
+): RouterOsBackupJob {
   const safeName = fileName ?? `${name}-${new Date().toISOString().replace(/[:.]/g, '-')}`;
 
   return {

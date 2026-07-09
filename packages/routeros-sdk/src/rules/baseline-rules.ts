@@ -16,12 +16,14 @@ export const baselineComplianceRules: RouterOsComplianceRule[] = [
     severity: 'high',
     async evaluate(context: RouterOsComplianceContext) {
       const api = context.services.find((service) => service.name === 'api');
-      const passed = !api || api.disabled === 'true' || api.disabled === 'yes' || Boolean(api.address);
+      const passed =
+        !api || api.disabled === 'true' || api.disabled === 'yes' || Boolean(api.address);
 
       return finding({
         id: 'service-api-disabled-or-restricted',
         title: 'RouterOS API service should be disabled or restricted',
-        description: 'The plaintext API service should either be disabled or restricted to trusted management subnets.',
+        description:
+          'The plaintext API service should either be disabled or restricted to trusted management subnets.',
         severity: 'high',
         category: 'services',
         passed,
@@ -47,16 +49,15 @@ export const baselineComplianceRules: RouterOsComplianceRule[] = [
       return finding({
         id: 'telnet-disabled',
         title: 'Telnet service should be disabled',
-        description: 'Telnet sends credentials in plaintext and should not be enabled on production routers.',
+        description:
+          'Telnet sends credentials in plaintext and should not be enabled on production routers.',
         severity: 'critical',
         category: 'services',
         passed,
         evidence: { telnet },
         remediation: {
           description: 'Disable Telnet service.',
-          commands: [
-            { path: '/ip/service/disable', attributes: { numbers: 'telnet' } },
-          ],
+          commands: [{ path: '/ip/service/disable', attributes: { numbers: 'telnet' } }],
         },
       });
     },
@@ -79,10 +80,9 @@ export const baselineComplianceRules: RouterOsComplianceRule[] = [
         passed,
         evidence: { admin },
         remediation: {
-          description: 'Create a named administrator account and disable the default admin account.',
-          commands: [
-            { path: '/user/disable', attributes: { numbers: 'admin' } },
-          ],
+          description:
+            'Create a named administrator account and disable the default admin account.',
+          commands: [{ path: '/user/disable', attributes: { numbers: 'admin' } }],
         },
       });
     },
@@ -93,7 +93,9 @@ export const baselineComplianceRules: RouterOsComplianceRule[] = [
     category: 'firewall',
     severity: 'medium',
     async evaluate(context: RouterOsComplianceContext) {
-      const hasDrop = context.firewallFilter.some((rule) => rule.action === 'drop' && rule.disabled !== 'true' && rule.disabled !== 'yes');
+      const hasDrop = context.firewallFilter.some(
+        (rule) => rule.action === 'drop' && rule.disabled !== 'true' && rule.disabled !== 'yes',
+      );
 
       return finding({
         id: 'firewall-has-drop-rule',

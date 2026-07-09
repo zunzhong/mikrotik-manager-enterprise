@@ -1,5 +1,10 @@
 import type { CommandRunner } from '../core/command-runner.js';
-import type { RouterOsBfdConfiguration, RouterOsRoutingRule, RouterOsRoutingTable, RouterOsVrf } from '../models/routing.js';
+import type {
+  RouterOsBfdConfiguration,
+  RouterOsRoutingRule,
+  RouterOsRoutingTable,
+  RouterOsVrf,
+} from '../models/routing.js';
 
 class RoutingTableApi {
   public constructor(private readonly runner: CommandRunner) {}
@@ -8,7 +13,12 @@ class RoutingTableApi {
     return this.runner.print('/routing/table/print') as Promise<RouterOsRoutingTable[]>;
   }
 
-  public async add(input: { name: string; fib?: boolean; disabled?: boolean; comment?: string }): Promise<void> {
+  public async add(input: {
+    name: string;
+    fib?: boolean;
+    disabled?: boolean;
+    comment?: string;
+  }): Promise<void> {
     await this.runner.add('/routing/table/add', input);
   }
 
@@ -49,7 +59,12 @@ class VrfApi {
     return this.runner.print('/ip/vrf/print') as Promise<RouterOsVrf[]>;
   }
 
-  public async add(input: { name: string; interfaces?: string; disabled?: boolean; comment?: string }): Promise<void> {
+  public async add(input: {
+    name: string;
+    interfaces?: string;
+    disabled?: boolean;
+    comment?: string;
+  }): Promise<void> {
     await this.runner.add('/ip/vrf/add', input);
   }
 
@@ -62,7 +77,9 @@ class BfdApi {
   public constructor(private readonly runner: CommandRunner) {}
 
   public list(): Promise<RouterOsBfdConfiguration[]> {
-    return this.runner.print('/routing/bfd/configuration/print') as Promise<RouterOsBfdConfiguration[]>;
+    return this.runner.print('/routing/bfd/configuration/print') as Promise<
+      RouterOsBfdConfiguration[]
+    >;
   }
 }
 

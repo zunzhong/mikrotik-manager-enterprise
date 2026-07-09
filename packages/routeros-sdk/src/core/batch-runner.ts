@@ -104,16 +104,17 @@ export class BatchRunner {
       finishedAt,
       durationMs: duration(startedAt, finishedAt),
       results,
-      rollbackPlan: rollbackCommands.length > 0
-        ? {
-            id: `${plan.id}-rollback`,
-            name: `${plan.name} rollback`,
-            mode: 'stop-on-error',
-            dryRun: false,
-            commands: rollbackCommands,
-            createdAt: now(),
-          }
-        : undefined,
+      rollbackPlan:
+        rollbackCommands.length > 0
+          ? {
+              id: `${plan.id}-rollback`,
+              name: `${plan.name} rollback`,
+              mode: 'stop-on-error',
+              dryRun: false,
+              commands: rollbackCommands,
+              createdAt: now(),
+            }
+          : undefined,
     };
   }
 }

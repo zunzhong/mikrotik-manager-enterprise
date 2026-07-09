@@ -42,22 +42,41 @@ export function MfaSecurityPanel() {
 
       {message ? <div className="info-banner">{message}</div> : null}
 
-      {!status.data?.enabled ? <button className="small-button" onClick={startSetup}>Setup MFA</button> : null}
+      {!status.data?.enabled ? (
+        <button className="small-button" onClick={startSetup}>
+          Setup MFA
+        </button>
+      ) : null}
 
       {setup ? (
         <div className="mfa-box">
-          <label>Secret</label><code>{setup.secret}</code>
-          <label>OTP Auth URI</label><code>{setup.otpauthUrl}</code>
-          <label>Dev current code</label><code>{setup.currentCode}</code>
-          <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="Enter 6-digit code" />
-          <button className="small-button" onClick={enable}>Enable MFA</button>
+          <label>Secret</label>
+          <code>{setup.secret}</code>
+          <label>OTP Auth URI</label>
+          <code>{setup.otpauthUrl}</code>
+          <label>Dev current code</label>
+          <code>{setup.currentCode}</code>
+          <input
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            placeholder="Enter 6-digit code"
+          />
+          <button className="small-button" onClick={enable}>
+            Enable MFA
+          </button>
         </div>
       ) : null}
 
       {status.data?.enabled ? (
         <div className="mfa-box">
-          <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="Enter MFA code to disable" />
-          <button className="small-button danger" onClick={disable}>Disable MFA</button>
+          <input
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            placeholder="Enter MFA code to disable"
+          />
+          <button className="small-button danger" onClick={disable}>
+            Disable MFA
+          </button>
         </div>
       ) : null}
     </div>

@@ -30,14 +30,24 @@ export function PasswordSecurityPanel() {
 
       <div className="password-form">
         <label>Current password</label>
-        <input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+        <input
+          type="password"
+          value={currentPassword}
+          onChange={(event) => setCurrentPassword(event.target.value)}
+        />
 
         <label>New password</label>
-        <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
+        />
 
         <small>Minimum 8 characters, uppercase, lowercase, number and special character.</small>
 
-        <button className="small-button" onClick={changePassword}>Change Password</button>
+        <button className="small-button" onClick={changePassword}>
+          Change Password
+        </button>
       </div>
 
       {message ? <div className="info-banner">{message}</div> : null}

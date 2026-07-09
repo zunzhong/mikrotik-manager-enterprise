@@ -7,7 +7,7 @@ Import example:
 ```tsx
 import { DeviceDashboardPage } from './modules/devices';
 
-<DeviceDashboardPage deviceId="DEVICE_ID" />
+<DeviceDashboardPage deviceId="DEVICE_ID" />;
 ```
 
 Optional CSS:

@@ -17,7 +17,7 @@ const plan = createRestorePlan({
   name: 'restore-config',
   fileName: 'config.rsc',
   kind: 'export-rsc',
-  dryRun: false
+  dryRun: false,
 });
 
 await client.backup.restore(plan);

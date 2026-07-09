@@ -27,10 +27,7 @@ export function snapshotSummary(snapshot: InventorySnapshotSummary | null | unde
       text(summary.architecture) ??
       'Unknown',
     board:
-      text(routerboard.model) ??
-      text(resource.boardName) ??
-      text(summary.boardName) ??
-      'Unknown',
+      text(routerboard.model) ?? text(resource.boardName) ?? text(summary.boardName) ?? 'Unknown',
     serial: text(routerboard.serialNumber) ?? text(summary.serialNumber),
     uptime: text(resource.uptime) ?? text(summary.uptime),
     cpuLoad: text(resource.cpuLoad) ?? text(summary.cpuLoad),

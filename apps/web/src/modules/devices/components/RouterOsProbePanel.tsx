@@ -30,16 +30,42 @@ export function RouterOsProbePanel() {
           <h3>RouterOS Live Probe</h3>
           <p>Test connection and read live identity/resource/routerboard information.</p>
         </div>
-        <button className="small-button" onClick={probe}>Test Connection</button>
+        <button className="small-button" onClick={probe}>
+          Test Connection
+        </button>
       </div>
 
       <div className="probe-form">
-        <label>Host<input value={host} onChange={(event) => setHost(event.target.value)} /></label>
-        <label>Port<input type="number" value={port} onChange={(event) => setPort(Number(event.target.value))} /></label>
-        <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} /></label>
-        <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+        <label>
+          Host
+          <input value={host} onChange={(event) => setHost(event.target.value)} />
+        </label>
+        <label>
+          Port
+          <input
+            type="number"
+            value={port}
+            onChange={(event) => setPort(Number(event.target.value))}
+          />
+        </label>
+        <label>
+          Username
+          <input value={username} onChange={(event) => setUsername(event.target.value)} />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
         <label className="checkbox-row">
-          <input type="checkbox" checked={useTls} onChange={(event) => setUseTls(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={useTls}
+            onChange={(event) => setUseTls(event.target.checked)}
+          />
           Use API-SSL
         </label>
       </div>
@@ -48,12 +74,36 @@ export function RouterOsProbePanel() {
 
       {result ? (
         <div className="probe-result">
-          <div className="summary-card"><span>Status</span><strong>{result.online ? 'Online' : 'Offline'}</strong><small>{result.error ?? 'connection result'}</small></div>
-          <div className="summary-card"><span>Latency</span><strong>{result.latencyMs ?? 0} ms</strong><small>round trip</small></div>
-          <div className="summary-card"><span>Identity</span><strong>{result.identity ?? 'unknown'}</strong><small>system identity</small></div>
-          <div className="summary-card"><span>RouterOS</span><strong>{result.version ?? 'unknown'}</strong><small>{result.architecture ?? 'architecture unknown'}</small></div>
-          <div className="summary-card"><span>Board</span><strong>{result.boardName ?? 'unknown'}</strong><small>{result.serialNumber ?? 'serial unknown'}</small></div>
-          <div className="summary-card"><span>Uptime</span><strong>{result.uptime ?? 'unknown'}</strong><small>reported by router</small></div>
+          <div className="summary-card">
+            <span>Status</span>
+            <strong>{result.online ? 'Online' : 'Offline'}</strong>
+            <small>{result.error ?? 'connection result'}</small>
+          </div>
+          <div className="summary-card">
+            <span>Latency</span>
+            <strong>{result.latencyMs ?? 0} ms</strong>
+            <small>round trip</small>
+          </div>
+          <div className="summary-card">
+            <span>Identity</span>
+            <strong>{result.identity ?? 'unknown'}</strong>
+            <small>system identity</small>
+          </div>
+          <div className="summary-card">
+            <span>RouterOS</span>
+            <strong>{result.version ?? 'unknown'}</strong>
+            <small>{result.architecture ?? 'architecture unknown'}</small>
+          </div>
+          <div className="summary-card">
+            <span>Board</span>
+            <strong>{result.boardName ?? 'unknown'}</strong>
+            <small>{result.serialNumber ?? 'serial unknown'}</small>
+          </div>
+          <div className="summary-card">
+            <span>Uptime</span>
+            <strong>{result.uptime ?? 'unknown'}</strong>
+            <small>reported by router</small>
+          </div>
         </div>
       ) : null}
     </section>

@@ -126,7 +126,9 @@ export class RouterOsClient {
     const challengeBuffer = Buffer.from(challenge, 'hex');
     const digest = crypto
       .createHash('md5')
-      .update(Buffer.concat([Buffer.from([0]), Buffer.from(this.options.password), challengeBuffer]))
+      .update(
+        Buffer.concat([Buffer.from([0]), Buffer.from(this.options.password), challengeBuffer]),
+      )
       .digest('hex');
 
     await this.command('/login', {

@@ -35,7 +35,9 @@ export class TokenService {
     const expected = this.signature(`${header}.${body}`);
     if (expected !== signature) return null;
 
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8')) as AuthTokenPayload;
+    const payload = JSON.parse(
+      Buffer.from(body, 'base64url').toString('utf-8'),
+    ) as AuthTokenPayload;
     if (payload.exp < Math.floor(Date.now() / 1000)) return null;
 
     return payload;

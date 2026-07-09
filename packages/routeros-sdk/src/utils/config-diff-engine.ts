@@ -5,11 +5,11 @@ import type {
   RouterOsConfigSnapshot,
 } from '../models/config-diff.js';
 
-function diffAttributes(before: RouterOsConfigItem, after: RouterOsConfigItem): RouterOsConfigChange['changedAttributes'] {
-  const keys = new Set([
-    ...Object.keys(before.attributes),
-    ...Object.keys(after.attributes),
-  ]);
+function diffAttributes(
+  before: RouterOsConfigItem,
+  after: RouterOsConfigItem,
+): RouterOsConfigChange['changedAttributes'] {
+  const keys = new Set([...Object.keys(before.attributes), ...Object.keys(after.attributes)]);
 
   const changedAttributes: RouterOsConfigChange['changedAttributes'] = {};
 

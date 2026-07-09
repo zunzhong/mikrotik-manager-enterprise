@@ -26,27 +26,24 @@ function text(value: unknown): string | undefined {
 }
 
 function recordId(record: Record<string, unknown>, fallback: string): string {
-  return (
-    text(record.id) ??
-    text(record['.id']) ??
-    text(record.name) ??
-    fallback
-  );
+  return text(record.id) ?? text(record['.id']) ?? text(record.name) ?? fallback;
 }
 
-export function isInterfaceSection(section: Pick<InventorySectionDetail, 'path' | 'name' | 'category'>): boolean {
+export function isInterfaceSection(
+  section: Pick<InventorySectionDetail, 'path' | 'name' | 'category'>,
+): boolean {
   const path = section.path.toLowerCase();
   const name = section.name.toLowerCase();
   const category = section.category.toLowerCase();
 
   return (
-    path.includes('/interface') ||
-    name.includes('interface') ||
-    category.includes('interface')
+    path.includes('/interface') || name.includes('interface') || category.includes('interface')
   );
 }
 
-export function interfaceSectionCount(snapshot: InventorySnapshotSummary | null | undefined): number {
+export function interfaceSectionCount(
+  snapshot: InventorySnapshotSummary | null | undefined,
+): number {
   return snapshot?.sections?.filter(isInterfaceSection).length ?? 0;
 }
 
@@ -75,7 +72,9 @@ export function mapInterfaceRows(sections: InventorySectionDetail[]): InterfaceE
   return rows;
 }
 
-export function interfaceStatus(row: InterfaceExplorerRow): 'disabled' | 'running' | 'down' | 'unknown' {
+export function interfaceStatus(
+  row: InterfaceExplorerRow,
+): 'disabled' | 'running' | 'down' | 'unknown' {
   if (row.disabled === 'true' || row.disabled === 'yes') return 'disabled';
   if (row.running === 'true' || row.running === 'yes') return 'running';
   if (row.running === 'false' || row.running === 'no') return 'down';

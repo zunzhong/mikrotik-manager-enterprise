@@ -30,29 +30,31 @@ export function auditEventsToCsv(events: AuditEvent[]): string {
     'metadata',
   ];
 
-  const rows = events.map((event) => [
-    event.id,
-    event.createdAt,
-    event.status,
-    event.severity,
-    event.action,
-    event.actor.type,
-    event.actor.id,
-    event.actor.name,
-    event.entity?.type,
-    event.entity?.id,
-    event.entity?.name,
-    event.summary,
-    event.metadata,
-  ].map(csvValue).join(','));
+  const rows = events.map((event) =>
+    [
+      event.id,
+      event.createdAt,
+      event.status,
+      event.severity,
+      event.action,
+      event.actor.type,
+      event.actor.id,
+      event.actor.name,
+      event.entity?.type,
+      event.entity?.id,
+      event.entity?.name,
+      event.summary,
+      event.metadata,
+    ]
+      .map(csvValue)
+      .join(','),
+  );
 
   return [header.join(','), ...rows].join('\n');
 }
 
 export function auditExportFilename(format: AuditExportFormat): string {
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[:.]/g, '-');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
   return `audit-log-${timestamp}.${format}`;
 }

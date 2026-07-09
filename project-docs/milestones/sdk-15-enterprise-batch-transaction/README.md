@@ -10,8 +10,8 @@ const plan = new BatchPlanBuilder('plan-1', 'Provision VLAN')
     rollback: {
       id: 'rollback-vlan10',
       path: '/interface/vlan/remove',
-      attributes: { numbers: 'vlan10' }
-    }
+      attributes: { numbers: 'vlan10' },
+    },
   })
   .build();
 

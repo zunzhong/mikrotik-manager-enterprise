@@ -13,4 +13,7 @@ Built-in baseline rules:
 - API disabled/restricted
 - Default admin reviewed
 - Firewall has drop rule
+
+```
+
 ```

@@ -62,7 +62,8 @@ export async function alertLifecycleRoutes(app: FastifyInstance): Promise<void> 
         deviceId: query.deviceId,
         ruleKey: query.ruleKey,
         statuses: splitEnum(query.status, statusValues) as AlertLifecycleStatus[] | undefined,
-        severities: splitEnum(query.severity, severityValues) as AlertLifecycleSeverity[] | undefined,
+        severities: splitEnum(query.severity, severityValues) as
+          AlertLifecycleSeverity[] | undefined,
         limit: query.limit,
       }),
     };

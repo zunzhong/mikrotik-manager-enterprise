@@ -30,7 +30,9 @@ function clampPercent(value: number | undefined): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-export function buildDeviceMetricBars(snapshot: InventorySnapshotSummary | null): DeviceMetricBar[] {
+export function buildDeviceMetricBars(
+  snapshot: InventorySnapshotSummary | null,
+): DeviceMetricBar[] {
   const summary = snapshotSummary(snapshot);
   const cpu = clampPercent(parseNumber(summary.cpuLoad));
   const memoryPercent = percentFromFree(summary.freeMemory, summary.totalMemory);

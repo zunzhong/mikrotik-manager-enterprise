@@ -7,7 +7,7 @@ Usage:
 ```tsx
 import { DeviceInterfaceExplorerPage } from './modules/devices';
 
-<DeviceInterfaceExplorerPage deviceId="DEVICE_ID" />
+<DeviceInterfaceExplorerPage deviceId="DEVICE_ID" />;
 ```
 
 Optional CSS:

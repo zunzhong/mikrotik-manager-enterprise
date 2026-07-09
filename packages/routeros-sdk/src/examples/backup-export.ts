@@ -9,9 +9,7 @@ const client = new RouterOsClient({
 
 await client.connect();
 
-const result = await client.backup.run(
-  createExportJob('manual-export', undefined, false),
-);
+const result = await client.backup.run(createExportJob('manual-export', undefined, false));
 
 console.log(JSON.stringify(result, null, 2));
 

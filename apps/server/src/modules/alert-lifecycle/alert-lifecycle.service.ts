@@ -38,11 +38,7 @@ function toJsonValue(value: unknown): Prisma.InputJsonValue | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
 
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
 
@@ -116,7 +112,12 @@ function deviceNameFromMetadata(metadata: Prisma.JsonValue | null): string | und
 function publishOpenedEvent(alert: AlertEventLike): void {
   eventBus.publish({
     type: 'ALERT_OPENED',
-    severity: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'warning' : 'info',
+    severity:
+      alert.severity === 'critical'
+        ? 'critical'
+        : alert.severity === 'warning'
+          ? 'warning'
+          : 'info',
     title: 'Alert opened',
     message: alert.title,
     source: 'alert-lifecycle',
@@ -345,11 +346,7 @@ export class AlertLifecycleService {
     };
   }
 
-  public async resolveForDevice(
-    deviceId: string,
-    ruleKeys: string[],
-    input: AlertResolutionInput,
-  ) {
+  public async resolveForDevice(deviceId: string, ruleKeys: string[], input: AlertResolutionInput) {
     if (ruleKeys.length === 0) {
       return [];
     }
@@ -388,7 +385,9 @@ export class AlertLifecycleService {
       },
     });
 
-    const resolved = compact(await Promise.all(alerts.map((alert) => this.resolve(alert.id, input))));
+    const resolved = compact(
+      await Promise.all(alerts.map((alert) => this.resolve(alert.id, input))),
+    );
 
     return {
       requested: alerts.length,
@@ -443,8 +442,12 @@ export class AlertLifecycleService {
       prisma.alert.count({ where: { status: 'open' } }),
       prisma.alert.count({ where: { status: 'acknowledged' } }),
       prisma.alert.count({ where: { status: 'resolved' } }),
-      prisma.alert.count({ where: { status: { in: ['open', 'acknowledged'] }, severity: 'critical' } }),
-      prisma.alert.count({ where: { status: { in: ['open', 'acknowledged'] }, severity: 'warning' } }),
+      prisma.alert.count({
+        where: { status: { in: ['open', 'acknowledged'] }, severity: 'critical' },
+      }),
+      prisma.alert.count({
+        where: { status: { in: ['open', 'acknowledged'] }, severity: 'warning' },
+      }),
       prisma.alert.count({ where: { status: { in: ['open', 'acknowledged'] }, severity: 'info' } }),
     ]);
 

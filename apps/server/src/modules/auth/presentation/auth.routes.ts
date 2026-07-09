@@ -51,28 +51,48 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     data: request.user,
   }));
 
-  app.get('/api/v1/auth/sessions', { preHandler: authGuardService.requireAuth() }, async (request) => ({
-    success: true,
-    data: await authService.sessions(request.user!.id),
-  }));
-
-  app.delete('/api/v1/auth/sessions/:id', { preHandler: authGuardService.requireAuth() }, async (request) => {
-    const params = request.params as { id: string };
-    return { success: true, data: await authService.revokeSession(request.user!.id, params.id) };
-  });
-
-  app.post('/api/v1/auth/logout-all', { preHandler: authGuardService.requireAuth() }, async (request) => ({
-    success: true,
-    data: await authService.logoutAll(request.user!.id),
-  }));
-
-  app.post('/api/v1/auth/change-password', { preHandler: authGuardService.requireAuth() }, async (request) => {
-    const body = changePasswordSchema.parse(request.body ?? {});
-    return {
+  app.get(
+    '/api/v1/auth/sessions',
+    { preHandler: authGuardService.requireAuth() },
+    async (request) => ({
       success: true,
-      data: await authService.changePassword(request.user!.id, body.currentPassword, body.newPassword),
-    };
-  });
+      data: await authService.sessions(request.user!.id),
+    }),
+  );
+
+  app.delete(
+    '/api/v1/auth/sessions/:id',
+    { preHandler: authGuardService.requireAuth() },
+    async (request) => {
+      const params = request.params as { id: string };
+      return { success: true, data: await authService.revokeSession(request.user!.id, params.id) };
+    },
+  );
+
+  app.post(
+    '/api/v1/auth/logout-all',
+    { preHandler: authGuardService.requireAuth() },
+    async (request) => ({
+      success: true,
+      data: await authService.logoutAll(request.user!.id),
+    }),
+  );
+
+  app.post(
+    '/api/v1/auth/change-password',
+    { preHandler: authGuardService.requireAuth() },
+    async (request) => {
+      const body = changePasswordSchema.parse(request.body ?? {});
+      return {
+        success: true,
+        data: await authService.changePassword(
+          request.user!.id,
+          body.currentPassword,
+          body.newPassword,
+        ),
+      };
+    },
+  );
 
   app.post('/api/v1/auth/password-reset/request', async (request) => {
     const body = resetRequestSchema.parse(request.body ?? {});
@@ -81,7 +101,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/v1/auth/password-reset/confirm', async (request) => {
     const body = resetConfirmSchema.parse(request.body ?? {});
-    return { success: true, data: await authService.confirmPasswordReset(body.token, body.newPassword) };
+    return {
+      success: true,
+      data: await authService.confirmPasswordReset(body.token, body.newPassword),
+    };
   });
 
   app.post('/api/v1/auth/logout', async () => ({

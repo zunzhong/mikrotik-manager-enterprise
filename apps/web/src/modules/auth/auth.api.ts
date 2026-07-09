@@ -54,16 +54,15 @@ export const authApi = {
     apiPost('/api/v1/auth/change-password', { currentPassword, newPassword }),
 
   mfaStatus: () =>
-    apiGet<{ configured: boolean; enabled: boolean; enabledAt?: string }>('/api/v1/auth/mfa/status'),
+    apiGet<{ configured: boolean; enabled: boolean; enabledAt?: string }>(
+      '/api/v1/auth/mfa/status',
+    ),
 
-  mfaSetup: () =>
-    apiPost<MfaSetupResult>('/api/v1/auth/mfa/setup', {}),
+  mfaSetup: () => apiPost<MfaSetupResult>('/api/v1/auth/mfa/setup', {}),
 
-  mfaEnable: (code: string) =>
-    apiPost('/api/v1/auth/mfa/enable', { code }),
+  mfaEnable: (code: string) => apiPost('/api/v1/auth/mfa/enable', { code }),
 
-  mfaDisable: (code: string) =>
-    apiPost('/api/v1/auth/mfa/disable', { code }),
+  mfaDisable: (code: string) => apiPost('/api/v1/auth/mfa/disable', { code }),
 
   requestPasswordReset: (email: string) =>
     apiPost('/api/v1/auth/password-reset/request', { email }),

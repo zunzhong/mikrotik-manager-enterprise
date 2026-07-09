@@ -151,8 +151,7 @@ export const rbacApi = {
     return normalizeRole(role);
   },
 
-  users: async (): Promise<AdminUser[]> =>
-    [],
+  users: async (): Promise<AdminUser[]> => [],
 
   userRoles: (userId: string): Promise<RbacUserRoleAssignment[]> =>
     apiGet<RbacUserRoleAssignment[]>(`/api/v1/rbac/users/${userId}/roles`),
@@ -190,16 +189,17 @@ export const rbacApi = {
   assignRolePermission: async (roleId: string, permissionId: string): Promise<Role> => {
     const role = await rbacApi.role(roleId);
 
-    if (role.permissions.some((item) => item.permission.id === permissionId || item.permission.key === permissionId)) {
+    if (
+      role.permissions.some(
+        (item) => item.permission.id === permissionId || item.permission.key === permissionId,
+      )
+    ) {
       return role;
     }
 
     return {
       ...role,
-      permissions: [
-        ...role.permissions,
-        toRolePermission(role.id, permissionId),
-      ],
+      permissions: [...role.permissions, toRolePermission(role.id, permissionId)],
     };
   },
 
@@ -208,15 +208,15 @@ export const rbacApi = {
 
     return {
       ...role,
-      permissions: role.permissions.filter((item) => (
-        item.id !== permissionId
-        && item.permissionId !== permissionId
-        && item.permission.id !== permissionId
-        && item.permission.key !== permissionId
-      )),
+      permissions: role.permissions.filter(
+        (item) =>
+          item.id !== permissionId &&
+          item.permissionId !== permissionId &&
+          item.permission.id !== permissionId &&
+          item.permission.key !== permissionId,
+      ),
     };
   },
 
-  exportUrl: (format: 'json' | 'csv') =>
-    `/api/v1/rbac/export?format=${format}`,
+  exportUrl: (format: 'json' | 'csv') => `/api/v1/rbac/export?format=${format}`,
 };

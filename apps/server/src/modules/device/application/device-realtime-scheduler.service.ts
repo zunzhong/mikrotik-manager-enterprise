@@ -1,8 +1,5 @@
 import { deviceRepository } from '../infrastructure/device.repository.js';
-import {
-  deviceRealtimeService,
-  type DeviceRealtimeView,
-} from './device-realtime.service.js';
+import { deviceRealtimeService, type DeviceRealtimeView } from './device-realtime.service.js';
 
 export interface DeviceRealtimeSchedulerStatus {
   running: boolean;

@@ -18,7 +18,13 @@ class IpAddressApi {
     return this.runner.print('/ip/address/print') as Promise<RouterOsIpAddress[]>;
   }
 
-  public async add(input: { address: string; interface: string; network?: string; comment?: string; disabled?: boolean }): Promise<void> {
+  public async add(input: {
+    address: string;
+    interface: string;
+    network?: string;
+    comment?: string;
+    disabled?: boolean;
+  }): Promise<void> {
     await this.runner.add('/ip/address/add', input);
   }
 
@@ -42,7 +48,14 @@ class IpRouteApi {
     return this.runner.print('/ip/route/print') as Promise<RouterOsRoute[]>;
   }
 
-  public async add(input: { dstAddress: string; gateway: string; distance?: string | number; routingTable?: string; comment?: string; disabled?: boolean }): Promise<void> {
+  public async add(input: {
+    dstAddress: string;
+    gateway: string;
+    distance?: string | number;
+    routingTable?: string;
+    comment?: string;
+    disabled?: boolean;
+  }): Promise<void> {
     await this.runner.add('/ip/route/add', input);
   }
 
@@ -58,7 +71,13 @@ class DnsStaticApi {
     return this.runner.print('/ip/dns/static/print') as Promise<RouterOsDnsStaticRecord[]>;
   }
 
-  public async add(input: { name: string; address: string; ttl?: string; comment?: string; disabled?: boolean }): Promise<void> {
+  public async add(input: {
+    name: string;
+    address: string;
+    ttl?: string;
+    comment?: string;
+    disabled?: boolean;
+  }): Promise<void> {
     await this.runner.add('/ip/dns/static/add', input);
   }
 
@@ -78,7 +97,11 @@ class DnsApi {
     return this.runner.printOne('/ip/dns/print') as Promise<RouterOsDnsSettings>;
   }
 
-  public async set(input: { servers?: string; allowRemoteRequests?: boolean; cacheSize?: string }): Promise<void> {
+  public async set(input: {
+    servers?: string;
+    allowRemoteRequests?: boolean;
+    cacheSize?: string;
+  }): Promise<void> {
     await this.runner.set('/ip/dns/set', input);
   }
 }

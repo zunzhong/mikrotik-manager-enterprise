@@ -18,15 +18,15 @@ export function mapNeighbor(record: RouterOsRecord): RouterOsNeighbor {
 }
 
 export function fingerprintNeighbor(neighbor: RouterOsNeighbor): string {
-  return [
-    neighbor.macAddress,
-    neighbor.address,
-    neighbor.identity,
-    neighbor.interface,
-  ].filter(Boolean).join('|');
+  return [neighbor.macAddress, neighbor.address, neighbor.identity, neighbor.interface]
+    .filter(Boolean)
+    .join('|');
 }
 
-export function mapNeighborToDiscoveryDevice(neighbor: RouterOsNeighbor, collectedAt = new Date().toISOString()): RouterOsDiscoveryDevice {
+export function mapNeighborToDiscoveryDevice(
+  neighbor: RouterOsNeighbor,
+  collectedAt = new Date().toISOString(),
+): RouterOsDiscoveryDevice {
   return {
     key: fingerprintNeighbor(neighbor),
     identity: neighbor.identity,

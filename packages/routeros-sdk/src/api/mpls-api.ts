@@ -1,5 +1,9 @@
 import type { CommandRunner } from '../core/command-runner.js';
-import type { RouterOsLdpNeighbor, RouterOsMplsInterface, RouterOsVplsInterface } from '../models/mpls.js';
+import type {
+  RouterOsLdpNeighbor,
+  RouterOsMplsInterface,
+  RouterOsVplsInterface,
+} from '../models/mpls.js';
 
 class MplsInterfaceApi {
   public constructor(private readonly runner: CommandRunner) {}

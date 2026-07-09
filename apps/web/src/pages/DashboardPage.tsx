@@ -35,13 +35,28 @@ export function DashboardPage() {
   const compliance = usePollingData(loadCompliance, { enabled: true, intervalMs: 60000 });
   const inventory = usePollingData(loadInventory, { enabled: true, intervalMs: 60000 });
   const activity = usePollingData(loadActivity, { enabled: true, intervalMs: 30000 });
-  const realtimeOverview = usePollingData(loadRealtimeOverview, { enabled: true, intervalMs: 30000 });
+  const realtimeOverview = usePollingData(loadRealtimeOverview, {
+    enabled: true,
+    intervalMs: 30000,
+  });
   const healthEvents = usePollingData(loadHealthEvents, { enabled: true, intervalMs: 30000 });
-  const alertLifecycleSummary = usePollingData(loadAlertLifecycleSummary, { enabled: true, intervalMs: 30000 });
+  const alertLifecycleSummary = usePollingData(loadAlertLifecycleSummary, {
+    enabled: true,
+    intervalMs: 30000,
+  });
   const activeAlerts = usePollingData(loadActiveAlerts, { enabled: true, intervalMs: 30000 });
-  const notificationChannels = usePollingData(loadNotificationChannels, { enabled: true, intervalMs: 30000 });
-  const notificationRules = usePollingData(loadNotificationRules, { enabled: true, intervalMs: 30000 });
-  const notificationDeliveries = usePollingData(loadNotificationDeliveries, { enabled: true, intervalMs: 30000 });
+  const notificationChannels = usePollingData(loadNotificationChannels, {
+    enabled: true,
+    intervalMs: 30000,
+  });
+  const notificationRules = usePollingData(loadNotificationRules, {
+    enabled: true,
+    intervalMs: 30000,
+  });
+  const notificationDeliveries = usePollingData(loadNotificationDeliveries, {
+    enabled: true,
+    intervalMs: 30000,
+  });
 
   const data = summary.data;
 
@@ -162,8 +177,14 @@ export function DashboardPage() {
         channels={notificationChannels.data ?? []}
         rules={notificationRules.data ?? []}
         deliveries={notificationDeliveries.data ?? []}
-        loading={notificationChannels.loading || notificationRules.loading || notificationDeliveries.loading}
-        error={notificationChannels.error ?? notificationRules.error ?? notificationDeliveries.error}
+        loading={
+          notificationChannels.loading ||
+          notificationRules.loading ||
+          notificationDeliveries.loading
+        }
+        error={
+          notificationChannels.error ?? notificationRules.error ?? notificationDeliveries.error
+        }
         onChanged={() => {
           notificationChannels.refresh();
           notificationRules.refresh();

@@ -3,15 +3,15 @@
 Typed APIs:
 
 ```ts
-client.dhcp.server.list()
-client.dhcp.lease.list()
-client.dhcp.network.list()
+client.dhcp.server.list();
+client.dhcp.lease.list();
+client.dhcp.network.list();
 
-client.ppp.secret.list()
-client.ppp.active.list()
-client.ppp.profile.list()
-client.ppp.pppoeClient.list()
+client.ppp.secret.list();
+client.ppp.active.list();
+client.ppp.profile.list();
+client.ppp.pppoeClient.list();
 
-client.ip.dns.static.list()
-client.service.list()
+client.ip.dns.static.list();
+client.service.list();
 ```

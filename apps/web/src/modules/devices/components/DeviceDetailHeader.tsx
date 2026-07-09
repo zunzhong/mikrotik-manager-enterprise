@@ -19,8 +19,7 @@ export function DeviceDetailHeader({ device }: DeviceDetailHeaderProps) {
       <div className="device-detail-header__status">
         <StatusBadge status={device.status} />
         <span>
-          Last seen:{' '}
-          {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : 'Never'}
+          Last seen: {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : 'Never'}
         </span>
       </div>
     </div>

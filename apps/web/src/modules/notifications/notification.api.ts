@@ -21,11 +21,7 @@ interface ApiEnvelope<T> {
   error?: string;
 }
 
-async function apiJson<T>(
-  path: string,
-  method: 'PATCH' | 'DELETE',
-  body?: unknown,
-): Promise<T> {
+async function apiJson<T>(path: string, method: 'PATCH' | 'DELETE', body?: unknown): Promise<T> {
   const response = await fetch(path, {
     method,
     headers: body ? { 'content-type': 'application/json' } : undefined,
@@ -73,8 +69,7 @@ export const notificationApi = {
   deliveries: (limit = 100) =>
     apiGet<NotificationDelivery[]>(`/api/v1/notifications/deliveries?limit=${limit}`),
 
-  seedDefaults: () =>
-    apiPost<NotificationSeedResult>('/api/v1/notifications/seed-defaults', {}),
+  seedDefaults: () => apiPost<NotificationSeedResult>('/api/v1/notifications/seed-defaults', {}),
 
   test: () =>
     apiPost<NotificationTestResult>('/api/v1/notifications/test', {

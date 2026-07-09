@@ -1,4 +1,8 @@
-import type { RouterOsDiscoveryDevice, RouterOsDiscoveryDiff, RouterOsDiscoverySnapshot } from '../models/discovery.js';
+import type {
+  RouterOsDiscoveryDevice,
+  RouterOsDiscoveryDiff,
+  RouterOsDiscoverySnapshot,
+} from '../models/discovery.js';
 
 function deviceChanged(a: RouterOsDiscoveryDevice, b: RouterOsDiscoveryDevice): boolean {
   return (

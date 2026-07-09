@@ -46,16 +46,17 @@ export function DeviceHealthCard({ report, online }: DeviceHealthCardProps) {
         <div className="device-health-card__issues">
           <h4>Active Issues</h4>
           {issues.map((issue) => (
-            <HealthIssueRow issue={issue} key={`${issue.code}-${issue.title}-${issue.value ?? ''}`} />
+            <HealthIssueRow
+              issue={issue}
+              key={`${issue.code}-${issue.title}-${issue.value ?? ''}`}
+            />
           ))}
         </div>
       ) : (
         <p className="device-health-card__healthy">No active health issues detected.</p>
       )}
 
-      <footer>
-        Evaluated at: {new Date(report.evaluatedAt).toLocaleString()}
-      </footer>
+      <footer>Evaluated at: {new Date(report.evaluatedAt).toLocaleString()}</footer>
     </section>
   );
 }

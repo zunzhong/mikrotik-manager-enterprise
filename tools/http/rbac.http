@@ -1,19 +1,35 @@
-@baseUrl = http://localhost:3000/api/v1
+@baseUrl = http://localhost:3000
+@userId = demo-user
 
-### List permissions
-GET {{baseUrl}}/rbac/permissions
+### RBAC: List permissions
+GET {{baseUrl}}/api/v1/rbac/permissions
 
-### List roles
-GET {{baseUrl}}/rbac/roles
+### RBAC: List roles
+GET {{baseUrl}}/api/v1/rbac/roles
 
-### Get owner role
-GET {{baseUrl}}/rbac/roles/owner
+### RBAC: Get owner role
+GET {{baseUrl}}/api/v1/rbac/roles/owner
 
-### Get admin role
-GET {{baseUrl}}/rbac/roles/admin
+### RBAC: Get admin role
+GET {{baseUrl}}/api/v1/rbac/roles/admin
 
-### Assign admin role to demo user
-POST {{baseUrl}}/rbac/users/demo-user/roles
+### RBAC: List user roles
+GET {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
+
+### RBAC: List effective user permissions
+GET {{baseUrl}}/api/v1/rbac/users/{{userId}}/permissions
+
+### RBAC: Assign viewer role
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
+Content-Type: application/json
+
+{
+  "roleId": "viewer",
+  "assignedBy": "rest-client"
+}
+
+### RBAC: Assign admin role
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
 Content-Type: application/json
 
 {
@@ -21,8 +37,8 @@ Content-Type: application/json
   "assignedBy": "rest-client"
 }
 
-### Assign auditor role to demo user
-POST {{baseUrl}}/rbac/users/demo-user/roles
+### RBAC: Assign auditor role
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
 Content-Type: application/json
 
 {
@@ -30,25 +46,19 @@ Content-Type: application/json
   "assignedBy": "rest-client"
 }
 
-### List user roles
-GET {{baseUrl}}/rbac/users/demo-user/roles
-
-### Get user permissions
-GET {{baseUrl}}/rbac/users/demo-user/permissions
-
-### Check user permission
-POST {{baseUrl}}/rbac/check
+### RBAC: Check user audit export permission
+POST {{baseUrl}}/api/v1/rbac/check
 Content-Type: application/json
 
 {
   "principal": {
-    "userId": "demo-user"
+    "userId": "{{userId}}"
   },
   "permission": "audit:export"
 }
 
-### Check explicit role permission
-POST {{baseUrl}}/rbac/check
+### RBAC: Check viewer audit export denial
+POST {{baseUrl}}/api/v1/rbac/check
 Content-Type: application/json
 
 {
@@ -58,8 +68,19 @@ Content-Type: application/json
   "permission": "audit:export"
 }
 
-### Check super admin permission
-POST {{baseUrl}}/rbac/check
+### RBAC: Check explicit permission
+POST {{baseUrl}}/api/v1/rbac/check
+Content-Type: application/json
+
+{
+  "principal": {
+    "permissions": ["device:read"]
+  },
+  "permission": "device:read"
+}
+
+### RBAC: Check super admin bypass
+POST {{baseUrl}}/api/v1/rbac/check
 Content-Type: application/json
 
 {
@@ -69,5 +90,14 @@ Content-Type: application/json
   "permission": "rbac:manage"
 }
 
-### Remove auditor role from demo user
-DELETE {{baseUrl}}/rbac/users/demo-user/roles/auditor
+### RBAC: Remove auditor role
+DELETE {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles/auditor
+
+### Audit: RBAC role assigned events
+GET {{baseUrl}}/api/v1/audit?action=rbac.user_role.assigned&limit=20
+
+### Audit: RBAC permission checked events
+GET {{baseUrl}}/api/v1/audit?action=rbac.permission.checked&limit=20
+
+### Audit: RBAC role removed events
+GET {{baseUrl}}/api/v1/audit?action=rbac.user_role.removed&limit=20

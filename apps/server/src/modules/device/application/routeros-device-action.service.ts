@@ -56,7 +56,10 @@ export class RouterOsDeviceActionService {
     });
   }
 
-  public async backup(deviceId: string, input: DeviceBackupInput = {}): Promise<DeviceActionResult> {
+  public async backup(
+    deviceId: string,
+    input: DeviceBackupInput = {},
+  ): Promise<DeviceActionResult> {
     return this.withClient(deviceId, 'backup', async (client) => {
       const name = input.name ?? safeFileName('mme-backup');
       const replies = await client.command('/system/backup/save', { name }, { timeoutMs: 30000 });
@@ -68,7 +71,10 @@ export class RouterOsDeviceActionService {
     });
   }
 
-  public async supout(deviceId: string, input: DeviceSupoutInput = {}): Promise<DeviceActionResult> {
+  public async supout(
+    deviceId: string,
+    input: DeviceSupoutInput = {},
+  ): Promise<DeviceActionResult> {
     return this.withClient(deviceId, 'supout', async (client) => {
       const file = input.name ?? safeFileName('mme-supout');
       const replies = await client.command('/system/sup-output', { file }, { timeoutMs: 60000 });
@@ -86,14 +92,16 @@ export class RouterOsDeviceActionService {
     }
 
     return this.withClient(deviceId, 'reboot', async (client) => {
-      const replies = await client.command('/system/reboot', {}, { timeoutMs: 10000 }).catch((error) => {
-        // Router may close the API connection immediately after accepting reboot.
-        if (error instanceof Error) {
-          return [{ type: 'connection-closed-after-reboot', message: error.message }];
-        }
+      const replies = await client
+        .command('/system/reboot', {}, { timeoutMs: 10000 })
+        .catch((error) => {
+          // Router may close the API connection immediately after accepting reboot.
+          if (error instanceof Error) {
+            return [{ type: 'connection-closed-after-reboot', message: error.message }];
+          }
 
-        return [{ type: 'connection-closed-after-reboot' }];
-      });
+          return [{ type: 'connection-closed-after-reboot' }];
+        });
 
       return {
         message: 'Reboot command sent to router',

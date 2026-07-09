@@ -21,7 +21,9 @@ export class CommandRunner {
 
   public async print(path: string, options: RunCommandOptions = {}): Promise<RouterOsRecord[]> {
     const replies = await this.run(path, options);
-    const records = replies.filter((reply) => reply.type === '!re').map((reply) => reply.attributes);
+    const records = replies
+      .filter((reply) => reply.type === '!re')
+      .map((reply) => reply.attributes);
     return options.normalizeKeys === false ? records : records.map(normalizeRecord);
   }
 
@@ -29,11 +31,17 @@ export class CommandRunner {
     return (await this.print(path, options))[0] ?? {};
   }
 
-  public async add(path: string, attributes: Record<string, string | number | boolean | undefined | null>): Promise<void> {
+  public async add(
+    path: string,
+    attributes: Record<string, string | number | boolean | undefined | null>,
+  ): Promise<void> {
     await this.run(path, { attributes });
   }
 
-  public async set(path: string, attributes: Record<string, string | number | boolean | undefined | null>): Promise<void> {
+  public async set(
+    path: string,
+    attributes: Record<string, string | number | boolean | undefined | null>,
+  ): Promise<void> {
     await this.run(path, { attributes });
   }
 

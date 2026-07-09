@@ -51,7 +51,16 @@ export function AdministrationPageView() {
           <h3>Administration</h3>
           <p>Manage users, roles and enterprise permissions.</p>
         </div>
-        <button className="small-button" onClick={() => { users.refresh(); roles.refresh(); permissions.refresh(); }}>Refresh</button>
+        <button
+          className="small-button"
+          onClick={() => {
+            users.refresh();
+            roles.refresh();
+            permissions.refresh();
+          }}
+        >
+          Refresh
+        </button>
       </div>
 
       {message ? <div className="info-banner">{message}</div> : null}
@@ -60,15 +69,36 @@ export function AdministrationPageView() {
       {permissions.error ? <div className="error-banner">{permissions.error}</div> : null}
 
       <div className="admin-summary">
-        <div className="summary-card"><span>Users</span><strong>{users.data?.length ?? 0}</strong><small>accounts</small></div>
-        <div className="summary-card"><span>Roles</span><strong>{roles.data?.length ?? 0}</strong><small>access profiles</small></div>
-        <div className="summary-card"><span>Permissions</span><strong>{permissions.data?.length ?? 0}</strong><small>capabilities</small></div>
+        <div className="summary-card">
+          <span>Users</span>
+          <strong>{users.data?.length ?? 0}</strong>
+          <small>accounts</small>
+        </div>
+        <div className="summary-card">
+          <span>Roles</span>
+          <strong>{roles.data?.length ?? 0}</strong>
+          <small>access profiles</small>
+        </div>
+        <div className="summary-card">
+          <span>Permissions</span>
+          <strong>{permissions.data?.length ?? 0}</strong>
+          <small>capabilities</small>
+        </div>
       </div>
 
       <div className="admin-tabs">
-        <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users</button>
-        <button className={tab === 'roles' ? 'active' : ''} onClick={() => setTab('roles')}>Roles</button>
-        <button className={tab === 'permissions' ? 'active' : ''} onClick={() => setTab('permissions')}>Permissions</button>
+        <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>
+          Users
+        </button>
+        <button className={tab === 'roles' ? 'active' : ''} onClick={() => setTab('roles')}>
+          Roles
+        </button>
+        <button
+          className={tab === 'permissions' ? 'active' : ''}
+          onClick={() => setTab('permissions')}
+        >
+          Permissions
+        </button>
       </div>
 
       {tab === 'users' ? (
@@ -80,15 +110,29 @@ export function AdministrationPageView() {
                 <div>
                   <h4>{user.name ?? user.email}</h4>
                   <p>{user.email}</p>
-                  <small>{user.isActive ? 'active' : 'disabled'} • created {new Date(user.createdAt).toLocaleString()}</small>
+                  <small>
+                    {user.isActive ? 'active' : 'disabled'} • created{' '}
+                    {new Date(user.createdAt).toLocaleString()}
+                  </small>
                   <div className="tag-row">
-                    {user.roles.map((item) => <span className="status-badge" key={item.id}>{item.role.name}</span>)}
+                    {user.roles.map((item) => (
+                      <span className="status-badge" key={item.id}>
+                        {item.role.name}
+                      </span>
+                    ))}
                     {user.roles.length === 0 ? <span className="status-badge">no role</span> : null}
                   </div>
                 </div>
-                <select onChange={(event) => event.target.value && assignRole(user, event.target.value)} defaultValue="">
+                <select
+                  onChange={(event) => event.target.value && assignRole(user, event.target.value)}
+                  defaultValue=""
+                >
                   <option value="">Assign role...</option>
-                  {(roles.data ?? []).map((role) => <option value={role.id} key={role.id}>{role.name}</option>)}
+                  {(roles.data ?? []).map((role) => (
+                    <option value={role.id} key={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
                 </select>
               </article>
             ))}
@@ -105,15 +149,33 @@ export function AdministrationPageView() {
                 <div>
                   <h4>{role.name}</h4>
                   <p>{role.description ?? role.key}</p>
-                  <small>{role.isSystem ? 'system role' : 'custom role'} • {role.permissions.length} permissions</small>
+                  <small>
+                    {role.isSystem ? 'system role' : 'custom role'} • {role.permissions.length}{' '}
+                    permissions
+                  </small>
                   <div className="tag-row">
-                    {role.permissions.slice(0, 8).map((item) => <span className="status-badge" key={item.id}>{item.permission.key}</span>)}
-                    {role.permissions.length > 8 ? <span className="status-badge">+{role.permissions.length - 8}</span> : null}
+                    {role.permissions.slice(0, 8).map((item) => (
+                      <span className="status-badge" key={item.id}>
+                        {item.permission.key}
+                      </span>
+                    ))}
+                    {role.permissions.length > 8 ? (
+                      <span className="status-badge">+{role.permissions.length - 8}</span>
+                    ) : null}
                   </div>
                 </div>
-                <select onChange={(event) => event.target.value && assignPermission(role, event.target.value)} defaultValue="">
+                <select
+                  onChange={(event) =>
+                    event.target.value && assignPermission(role, event.target.value)
+                  }
+                  defaultValue=""
+                >
                   <option value="">Assign permission...</option>
-                  {(permissions.data ?? []).map((permission) => <option value={permission.id} key={permission.id}>{permission.key}</option>)}
+                  {(permissions.data ?? []).map((permission) => (
+                    <option value={permission.id} key={permission.id}>
+                      {permission.key}
+                    </option>
+                  ))}
                 </select>
               </article>
             ))}

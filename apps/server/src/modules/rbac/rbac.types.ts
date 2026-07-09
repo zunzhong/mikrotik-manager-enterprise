@@ -1,27 +1,10 @@
 export type RbacResource =
-  | 'system'
-  | 'device'
-  | 'event'
-  | 'alert'
-  | 'notification'
-  | 'audit'
-  | 'rbac'
-  | 'dashboard';
+  'system' | 'device' | 'event' | 'alert' | 'notification' | 'audit' | 'rbac' | 'dashboard';
 
 export type RbacAction =
-  | 'read'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'manage'
-  | 'export'
-  | 'prune'
-  | 'assign';
+  'read' | 'create' | 'update' | 'delete' | 'manage' | 'export' | 'prune' | 'assign';
 
-export type RbacPermission =
-  | '*'
-  | `${RbacResource}:${RbacAction}`
-  | `${RbacResource}:*`;
+export type RbacPermission = '*' | `${RbacResource}:${RbacAction}` | `${RbacResource}:*`;
 
 export interface RbacRole {
   id: string;

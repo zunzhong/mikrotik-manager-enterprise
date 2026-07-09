@@ -1,5 +1,9 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
-import type { DeviceActionResult, DeviceFileActionInput, DevicePingInput } from './device-action.types';
+import type {
+  DeviceActionResult,
+  DeviceFileActionInput,
+  DevicePingInput,
+} from './device-action.types';
 import type {
   InventoryCollectResult,
   InventorySectionDetail,
@@ -50,8 +54,7 @@ export const deviceApi = {
 
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
 
-  getRealtimeOverview: () =>
-    apiGet<DeviceRealtimeOverview>('/api/v1/realtime/devices'),
+  getRealtimeOverview: () => apiGet<DeviceRealtimeOverview>('/api/v1/realtime/devices'),
 
   getRealtimeSchedulerStatus: () =>
     apiGet<DeviceRealtimeSchedulerStatus>('/api/v1/realtime/scheduler/status'),
@@ -68,8 +71,7 @@ export const deviceApi = {
   refreshRealtimeSnapshot: (id: string) =>
     apiPost<DeviceRealtimeSnapshot>(`/api/v1/realtime/devices/${id}/refresh`),
 
-  realtimeStreamUrl: (id: string) =>
-    buildApiUrl(`/api/v1/realtime/devices/${id}/stream`),
+  realtimeStreamUrl: (id: string) => buildApiUrl(`/api/v1/realtime/devices/${id}/stream`),
 
   pingDevice: (id: string, input: DevicePingInput = {}) =>
     apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping`, input),
@@ -108,7 +110,9 @@ export const deviceApi = {
     apiGet<InventorySnapshotSummary[]>(`/api/v1/devices/${deviceId}/inventory/snapshots`),
 
   latestInventorySnapshot: (deviceId: string) =>
-    apiGet<InventorySnapshotSummary | null>(`/api/v1/devices/${deviceId}/inventory/snapshots/latest`),
+    apiGet<InventorySnapshotSummary | null>(
+      `/api/v1/devices/${deviceId}/inventory/snapshots/latest`,
+    ),
 
   inventorySnapshot: (snapshotId: string) =>
     apiGet<InventorySnapshotDetail>(`/api/v1/inventory/snapshots/${snapshotId}`),

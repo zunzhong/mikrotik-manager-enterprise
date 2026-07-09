@@ -33,7 +33,11 @@ export class RouterOsSdkAdapter {
     }
   }
 
-  public async run(client: RouterClientLike, path: string, params?: Record<string, unknown>): Promise<unknown> {
+  public async run(
+    client: RouterClientLike,
+    path: string,
+    params?: Record<string, unknown>,
+  ): Promise<unknown> {
     if (typeof client.command === 'function') return client.command(path, params);
     if (typeof client.execute === 'function') return client.execute(path, params);
     if (typeof client.query === 'function') return client.query(path, params);

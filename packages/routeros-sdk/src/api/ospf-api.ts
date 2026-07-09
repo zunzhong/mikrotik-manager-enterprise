@@ -48,7 +48,9 @@ class OspfInterfaceTemplateApi {
   public constructor(private readonly runner: CommandRunner) {}
 
   public list(): Promise<RouterOsOspfInterfaceTemplate[]> {
-    return this.runner.print('/routing/ospf/interface-template/print') as Promise<RouterOsOspfInterfaceTemplate[]>;
+    return this.runner.print('/routing/ospf/interface-template/print') as Promise<
+      RouterOsOspfInterfaceTemplate[]
+    >;
   }
 
   public async add(input: {

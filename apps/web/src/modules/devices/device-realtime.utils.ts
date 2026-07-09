@@ -1,4 +1,8 @@
-import type { DeviceRealtimeSchedulerStatus, DeviceRealtimeSnapshot, RealtimeMetric } from './device-realtime.types';
+import type {
+  DeviceRealtimeSchedulerStatus,
+  DeviceRealtimeSnapshot,
+  RealtimeMetric,
+} from './device-realtime.types';
 
 function text(value: unknown): string | undefined {
   if (typeof value === 'string' && value.length > 0) return value;
@@ -84,7 +88,6 @@ export function ageFromIso(value: string): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
-
 
 export function healthStatusLabel(status: string | undefined): string {
   if (status === 'healthy') return 'Healthy';

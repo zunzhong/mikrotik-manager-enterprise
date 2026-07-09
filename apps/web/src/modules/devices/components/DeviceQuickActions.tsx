@@ -10,7 +10,10 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
   const [message, setMessage] = useState<string>('');
   const [busyAction, setBusyAction] = useState<string>('');
 
-  async function runAction(action: string, fn: () => Promise<{ message: string; success?: boolean }>) {
+  async function runAction(
+    action: string,
+    fn: () => Promise<{ message: string; success?: boolean }>,
+  ) {
     setBusyAction(action);
     setMessage(`${action} running...`);
 
@@ -33,7 +36,9 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
   }
 
   async function ping() {
-    await runAction('Ping', () => deviceApi.pingDevice(device.id, { address: device.host, count: 4 }));
+    await runAction('Ping', () =>
+      deviceApi.pingDevice(device.id, { address: device.host, count: 4 }),
+    );
   }
 
   async function backup() {

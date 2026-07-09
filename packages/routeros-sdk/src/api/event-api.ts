@@ -53,7 +53,9 @@ export class EventApi {
     return this.listen('/ip/dhcp-server/lease', onEvent);
   }
 
-  public listenFirewallAddressList(onEvent: (event: RouterOsEvent) => void): Promise<RouterOsSubscription> {
+  public listenFirewallAddressList(
+    onEvent: (event: RouterOsEvent) => void,
+  ): Promise<RouterOsSubscription> {
     return this.listen('/ip/firewall/address-list', onEvent);
   }
 

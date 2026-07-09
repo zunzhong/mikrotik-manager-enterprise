@@ -112,9 +112,7 @@ export function DeviceExplorer() {
                   </div>
                 ) : null}
 
-                {activeTab === 'Realtime' ? (
-                  <DeviceRealtimeMonitor deviceId={selected.id} />
-                ) : null}
+                {activeTab === 'Realtime' ? <DeviceRealtimeMonitor deviceId={selected.id} /> : null}
 
                 {activeTab === 'Inventory' ? (
                   <div className="device-explorer-section">

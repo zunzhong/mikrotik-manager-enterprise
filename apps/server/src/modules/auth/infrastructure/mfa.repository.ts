@@ -14,11 +14,17 @@ export class MfaRepository {
   }
 
   public enable(userId: string) {
-    return prisma.mfaSecret.update({ where: { userId }, data: { enabled: true, enabledAt: new Date(), disabledAt: null } });
+    return prisma.mfaSecret.update({
+      where: { userId },
+      data: { enabled: true, enabledAt: new Date(), disabledAt: null },
+    });
   }
 
   public disable(userId: string) {
-    return prisma.mfaSecret.update({ where: { userId }, data: { enabled: false, disabledAt: new Date() } });
+    return prisma.mfaSecret.update({
+      where: { userId },
+      data: { enabled: false, disabledAt: new Date() },
+    });
   }
 }
 

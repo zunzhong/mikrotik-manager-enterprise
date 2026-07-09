@@ -26,7 +26,8 @@ export const DEFAULT_RBAC_ROLES: RbacRole[] = [
   systemRole({
     id: 'admin',
     name: 'Admin',
-    description: 'Can manage devices, alerts, notifications, audit export, and dashboard operations.',
+    description:
+      'Can manage devices, alerts, notifications, audit export, and dashboard operations.',
     permissions: [
       RBAC_PERMISSIONS.DASHBOARD_READ,
       RBAC_PERMISSIONS.SYSTEM_READ,

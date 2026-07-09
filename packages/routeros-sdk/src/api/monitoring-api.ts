@@ -1,5 +1,9 @@
 import type { CommandRunner } from '../core/command-runner.js';
-import type { RouterOsHealth, RouterOsInterfaceTraffic, RouterOsSystemClock } from '../models/monitoring.js';
+import type {
+  RouterOsHealth,
+  RouterOsInterfaceTraffic,
+  RouterOsSystemClock,
+} from '../models/monitoring.js';
 
 export class MonitoringApi {
   public constructor(private readonly runner: CommandRunner) {}

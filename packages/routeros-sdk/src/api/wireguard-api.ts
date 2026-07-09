@@ -5,7 +5,9 @@ class WireGuardPeerApi {
   public constructor(private readonly runner: CommandRunner) {}
 
   public list(): Promise<RouterOsWireGuardPeer[]> {
-    return this.runner.print('/interface/wireguard/peers/print') as Promise<RouterOsWireGuardPeer[]>;
+    return this.runner.print('/interface/wireguard/peers/print') as Promise<
+      RouterOsWireGuardPeer[]
+    >;
   }
 
   public async add(input: {

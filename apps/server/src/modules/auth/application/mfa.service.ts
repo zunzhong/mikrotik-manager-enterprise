@@ -6,7 +6,11 @@ import { totpService } from './totp.service.js';
 export class MfaService {
   public async status(userId: string) {
     const mfa = await mfaRepository.findByUser(userId);
-    return { configured: Boolean(mfa), enabled: Boolean(mfa?.enabled), enabledAt: mfa?.enabledAt ?? null };
+    return {
+      configured: Boolean(mfa),
+      enabled: Boolean(mfa?.enabled),
+      enabledAt: mfa?.enabledAt ?? null,
+    };
   }
 
   public async setup(userId: string) {
@@ -25,14 +29,16 @@ export class MfaService {
   public async enable(userId: string, code: string) {
     const mfa = await mfaRepository.findByUser(userId);
     if (!mfa) throw new HttpError(400, 'MFA_NOT_CONFIGURED', 'MFA setup must be started first');
-    if (!totpService.verify(mfa.secretEncrypted, code)) throw new HttpError(400, 'INVALID_MFA_CODE', 'Invalid MFA code');
+    if (!totpService.verify(mfa.secretEncrypted, code))
+      throw new HttpError(400, 'INVALID_MFA_CODE', 'Invalid MFA code');
     return mfaRepository.enable(userId);
   }
 
   public async disable(userId: string, code: string) {
     const mfa = await mfaRepository.findByUser(userId);
     if (!mfa?.enabled) throw new HttpError(400, 'MFA_NOT_ENABLED', 'MFA is not enabled');
-    if (!totpService.verify(mfa.secretEncrypted, code)) throw new HttpError(400, 'INVALID_MFA_CODE', 'Invalid MFA code');
+    if (!totpService.verify(mfa.secretEncrypted, code))
+      throw new HttpError(400, 'INVALID_MFA_CODE', 'Invalid MFA code');
     return mfaRepository.disable(userId);
   }
 

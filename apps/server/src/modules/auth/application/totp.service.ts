@@ -19,7 +19,8 @@ function base32Decode(secret: string): Buffer {
     if (value >= 0) bits += value.toString(2).padStart(5, '0');
   }
   const bytes = [];
-  for (let index = 0; index + 8 <= bits.length; index += 8) bytes.push(parseInt(bits.slice(index, index + 8), 2));
+  for (let index = 0; index + 8 <= bits.length; index += 8)
+    bytes.push(parseInt(bits.slice(index, index + 8), 2));
   return Buffer.from(bytes);
 }
 
@@ -40,7 +41,11 @@ export class TotpService {
     buffer.writeBigUInt64BE(BigInt(counter));
     const hmac = createHmac('sha1', base32Decode(secret)).update(buffer).digest();
     const offset = hmac[hmac.length - 1] & 0xf;
-    const binary = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff);
+    const binary =
+      ((hmac[offset] & 0x7f) << 24) |
+      ((hmac[offset + 1] & 0xff) << 16) |
+      ((hmac[offset + 2] & 0xff) << 8) |
+      (hmac[offset + 3] & 0xff);
     return String(binary % 1_000_000).padStart(6, '0');
   }
 

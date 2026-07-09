@@ -83,10 +83,7 @@ export class RbacService {
 
     return {
       roleIds,
-      permissions: unique([
-        ...(principal.permissions ?? []),
-        ...rolePermissions,
-      ]),
+      permissions: unique([...(principal.permissions ?? []), ...rolePermissions]),
     };
   }
 
@@ -102,8 +99,9 @@ export class RbacService {
     }
 
     const resolved = this.resolvePrincipalPermissions(input.principal);
-    const matchedBy = resolved.permissions
-      .find((permission) => permissionMatches(permission, input.permission));
+    const matchedBy = resolved.permissions.find((permission) =>
+      permissionMatches(permission, input.permission),
+    );
 
     return {
       allowed: Boolean(matchedBy),

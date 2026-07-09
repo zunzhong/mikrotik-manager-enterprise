@@ -1,10 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import {
-  auditEventsToCsv,
-  auditExportFilename,
-  type AuditExportFormat,
-} from './audit.export.js';
+import { auditEventsToCsv, auditExportFilename, type AuditExportFormat } from './audit.export.js';
 import { auditService } from './audit.service.js';
 
 const actorTypeValues = ['system', 'user', 'api', 'agent', 'scheduler'] as const;

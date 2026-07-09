@@ -43,7 +43,12 @@ export class BridgeApi {
     return this.runner.print('/interface/bridge/print') as Promise<RouterOsBridge[]>;
   }
 
-  public async add(input: { name: string; vlanFiltering?: boolean; protocolMode?: string; comment?: string }): Promise<void> {
+  public async add(input: {
+    name: string;
+    vlanFiltering?: boolean;
+    protocolMode?: string;
+    comment?: string;
+  }): Promise<void> {
     await this.runner.add('/interface/bridge/add', input);
   }
 
@@ -60,6 +65,8 @@ export class BridgeApi {
   }
 
   public async setVlanFiltering(id: string, enabled: boolean): Promise<void> {
-    await this.runner.run('/interface/bridge/set', { attributes: { numbers: id, vlanFiltering: enabled } });
+    await this.runner.run('/interface/bridge/set', {
+      attributes: { numbers: id, vlanFiltering: enabled },
+    });
   }
 }

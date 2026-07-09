@@ -83,7 +83,9 @@ class FirewallAddressListApi {
   public constructor(private readonly runner: CommandRunner) {}
 
   public list(): Promise<RouterOsFirewallAddressListEntry[]> {
-    return this.runner.print('/ip/firewall/address-list/print') as Promise<RouterOsFirewallAddressListEntry[]>;
+    return this.runner.print('/ip/firewall/address-list/print') as Promise<
+      RouterOsFirewallAddressListEntry[]
+    >;
   }
 
   public async add(input: {

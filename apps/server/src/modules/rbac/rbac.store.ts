@@ -1,9 +1,5 @@
 import { DEFAULT_RBAC_ROLES } from './rbac.roles.js';
-import type {
-  AssignUserRoleInput,
-  RbacRole,
-  RbacUserRoleAssignment,
-} from './rbac.types.js';
+import type { AssignUserRoleInput, RbacRole, RbacUserRoleAssignment } from './rbac.types.js';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -55,8 +51,9 @@ export class RbacStore {
       throw new Error(`RBAC role not found: ${input.roleId}`);
     }
 
-    const existing = this.listUserRoleAssignments(input.userId)
-      .find((assignment) => assignment.roleId === input.roleId);
+    const existing = this.listUserRoleAssignments(input.userId).find(
+      (assignment) => assignment.roleId === input.roleId,
+    );
 
     if (existing) {
       return existing;
@@ -76,8 +73,9 @@ export class RbacStore {
   }
 
   public removeUserRole(userId: string, roleId: string): boolean {
-    const existing = this.listUserRoleAssignments(userId)
-      .find((assignment) => assignment.roleId === roleId);
+    const existing = this.listUserRoleAssignments(userId).find(
+      (assignment) => assignment.roleId === roleId,
+    );
 
     if (!existing) {
       return false;
@@ -93,8 +91,9 @@ export class RbacStore {
   }
 
   public listAllAssignments(): RbacUserRoleAssignment[] {
-    return Array.from(this.assignments.values())
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return Array.from(this.assignments.values()).sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt),
+    );
   }
 }
 

@@ -1,4 +1,6 @@
-export interface RouterOsIdentity { name?: string; }
+export interface RouterOsIdentity {
+  name?: string;
+}
 
 export interface RouterOsResource {
   uptime?: string;

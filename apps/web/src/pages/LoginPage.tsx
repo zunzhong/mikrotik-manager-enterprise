@@ -11,10 +11,7 @@ export function LoginPage() {
 
     try {
       const result = await authApi.login(email, password);
-      window.localStorage.setItem(
-  'mme-token',
-  result.accessToken ?? result.token ?? '',
-);
+      window.localStorage.setItem('mme-token', result.accessToken ?? result.token ?? '');
       setMessage(`Signed in as ${result.user?.email ?? email}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Login failed');
@@ -39,9 +36,15 @@ export function LoginPage() {
         <input value={email} onChange={(event) => setEmail(event.target.value)} />
 
         <label>Password</label>
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <input
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
 
-        <button className="theme-toggle" onClick={login}>Sign in</button>
+        <button className="theme-toggle" onClick={login}>
+          Sign in
+        </button>
 
         {message ? <div className="info-banner">{message}</div> : null}
       </div>

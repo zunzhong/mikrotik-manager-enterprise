@@ -55,7 +55,9 @@ export class AuthService {
   }
 
   public async refresh(refreshToken: string) {
-    const session = await sessionRepository.findActiveByTokenHash(sessionTokenService.hash(refreshToken));
+    const session = await sessionRepository.findActiveByTokenHash(
+      sessionTokenService.hash(refreshToken),
+    );
 
     if (!session || !session.user.isActive) {
       throw new HttpError(401, 'INVALID_REFRESH_TOKEN', 'Invalid or expired refresh token');

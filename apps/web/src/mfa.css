@@ -1,4 +1,25 @@
-.mfa-box { margin-top: 16px; display: grid; gap: 10px; max-width: 760px; }
-.mfa-box label { color: #94a3b8; font-size: 13px; }
-.mfa-box code { display: block; overflow: auto; padding: 10px; border-radius: 10px; background: rgba(2,6,23,.45); color: #bae6fd; }
-.mfa-box input { border: 1px solid rgba(148,163,184,.28); border-radius: 14px; background: rgba(2,6,23,.35); color: inherit; padding: 12px 14px; }
+.mfa-box {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+.mfa-box label {
+  color: #94a3b8;
+  font-size: 13px;
+}
+.mfa-box code {
+  display: block;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.45);
+  color: #bae6fd;
+}
+.mfa-box input {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.35);
+  color: inherit;
+  padding: 12px 14px;
+}

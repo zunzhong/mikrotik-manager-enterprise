@@ -41,11 +41,7 @@ function toJsonValue(value: unknown): Prisma.InputJsonValue | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
 
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
 

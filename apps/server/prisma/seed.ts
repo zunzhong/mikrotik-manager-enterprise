@@ -17,7 +17,12 @@ async function main() {
   const adminRole = await prisma.role.upsert({
     where: { key: 'admin' },
     update: { name: 'Administrator', description: 'Full system administrator', isSystem: true },
-    create: { key: 'admin', name: 'Administrator', description: 'Full system administrator', isSystem: true },
+    create: {
+      key: 'admin',
+      name: 'Administrator',
+      description: 'Full system administrator',
+      isSystem: true,
+    },
   });
 
   const viewerRole = await prisma.role.upsert({

@@ -89,7 +89,11 @@ export class RouterOsSdkAdapter {
         raw: { identity, resource, routerboard },
       };
     } catch (error) {
-      return { online: false, latencyMs: Date.now() - startedAt, error: error instanceof Error ? error.message : 'RouterOS probe failed' };
+      return {
+        online: false,
+        latencyMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message : 'RouterOS probe failed',
+      };
     } finally {
       client.close();
     }
@@ -97,20 +101,32 @@ export class RouterOsSdkAdapter {
 
   public async identity(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-    try { await client.connect(); return { ...(await client.system.identity()) }; }
-    finally { client.close(); }
+    try {
+      await client.connect();
+      return { ...(await client.system.identity()) };
+    } finally {
+      client.close();
+    }
   }
 
   public async resource(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-    try { await client.connect(); return { ...(await client.system.resource()) }; }
-    finally { client.close(); }
+    try {
+      await client.connect();
+      return { ...(await client.system.resource()) };
+    } finally {
+      client.close();
+    }
   }
 
   public async routerboard(input: RouterOsProbeInput): Promise<object> {
     const client = new RouterOsClient(normalizeInput(input));
-    try { await client.connect(); return { ...(await client.system.routerboard()) }; }
-    finally { client.close(); }
+    try {
+      await client.connect();
+      return { ...(await client.system.routerboard()) };
+    } finally {
+      client.close();
+    }
   }
 
   public async inventory(input: RouterOsProbeInput): Promise<RouterOsInventorySnapshot> {

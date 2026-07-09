@@ -8,12 +8,12 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   server:
     build:
@@ -25,7 +25,7 @@ services:
       - postgres
       - redis
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - backup-data:/app/data/backups
 
@@ -36,7 +36,7 @@ services:
     depends_on:
       - server
     ports:
-      - "5173:5173"
+      - '5173:5173'
 
 volumes:
   postgres-data:

@@ -2,11 +2,7 @@ export type NotificationChannelType = 'email' | 'webhook' | 'slack' | 'telegram'
 
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
 
-export type NotificationDeliveryStatus =
-  | 'pending'
-  | 'sent'
-  | 'failed'
-  | 'skipped';
+export type NotificationDeliveryStatus = 'pending' | 'sent' | 'failed' | 'skipped';
 
 export interface NotificationChannel {
   id: string;

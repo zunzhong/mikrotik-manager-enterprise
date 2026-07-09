@@ -1,5 +1,9 @@
 import type { AppEvent, AppEventType } from '../../events/event.types';
-import type { DeviceRealtimeOverview, DeviceRealtimeSnapshot, HealthStatus } from '../../devices/device-realtime.types';
+import type {
+  DeviceRealtimeOverview,
+  DeviceRealtimeSnapshot,
+  HealthStatus,
+} from '../../devices/device-realtime.types';
 import { SummaryCard } from './SummaryCard';
 import { WidgetCard } from './WidgetCard';
 import './health-dashboard-summary.css';
@@ -64,9 +68,7 @@ function buildSummary(devices: DeviceRealtimeSnapshot[]) {
 }
 
 function recentHealthEvents(events: AppEvent[]): AppEvent[] {
-  return events
-    .filter((event) => healthEventTypes.has(event.type))
-    .slice(0, 8);
+  return events.filter((event) => healthEventTypes.has(event.type)).slice(0, 8);
 }
 
 export function HealthDashboardSummary({
@@ -121,7 +123,11 @@ export function HealthDashboardSummary({
               const score = scoreForSnapshot(device);
 
               return (
-                <div className="health-dashboard-summary__row" data-status={status} key={device.deviceId}>
+                <div
+                  className="health-dashboard-summary__row"
+                  data-status={status}
+                  key={device.deviceId}
+                >
                   <div>
                     <strong>{device.deviceId}</strong>
                     <small>
@@ -135,7 +141,9 @@ export function HealthDashboardSummary({
             })}
 
             {!loading && devices.length === 0 ? (
-              <p className="muted">No realtime health snapshots yet. Start scheduler or refresh devices.</p>
+              <p className="muted">
+                No realtime health snapshots yet. Start scheduler or refresh devices.
+              </p>
             ) : null}
 
             {loading ? <p className="muted">Loading health summary...</p> : null}
@@ -145,11 +153,16 @@ export function HealthDashboardSummary({
         <WidgetCard title="Recent Health Events" description="Realtime health and device events">
           <div className="health-dashboard-summary__event-list">
             {healthEvents.map((event) => (
-              <div className="health-dashboard-summary__row" data-status={event.severity} key={event.id}>
+              <div
+                className="health-dashboard-summary__row"
+                data-status={event.severity}
+                key={event.id}
+              >
                 <div>
                   <strong>{event.title}</strong>
                   <small>
-                    {event.deviceName ?? event.deviceId ?? 'System'} · {new Date(event.createdAt).toLocaleString()}
+                    {event.deviceName ?? event.deviceId ?? 'System'} ·{' '}
+                    {new Date(event.createdAt).toLocaleString()}
                   </small>
                 </div>
 

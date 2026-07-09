@@ -3,10 +3,10 @@
 Typed APIs added:
 
 ```ts
-client.ethernet.list()
-client.bridge.list()
-client.bridge.port.list()
-client.vlan.list()
-client.wireless.list()
-client.wifi.list()
+client.ethernet.list();
+client.bridge.list();
+client.bridge.port.list();
+client.vlan.list();
+client.wireless.list();
+client.wifi.list();
 ```

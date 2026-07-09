@@ -79,22 +79,31 @@ export function AuditLogPanel() {
   const [retentionBusy, setRetentionBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filterQuery = useMemo<AuditQueryInput>(() => ({
-    status: status === 'all' ? undefined : status,
-    severity: severity === 'all' ? undefined : severity,
-    entityType: entityType === 'all' ? undefined : entityType,
-  }), [entityType, severity, status]);
+  const filterQuery = useMemo<AuditQueryInput>(
+    () => ({
+      status: status === 'all' ? undefined : status,
+      severity: severity === 'all' ? undefined : severity,
+      entityType: entityType === 'all' ? undefined : entityType,
+    }),
+    [entityType, severity, status],
+  );
 
-  const exportQuery = useMemo<AuditQueryInput>(() => ({
-    ...filterQuery,
-    limit: 1000,
-  }), [filterQuery]);
+  const exportQuery = useMemo<AuditQueryInput>(
+    () => ({
+      ...filterQuery,
+      limit: 1000,
+    }),
+    [filterQuery],
+  );
 
-  const pageQuery = useMemo<AuditQueryInput>(() => ({
-    ...filterQuery,
-    page,
-    pageSize,
-  }), [filterQuery, page, pageSize]);
+  const pageQuery = useMemo<AuditQueryInput>(
+    () => ({
+      ...filterQuery,
+      page,
+      pageSize,
+    }),
+    [filterQuery, page, pageSize],
+  );
 
   const events = pageResult.items;
   const totalPages = Math.max(pageResult.totalPages, 1);
@@ -227,49 +236,88 @@ export function AuditLogPanel() {
       {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="audit-log-panel__cards">
-        <SummaryCard label="Audit Events" value={summary?.total ?? pageResult.total} hint="matching filter" />
+        <SummaryCard
+          label="Audit Events"
+          value={summary?.total ?? pageResult.total}
+          hint="matching filter"
+        />
         <SummaryCard label="Success" value={summary?.success ?? 0} hint="successful actions" />
         <SummaryCard label="Failures" value={summary?.failure ?? 0} hint="failed actions" />
         <SummaryCard label="Critical" value={summary?.critical ?? 0} hint="critical severity" />
       </div>
 
-      <WidgetCard title="Audit Filters" description="Filter, paginate, and export the activity trail">
+      <WidgetCard
+        title="Audit Filters"
+        description="Filter, paginate, and export the activity trail"
+      >
         <div className="audit-log-panel__filters">
           <label>
             Status
-            <select value={status} onChange={(event) => updateStatus(event.target.value as AuditStatus | 'all')}>
-              {statusOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+            <select
+              value={status}
+              onChange={(event) => updateStatus(event.target.value as AuditStatus | 'all')}
+            >
+              {statusOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </label>
 
           <label>
             Severity
-            <select value={severity} onChange={(event) => updateSeverity(event.target.value as AuditSeverity | 'all')}>
-              {severityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+            <select
+              value={severity}
+              onChange={(event) => updateSeverity(event.target.value as AuditSeverity | 'all')}
+            >
+              {severityOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </label>
 
           <label>
             Entity
-            <select value={entityType} onChange={(event) => updateEntityType(event.target.value as AuditEntityType | 'all')}>
-              {entityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+            <select
+              value={entityType}
+              onChange={(event) => updateEntityType(event.target.value as AuditEntityType | 'all')}
+            >
+              {entityOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </label>
 
           <label>
             Page size
-            <select value={pageSize} onChange={(event) => updatePageSize(Number(event.target.value))}>
-              {pageSizeOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+            <select
+              value={pageSize}
+              onChange={(event) => updatePageSize(Number(event.target.value))}
+            >
+              {pageSizeOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </label>
         </div>
 
         <p className="audit-log-panel__export-note">
-          Export uses the current status, severity, and entity filters. Maximum export size: 1000 events.
+          Export uses the current status, severity, and entity filters. Maximum export size: 1000
+          events.
         </p>
       </WidgetCard>
 
-      <WidgetCard title="Audit Retention" description="Dry-run or prune old audit records from persistent storage">
+      <WidgetCard
+        title="Audit Retention"
+        description="Dry-run or prune old audit records from persistent storage"
+      >
         <div className="audit-log-panel__retention">
           <label>
             Keep latest days
@@ -306,24 +354,44 @@ export function AuditLogPanel() {
         )}
       </WidgetCard>
 
-      <WidgetCard title="Recent Audit Events" description={`Showing ${events.length} of ${pageResult.total} audit event(s)`}>
+      <WidgetCard
+        title="Recent Audit Events"
+        description={`Showing ${events.length} of ${pageResult.total} audit event(s)`}
+      >
         <div className="audit-log-panel__pagination">
-          <button type="button" disabled={loading || !canPrevious} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+          <button
+            type="button"
+            disabled={loading || !canPrevious}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+          >
             Previous
           </button>
-          <span>Page {pageResult.page} / {totalPages}</span>
-          <button type="button" disabled={loading || !canNext} onClick={() => setPage((value) => value + 1)}>
+          <span>
+            Page {pageResult.page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={loading || !canNext}
+            onClick={() => setPage((value) => value + 1)}
+          >
             Next
           </button>
         </div>
 
         <div className="audit-log-panel__list">
           {events.map((event) => (
-            <article className="audit-log-panel__event" data-status={event.status} data-severity={event.severity} key={event.id}>
+            <article
+              className="audit-log-panel__event"
+              data-status={event.status}
+              data-severity={event.severity}
+              key={event.id}
+            >
               <div className="audit-log-panel__event-main">
                 <div>
                   <strong>{event.summary}</strong>
-                  <small>{event.action} · {actorLabel(event)} · {entityLabel(event)}</small>
+                  <small>
+                    {event.action} · {actorLabel(event)} · {entityLabel(event)}
+                  </small>
                   <small>{metadataPreview(event)}</small>
                 </div>
 
@@ -337,7 +405,9 @@ export function AuditLogPanel() {
             </article>
           ))}
 
-          {!loading && events.length === 0 ? <p className="muted">No audit events found for the current filter.</p> : null}
+          {!loading && events.length === 0 ? (
+            <p className="muted">No audit events found for the current filter.</p>
+          ) : null}
           {loading ? <p className="muted">Loading audit events...</p> : null}
         </div>
       </WidgetCard>

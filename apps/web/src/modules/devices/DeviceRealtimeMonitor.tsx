@@ -6,7 +6,12 @@ import type {
   DeviceRealtimeSnapshot,
   DeviceRealtimeStreamState,
 } from './device-realtime.types';
-import { buildRealtimeMetrics, cacheAge, schedulerLabel, snapshotAge } from './device-realtime.utils';
+import {
+  buildRealtimeMetrics,
+  cacheAge,
+  schedulerLabel,
+  snapshotAge,
+} from './device-realtime.utils';
 
 export interface DeviceRealtimeMonitorProps {
   deviceId: string;
@@ -76,7 +81,9 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
     setError(null);
 
     try {
-      setScheduler(await deviceApi.startRealtimeScheduler({ intervalMs: refreshMs, ttlMs: refreshMs * 2 }));
+      setScheduler(
+        await deviceApi.startRealtimeScheduler({ intervalMs: refreshMs, ttlMs: refreshMs * 2 }),
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot start scheduler');
@@ -178,10 +185,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
   }, [autoRefresh, deviceId, refreshMs, stream.enabled]);
 
   const metrics = useMemo(() => buildRealtimeMetrics(snapshot), [snapshot]);
-  const lastEvent =
-    stream.lastEventAt ??
-    lastLoadedAt ??
-    'N/A';
+  const lastEvent = stream.lastEventAt ?? lastLoadedAt ?? 'N/A';
   return (
     <section className="device-realtime-monitor">
       <header className="device-realtime-monitor__header">
@@ -189,10 +193,8 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
           <p className="device-realtime-monitor__eyebrow">Realtime Monitor</p>
           <h3>SSE Live Stream</h3>
           <p className="device-realtime-monitor__muted">
-              Stream: {stream.connected ? 'Connected' : 'Disconnected'} ·
-              Scheduler: {schedulerLabel(scheduler)} ·
-              Cache age: {cacheAge(snapshot)} ·
-              Last event: {lastEvent}
+            Stream: {stream.connected ? 'Connected' : 'Disconnected'} · Scheduler:{' '}
+            {schedulerLabel(scheduler)} · Cache age: {cacheAge(snapshot)} · Last event: {lastEvent}
           </p>
         </div>
 
@@ -223,10 +225,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
             Poll fallback
           </label>
 
-          <select
-            value={refreshMs}
-            onChange={(event) => setRefreshMs(Number(event.target.value))}
-          >
+          <select value={refreshMs} onChange={(event) => setRefreshMs(Number(event.target.value))}>
             {refreshOptions.map((option) => (
               <option key={option} value={option}>
                 {option / 1000}s
@@ -261,9 +260,9 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
         <span data-state={snapshot?.online ? 'online' : 'unknown'} />
         <strong>{snapshot?.online ? 'Online' : 'Offline / Unknown'}</strong>
         <p>
-          Last poll: {snapshot?.cache?.lastPollAt ? snapshotAge(snapshot) : 'N/A'} ·
-          Next scheduler poll: {scheduler?.nextRunAt ?? snapshot?.cache?.nextPollAt ?? 'N/A'} ·
-          Devices in scheduler: {scheduler?.deviceCount ?? 0}
+          Last poll: {snapshot?.cache?.lastPollAt ? snapshotAge(snapshot) : 'N/A'} · Next scheduler
+          poll: {scheduler?.nextRunAt ?? snapshot?.cache?.nextPollAt ?? 'N/A'} · Devices in
+          scheduler: {scheduler?.deviceCount ?? 0}
         </p>
       </div>
 
@@ -290,7 +289,9 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
 
         <article className="device-realtime-monitor__card">
           <p>Last Poll Duration</p>
-          <strong>{scheduler?.lastRunDurationMs ? `${scheduler.lastRunDurationMs}ms` : 'N/A'}</strong>
+          <strong>
+            {scheduler?.lastRunDurationMs ? `${scheduler.lastRunDurationMs}ms` : 'N/A'}
+          </strong>
           <span>{scheduler?.inFlight ? 'Polling in progress' : 'Latest scheduler run'}</span>
         </article>
 

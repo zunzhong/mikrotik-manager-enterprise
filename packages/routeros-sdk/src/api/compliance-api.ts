@@ -34,10 +34,12 @@ export class ComplianceApi {
     };
   }
 
-  public async run(input: {
-    name?: string;
-    rules?: RouterOsComplianceRule[];
-  } = {}): Promise<RouterOsComplianceReport> {
+  public async run(
+    input: {
+      name?: string;
+      rules?: RouterOsComplianceRule[];
+    } = {},
+  ): Promise<RouterOsComplianceReport> {
     const context = await this.collectContext();
     const rules = input.rules ?? baselineComplianceRules;
     const findings = [];

@@ -18,7 +18,10 @@ export interface NotificationPanelProps {
   onChanged?: () => void;
 }
 
-function countByStatus(deliveries: NotificationDelivery[], status: NotificationDelivery['status']): number {
+function countByStatus(
+  deliveries: NotificationDelivery[],
+  status: NotificationDelivery['status'],
+): number {
   return deliveries.filter((delivery) => delivery.status === status).length;
 }
 
@@ -88,40 +91,28 @@ export function NotificationPanel({
   }
 
   async function seedDefaults() {
-    await runAction(
-      async () => {
-        await notificationApi.seedDefaults();
-      },
-      'Cannot seed notification defaults',
-    );
+    await runAction(async () => {
+      await notificationApi.seedDefaults();
+    }, 'Cannot seed notification defaults');
   }
 
   async function sendTest() {
-    await runAction(
-      async () => {
-        await notificationApi.test();
-        await notificationApi.processPending();
-      },
-      'Cannot send notification test',
-    );
+    await runAction(async () => {
+      await notificationApi.test();
+      await notificationApi.processPending();
+    }, 'Cannot send notification test');
   }
 
   async function processPending() {
-    await runAction(
-      async () => {
-        await notificationApi.processPending();
-      },
-      'Cannot process pending deliveries',
-    );
+    await runAction(async () => {
+      await notificationApi.processPending();
+    }, 'Cannot process pending deliveries');
   }
 
   async function retryFailed() {
-    await runAction(
-      async () => {
-        await notificationApi.retryFailed();
-      },
-      'Cannot retry failed deliveries',
-    );
+    await runAction(async () => {
+      await notificationApi.retryFailed();
+    }, 'Cannot retry failed deliveries');
   }
 
   async function toggleChannel(channel: NotificationChannel) {
@@ -210,36 +201,33 @@ export function NotificationPanel({
       return;
     }
 
-    await runAction(
-      async () => {
-        const channel = await notificationApi.createChannel({
-          name: webhookName.trim() || 'Enterprise Webhook',
-          type: 'webhook',
-          enabled: true,
-          config: {
-            url,
-            method: 'POST',
-            timeoutMs: 10000,
-            headers: {
-              'x-source': 'mikrotik-manager-enterprise',
-            },
+    await runAction(async () => {
+      const channel = await notificationApi.createChannel({
+        name: webhookName.trim() || 'Enterprise Webhook',
+        type: 'webhook',
+        enabled: true,
+        config: {
+          url,
+          method: 'POST',
+          timeoutMs: 10000,
+          headers: {
+            'x-source': 'mikrotik-manager-enterprise',
           },
+        },
+      });
+
+      if (createRule) {
+        await notificationApi.createRule({
+          name: `${channel.name} Critical Alerts`,
+          enabled: true,
+          eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
+          severities: ['critical', 'warning'],
+          channelIds: [channel.id],
         });
+      }
 
-        if (createRule) {
-          await notificationApi.createRule({
-            name: `${channel.name} Critical Alerts`,
-            enabled: true,
-            eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
-            severities: ['critical', 'warning'],
-            channelIds: [channel.id],
-          });
-        }
-
-        setWebhookUrl('');
-      },
-      'Cannot create webhook channel',
-    );
+      setWebhookUrl('');
+    }, 'Cannot create webhook channel');
   }
 
   return (
@@ -248,9 +236,7 @@ export function NotificationPanel({
         <div>
           <p className="notification-panel__eyebrow">Notification Engine</p>
           <h3>Channels / Rules / Deliveries</h3>
-          <p>
-            Event Bus notifications are matched against rules and queued as delivery records.
-          </p>
+          <p>Event Bus notifications are matched against rules and queued as delivery records.</p>
         </div>
 
         <div className="notification-panel__header-actions">
@@ -263,7 +249,11 @@ export function NotificationPanel({
           <button type="button" disabled={busy} onClick={() => void processPending()}>
             Process Pending
           </button>
-          <button type="button" disabled={busy || retryableCount === 0} onClick={() => void retryFailed()}>
+          <button
+            type="button"
+            disabled={busy || retryableCount === 0}
+            onClick={() => void retryFailed()}
+          >
             Retry Failed
           </button>
         </div>
@@ -273,13 +263,24 @@ export function NotificationPanel({
       {actionError ? <div className="error-banner">{actionError}</div> : null}
 
       <div className="notification-panel__cards">
-        <SummaryCard label="Channels" value={channels.length} hint={`${webhookChannels.length} webhook`} />
+        <SummaryCard
+          label="Channels"
+          value={channels.length}
+          hint={`${webhookChannels.length} webhook`}
+        />
         <SummaryCard label="Rules" value={rules.length} hint="event matchers" />
-        <SummaryCard label="Sent" value={countByStatus(deliveries, 'sent')} hint="successful deliveries" />
+        <SummaryCard
+          label="Sent"
+          value={countByStatus(deliveries, 'sent')}
+          hint="successful deliveries"
+        />
         <SummaryCard label="Retryable" value={retryableCount} hint="failed or skipped" />
       </div>
 
-      <WidgetCard title="Create Webhook Channel" description="Send critical events to n8n, webhook.site, or an internal receiver">
+      <WidgetCard
+        title="Create Webhook Channel"
+        description="Send critical events to n8n, webhook.site, or an internal receiver"
+      >
         <div className="notification-panel__form">
           <label>
             Name
@@ -317,10 +318,17 @@ export function NotificationPanel({
       </WidgetCard>
 
       <div className="notification-panel__grid">
-        <WidgetCard title="Notification Channels" description="Enable, disable, or delete notification targets">
+        <WidgetCard
+          title="Notification Channels"
+          description="Enable, disable, or delete notification targets"
+        >
           <div className="notification-panel__list">
             {channels.slice(0, 10).map((channel) => (
-              <article className="notification-panel__row" data-state={channel.enabled ? 'enabled' : 'disabled'} key={channel.id}>
+              <article
+                className="notification-panel__row"
+                data-state={channel.enabled ? 'enabled' : 'disabled'}
+                key={channel.id}
+              >
                 <div>
                   <strong>{channel.name}</strong>
                   <small>
@@ -356,18 +364,23 @@ export function NotificationPanel({
           </div>
         </WidgetCard>
 
-        <WidgetCard title="Notification Rules" description="Enable, disable, or delete event-to-channel rules">
+        <WidgetCard
+          title="Notification Rules"
+          description="Enable, disable, or delete event-to-channel rules"
+        >
           <div className="notification-panel__list">
             {rules.slice(0, 10).map((rule) => (
-              <article className="notification-panel__row" data-state={rule.enabled ? 'enabled' : 'disabled'} key={rule.id}>
+              <article
+                className="notification-panel__row"
+                data-state={rule.enabled ? 'enabled' : 'disabled'}
+                key={rule.id}
+              >
                 <div>
                   <strong>{rule.name}</strong>
                   <small>
                     {rule.eventTypes.join(', ')} · {rule.severities.join(', ')}
                   </small>
-                  <small>
-                    Channels: {rule.channelIds.length}
-                  </small>
+                  <small>Channels: {rule.channelIds.length}</small>
                 </div>
 
                 <div className="notification-panel__entity-actions">
@@ -391,7 +404,9 @@ export function NotificationPanel({
             ))}
 
             {!loading && rules.length === 0 ? (
-              <p className="muted">No notification rules yet. Click Seed Defaults to create the first rule.</p>
+              <p className="muted">
+                No notification rules yet. Click Seed Defaults to create the first rule.
+              </p>
             ) : null}
 
             {loading ? <p className="muted">Loading notification rules...</p> : null}
@@ -399,14 +414,22 @@ export function NotificationPanel({
         </WidgetCard>
       </div>
 
-      <WidgetCard title="Recent Deliveries" description={`Latest delivery: ${latestDeliveryAt(deliveries)}`}>
+      <WidgetCard
+        title="Recent Deliveries"
+        description={`Latest delivery: ${latestDeliveryAt(deliveries)}`}
+      >
         <div className="notification-panel__list">
           {deliveries.slice(0, 8).map((delivery) => (
-            <article className="notification-panel__row" data-state={delivery.status} key={delivery.id}>
+            <article
+              className="notification-panel__row"
+              data-state={delivery.status}
+              key={delivery.id}
+            >
               <div>
                 <strong>{delivery.payload.title}</strong>
                 <small>
-                  {delivery.payload.eventType} · {delivery.channelType} · {channelName(channels, delivery.channelId)}
+                  {delivery.payload.eventType} · {delivery.channelType} ·{' '}
+                  {channelName(channels, delivery.channelId)}
                 </small>
                 <small>
                   Attempts: {delivery.attempts} · {deliveryTimestamp(delivery)}

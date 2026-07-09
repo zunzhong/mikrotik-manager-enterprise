@@ -2,7 +2,14 @@ import type { RouterOsRecord } from '../core/routeros-record.js';
 import type { RouterOsConfigItem } from '../models/config-diff.js';
 
 function stableName(record: RouterOsRecord): string | undefined {
-  return record.name ?? record.comment ?? record.address ?? record.interface ?? record['.id'] ?? record.id;
+  return (
+    record.name ??
+    record.comment ??
+    record.address ??
+    record.interface ??
+    record['.id'] ??
+    record.id
+  );
 }
 
 export function normalizeConfigItem(path: string, record: RouterOsRecord): RouterOsConfigItem {

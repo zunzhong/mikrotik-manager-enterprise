@@ -1,28 +1,62 @@
-.admin-page-view { margin-top: 24px; }
-.admin-toolbar, .admin-panel {
-  border: 1px solid rgba(148,163,184,.18);
+.admin-page-view {
+  margin-top: 24px;
+}
+.admin-toolbar,
+.admin-panel {
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 20px;
-  background: rgba(15,23,42,.56);
+  background: rgba(15, 23, 42, 0.56);
   padding: 18px;
 }
-[data-theme='light'] .admin-toolbar, [data-theme='light'] .admin-panel { background: white; border-color: #dbe3ef; }
-.admin-toolbar { display: flex; justify-content: space-between; gap: 18px; }
-.admin-toolbar h3, .admin-panel h3 { margin: 0; }
-.admin-toolbar p { color: #94a3b8; margin: 6px 0 0; }
-.admin-summary { margin-top: 18px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
-.admin-tabs { display: flex; gap: 8px; margin: 18px 0; }
+[data-theme='light'] .admin-toolbar,
+[data-theme='light'] .admin-panel {
+  background: white;
+  border-color: #dbe3ef;
+}
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.admin-toolbar h3,
+.admin-panel h3 {
+  margin: 0;
+}
+.admin-toolbar p {
+  color: #94a3b8;
+  margin: 6px 0 0;
+}
+.admin-summary {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+}
 .admin-tabs button {
-  border: 1px solid rgba(148,163,184,.25);
+  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 999px;
   background: transparent;
   color: inherit;
   padding: 9px 14px;
   cursor: pointer;
 }
-.admin-tabs button.active { background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.55); color: #67e8f9; }
-.admin-list { display: grid; gap: 12px; margin-top: 16px; }
+.admin-tabs button.active {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: rgba(34, 211, 238, 0.55);
+  color: #67e8f9;
+}
+.admin-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
 .admin-row {
-  border: 1px solid rgba(148,163,184,.16);
+  border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 16px;
   padding: 14px;
   display: flex;
@@ -30,26 +64,67 @@
   gap: 14px;
   align-items: flex-start;
 }
-.admin-row h4 { margin: 0; }
-.admin-row p { color: #94a3b8; margin: 6px 0; }
-.admin-row small { color: #64748b; }
+.admin-row h4 {
+  margin: 0;
+}
+.admin-row p {
+  color: #94a3b8;
+  margin: 6px 0;
+}
+.admin-row small {
+  color: #64748b;
+}
 .admin-row select {
   min-width: 220px;
-  background: rgba(15,23,42,.7);
+  background: rgba(15, 23, 42, 0.7);
   color: inherit;
-  border: 1px solid rgba(148,163,184,.35);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 12px;
   padding: 9px 12px;
 }
-[data-theme='light'] .admin-row select { background: white; }
-.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.permission-groups { display: grid; gap: 18px; margin-top: 16px; }
-.permission-group h4 { margin: 0 0 10px; text-transform: capitalize; }
-.permission-list { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
-.permission-card { border: 1px solid rgba(148,163,184,.16); border-radius: 14px; padding: 12px; display: grid; gap: 5px; }
-.permission-card span { color: #94a3b8; }
-.permission-card small { color: #64748b; }
+[data-theme='light'] .admin-row select {
+  background: white;
+}
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.permission-groups {
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+}
+.permission-group h4 {
+  margin: 0 0 10px;
+  text-transform: capitalize;
+}
+.permission-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.permission-card {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 5px;
+}
+.permission-card span {
+  color: #94a3b8;
+}
+.permission-card small {
+  color: #64748b;
+}
 @media (max-width: 1000px) {
-  .admin-summary, .permission-list { grid-template-columns: 1fr; }
-  .admin-row, .admin-toolbar { flex-direction: column; }
+  .admin-summary,
+  .permission-list {
+    grid-template-columns: 1fr;
+  }
+  .admin-row,
+  .admin-toolbar {
+    flex-direction: column;
+  }
 }

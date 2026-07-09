@@ -22,10 +22,13 @@ export interface RouterOsConfigChange {
   path: string;
   before?: RouterOsConfigItem;
   after?: RouterOsConfigItem;
-  changedAttributes?: Record<string, {
-    before?: string;
-    after?: string;
-  }>;
+  changedAttributes?: Record<
+    string,
+    {
+      before?: string;
+      after?: string;
+    }
+  >;
 }
 
 export interface RouterOsConfigDiff {

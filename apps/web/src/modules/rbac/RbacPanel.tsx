@@ -166,7 +166,11 @@ export function RbacPanel() {
         <SummaryCard label="Roles" value={roles.length} hint="enterprise roles" />
         <SummaryCard label="Permissions" value={permissions.length} hint="catalog entries" />
         <SummaryCard label="Wildcard Roles" value={wildcardRoles} hint="super admin access" />
-        <SummaryCard label="User Roles" value={assignments.length} hint={userId || 'selected user'} />
+        <SummaryCard
+          label="User Roles"
+          value={assignments.length}
+          hint={userId || 'selected user'}
+        />
       </div>
 
       <WidgetCard title="User Role Assignment" description="Assign or remove roles for a user">
@@ -178,7 +182,10 @@ export function RbacPanel() {
 
           <label>
             Role
-            <select value={selectedRoleId} onChange={(event) => setSelectedRoleId(event.target.value)}>
+            <select
+              value={selectedRoleId}
+              onChange={(event) => setSelectedRoleId(event.target.value)}
+            >
               {roles.map((role: Role) => (
                 <option key={role.id} value={role.id}>
                   {role.name}
@@ -197,10 +204,16 @@ export function RbacPanel() {
             <article key={assignment.id} className="rbac-panel__assignment">
               <div>
                 <strong>{roleLabel(roles, assignment.roleId)}</strong>
-                <small>{assignment.roleId} · assigned {new Date(assignment.createdAt).toLocaleString()}</small>
+                <small>
+                  {assignment.roleId} · assigned {new Date(assignment.createdAt).toLocaleString()}
+                </small>
               </div>
 
-              <button type="button" disabled={busy} onClick={() => void removeRole(assignment.roleId)}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void removeRole(assignment.roleId)}
+              >
                 Remove
               </button>
             </article>
@@ -216,7 +229,10 @@ export function RbacPanel() {
         <div className="rbac-panel__form">
           <label>
             Permission
-            <input value={permissionToCheck} onChange={(event) => setPermissionToCheck(event.target.value)} />
+            <input
+              value={permissionToCheck}
+              onChange={(event) => setPermissionToCheck(event.target.value)}
+            />
           </label>
 
           <button type="button" disabled={busy || loading} onClick={() => void checkPermission()}>
@@ -251,7 +267,9 @@ export function RbacPanel() {
             <article key={role.id} className="rbac-panel__role">
               <div>
                 <strong>{role.name}</strong>
-                <small>{role.id} · {role.description}</small>
+                <small>
+                  {role.id} · {role.description}
+                </small>
               </div>
               <div className="rbac-panel__permissions">
                 {role.permissions.map((item) => (

@@ -16,22 +16,13 @@ function unsupportedChannelReason(delivery: NotificationDelivery): string {
   return `Delivery channel '${delivery.channelType}' is not implemented yet.`;
 }
 
-function getConfigText(
-  config: Record<string, unknown>,
-  key: string,
-): string | undefined {
+function getConfigText(config: Record<string, unknown>, key: string): string | undefined {
   const value = config[key];
 
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : undefined;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-function getConfigNumber(
-  config: Record<string, unknown>,
-  key: string,
-  fallback: number,
-): number {
+function getConfigNumber(config: Record<string, unknown>, key: string, fallback: number): number {
   const value = config[key];
 
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
@@ -68,9 +59,7 @@ function readWebhookConfig(channel: NotificationChannel): WebhookConfig {
 
   const rawMethod = getConfigText(channel.config, 'method')?.toUpperCase();
   const method =
-    rawMethod === 'PUT' || rawMethod === 'PATCH' || rawMethod === 'POST'
-      ? rawMethod
-      : 'POST';
+    rawMethod === 'PUT' || rawMethod === 'PATCH' || rawMethod === 'POST' ? rawMethod : 'POST';
 
   return {
     url,
@@ -164,7 +153,9 @@ export class NotificationDeliveryWorker {
     }
   }
 
-  private async processDelivery(delivery: NotificationDelivery): Promise<NotificationDelivery | null> {
+  private async processDelivery(
+    delivery: NotificationDelivery,
+  ): Promise<NotificationDelivery | null> {
     if (delivery.status !== 'pending') {
       return delivery;
     }

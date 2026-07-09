@@ -1,5 +1,9 @@
 import type { CommandRunner } from '../core/command-runner.js';
-import type { RouterOsIpSecIdentity, RouterOsIpSecPeer, RouterOsIpSecPolicy } from '../models/vpn.js';
+import type {
+  RouterOsIpSecIdentity,
+  RouterOsIpSecPeer,
+  RouterOsIpSecPolicy,
+} from '../models/vpn.js';
 
 class IpSecPeerApi {
   public constructor(private readonly runner: CommandRunner) {}

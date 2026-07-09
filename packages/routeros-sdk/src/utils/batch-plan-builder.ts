@@ -1,4 +1,8 @@
-import type { RouterOsBatchCommand, RouterOsBatchPlan, RouterOsTransactionMode } from '../models/transaction.js';
+import type {
+  RouterOsBatchCommand,
+  RouterOsBatchPlan,
+  RouterOsTransactionMode,
+} from '../models/transaction.js';
 
 export class BatchPlanBuilder {
   private readonly commands: RouterOsBatchCommand[] = [];

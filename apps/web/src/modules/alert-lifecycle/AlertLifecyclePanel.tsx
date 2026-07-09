@@ -38,7 +38,8 @@ export function AlertLifecyclePanel({
   const activeAlertIds = useMemo(() => alerts.map((alert) => alert.id), [alerts]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedCount = selectedIds.length;
-  const allSelected = activeAlertIds.length > 0 && activeAlertIds.every((id) => selectedSet.has(id));
+  const allSelected =
+    activeAlertIds.length > 0 && activeAlertIds.every((id) => selectedSet.has(id));
 
   function clearSelection() {
     setSelectedIds([]);
@@ -46,9 +47,7 @@ export function AlertLifecyclePanel({
 
   function toggleSelection(alertId: string) {
     setSelectedIds((current) =>
-      current.includes(alertId)
-        ? current.filter((id) => id !== alertId)
-        : [...current, alertId],
+      current.includes(alertId) ? current.filter((id) => id !== alertId) : [...current, alertId],
     );
   }
 
@@ -186,7 +185,10 @@ export function AlertLifecyclePanel({
         />
       </div>
 
-      <WidgetCard title="Active Alert Lifecycle" description="Acknowledge or resolve current alerts">
+      <WidgetCard
+        title="Active Alert Lifecycle"
+        description="Acknowledge or resolve current alerts"
+      >
         <div className="alert-lifecycle-panel__toolbar">
           <label>
             <input
@@ -248,7 +250,8 @@ export function AlertLifecyclePanel({
                     <strong>{alert.title}</strong>
                     <p>{alert.message}</p>
                     <small>
-                      {alertDeviceName(alert)} · {alert.ruleKey} · {new Date(alert.createdAt).toLocaleString()}
+                      {alertDeviceName(alert)} · {alert.ruleKey} ·{' '}
+                      {new Date(alert.createdAt).toLocaleString()}
                       {count ? ` · ${count} occurrences` : ''}
                     </small>
                   </div>

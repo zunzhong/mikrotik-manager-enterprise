@@ -1,5 +1,10 @@
 import type { CommandRunner } from '../core/command-runner.js';
-import type { RouterOsPppActive, RouterOsPppProfile, RouterOsPppSecret, RouterOsPppoeClient } from '../models/ppp.js';
+import type {
+  RouterOsPppActive,
+  RouterOsPppProfile,
+  RouterOsPppSecret,
+  RouterOsPppoeClient,
+} from '../models/ppp.js';
 
 class PppSecretApi {
   public constructor(private readonly runner: CommandRunner) {}

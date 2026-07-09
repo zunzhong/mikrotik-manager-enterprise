@@ -49,7 +49,11 @@ export class PermissionGuardService {
       });
 
       if (!allowed) {
-        throw new HttpError(403, 'FORBIDDEN', `Missing one of permissions: ${permissionKeys.join(', ')}`);
+        throw new HttpError(
+          403,
+          'FORBIDDEN',
+          `Missing one of permissions: ${permissionKeys.join(', ')}`,
+        );
       }
     };
   }

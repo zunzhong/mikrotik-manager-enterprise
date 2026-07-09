@@ -18,7 +18,14 @@ class UserApi {
     return this.runner.print('/user/print') as Promise<RouterOsUser[]>;
   }
 
-  public async add(input: { name: string; password: string; group?: string; address?: string; comment?: string; disabled?: boolean }): Promise<void> {
+  public async add(input: {
+    name: string;
+    password: string;
+    group?: string;
+    address?: string;
+    comment?: string;
+    disabled?: boolean;
+  }): Promise<void> {
     await this.runner.add('/user/add', input);
   }
 
@@ -42,7 +49,12 @@ class UserGroupApi {
     return this.runner.print('/user/group/print') as Promise<RouterOsUserGroup[]>;
   }
 
-  public async add(input: { name: string; policy: string; skin?: string; comment?: string }): Promise<void> {
+  public async add(input: {
+    name: string;
+    policy: string;
+    skin?: string;
+    comment?: string;
+  }): Promise<void> {
     await this.runner.add('/user/group/add', input);
   }
 
@@ -58,7 +70,13 @@ class ScriptApi {
     return this.runner.print('/system/script/print') as Promise<RouterOsScript[]>;
   }
 
-  public async add(input: { name: string; source: string; policy?: string; comment?: string; disabled?: boolean }): Promise<void> {
+  public async add(input: {
+    name: string;
+    source: string;
+    policy?: string;
+    comment?: string;
+    disabled?: boolean;
+  }): Promise<void> {
     await this.runner.add('/system/script/add', input);
   }
 
@@ -163,7 +181,15 @@ class NetwatchApi {
     return this.runner.print('/tool/netwatch/print') as Promise<RouterOsNetwatchEntry[]>;
   }
 
-  public async add(input: { host: string; interval?: string; timeout?: string; upScript?: string; downScript?: string; comment?: string; disabled?: boolean }): Promise<void> {
+  public async add(input: {
+    host: string;
+    interval?: string;
+    timeout?: string;
+    upScript?: string;
+    downScript?: string;
+    comment?: string;
+    disabled?: boolean;
+  }): Promise<void> {
     await this.runner.add('/tool/netwatch/add', input);
   }
 

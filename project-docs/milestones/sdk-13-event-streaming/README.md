@@ -3,7 +3,7 @@
 Usage:
 
 ```ts
-const sub = await client.events.listenInterfaces(event => {
+const sub = await client.events.listenInterfaces((event) => {
   console.log(event);
 });
 

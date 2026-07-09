@@ -8,8 +8,8 @@ const pool = new PoolApi([
     id: 'r1',
     name: 'Router 1',
     options: { host: '10.0.0.1', username: 'admin', password: 'pass' },
-    priority: 1
-  }
+    priority: 1,
+  },
 ]);
 
 const health = await pool.health();

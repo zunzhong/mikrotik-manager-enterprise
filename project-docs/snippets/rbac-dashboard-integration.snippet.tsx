@@ -2,4 +2,4 @@
 import { RbacDashboardSection } from '../modules/rbac';
 
 // Add inside DashboardPage render:
-<RbacDashboardSection />
+<RbacDashboardSection />;
