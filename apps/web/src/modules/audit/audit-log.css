@@ -37,7 +37,8 @@
 }
 
 .audit-log-panel__actions,
-.audit-log-panel__pagination {
+.audit-log-panel__pagination,
+.audit-log-panel__retention-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -55,7 +56,8 @@
 }
 
 .audit-log-panel__actions button,
-.audit-log-panel__pagination button {
+.audit-log-panel__pagination button,
+.audit-log-panel__retention-actions button {
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 999px;
   padding: 8px 12px;
@@ -65,12 +67,14 @@
 }
 
 [data-theme='light'] .audit-log-panel__actions button,
-[data-theme='light'] .audit-log-panel__pagination button {
+[data-theme='light'] .audit-log-panel__pagination button,
+[data-theme='light'] .audit-log-panel__retention-actions button {
   background: #f8fafc;
 }
 
 .audit-log-panel__actions button:disabled,
-.audit-log-panel__pagination button:disabled {
+.audit-log-panel__pagination button:disabled,
+.audit-log-panel__retention-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -81,20 +85,27 @@
   gap: 14px;
 }
 
-.audit-log-panel__filters {
+.audit-log-panel__filters,
+.audit-log-panel__retention {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-.audit-log-panel__filters label {
+.audit-log-panel__retention {
+  align-items: end;
+}
+
+.audit-log-panel__filters label,
+.audit-log-panel__retention label {
   display: grid;
   gap: 6px;
   color: #94a3b8;
   font-size: 13px;
 }
 
-.audit-log-panel__filters select {
+.audit-log-panel__filters select,
+.audit-log-panel__retention input {
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 12px;
   padding: 10px 12px;
@@ -102,8 +113,29 @@
   color: inherit;
 }
 
-[data-theme='light'] .audit-log-panel__filters select {
+[data-theme='light'] .audit-log-panel__filters select,
+[data-theme='light'] .audit-log-panel__retention input {
   background: #fff;
+}
+
+.audit-log-panel__retention-actions {
+  grid-column: span 3;
+}
+
+.audit-log-panel__retention-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.audit-log-panel__retention-result strong,
+.audit-log-panel__retention-result span {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 6px 10px;
 }
 
 .audit-log-panel__list {
@@ -163,8 +195,13 @@
 
 @media (max-width: 1100px) {
   .audit-log-panel__cards,
-  .audit-log-panel__filters {
+  .audit-log-panel__filters,
+  .audit-log-panel__retention {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audit-log-panel__retention-actions {
+    grid-column: span 1;
   }
 }
 
@@ -175,7 +212,8 @@
   }
 
   .audit-log-panel__cards,
-  .audit-log-panel__filters {
+  .audit-log-panel__filters,
+  .audit-log-panel__retention {
     grid-template-columns: 1fr;
   }
 

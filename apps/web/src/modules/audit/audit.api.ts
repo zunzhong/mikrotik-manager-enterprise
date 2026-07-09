@@ -3,6 +3,8 @@ import type {
   AuditEvent,
   AuditPageResult,
   AuditQueryInput,
+  AuditRetentionInput,
+  AuditRetentionResult,
   AuditSeedDemoResult,
   AuditSummary,
   CreateAuditEventInput,
@@ -51,6 +53,9 @@ export const auditApi = {
 
   seedDemo: () =>
     apiPost<AuditSeedDemoResult>('/api/v1/audit/seed-demo', {}),
+
+  pruneRetention: (input: AuditRetentionInput) =>
+    apiPost<AuditRetentionResult>('/api/v1/audit/retention/prune', input),
 
   exportUrl: (format: 'json' | 'csv', query?: AuditQueryInput) =>
     `/api/v1/audit/export${exportQueryToSearchParams(format, query)}`,

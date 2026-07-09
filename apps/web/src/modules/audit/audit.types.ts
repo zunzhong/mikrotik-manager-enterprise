@@ -1,10 +1,4 @@
-export type AuditActorType =
-  | 'system'
-  | 'user'
-  | 'api'
-  | 'agent'
-  | 'scheduler';
-
+export type AuditActorType = 'system' | 'user' | 'api' | 'agent' | 'scheduler';
 export type AuditEntityType =
   | 'system'
   | 'device'
@@ -16,14 +10,8 @@ export type AuditEntityType =
   | 'auth'
   | 'config';
 
-export type AuditSeverity =
-  | 'info'
-  | 'warning'
-  | 'critical';
-
-export type AuditStatus =
-  | 'success'
-  | 'failure';
+export type AuditSeverity = 'info' | 'warning' | 'critical';
+export type AuditStatus = 'success' | 'failure';
 
 export interface AuditActor {
   type: AuditActorType;
@@ -99,4 +87,18 @@ export interface AuditSummary {
 export interface AuditSeedDemoResult {
   created: number;
   events: AuditEvent[];
+}
+
+export interface AuditRetentionInput {
+  days: number;
+  dryRun?: boolean;
+}
+
+export interface AuditRetentionResult {
+  dryRun: boolean;
+  days: number;
+  cutoff: string;
+  matched: number;
+  deleted: number;
+  generatedAt: string;
 }

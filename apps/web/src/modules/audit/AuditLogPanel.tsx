@@ -7,6 +7,7 @@ import type {
   AuditEvent,
   AuditPageResult,
   AuditQueryInput,
+  AuditRetentionResult,
   AuditSeverity,
   AuditStatus,
   AuditSummary,
@@ -34,12 +35,8 @@ function formatTime(value: string): string {
 }
 
 function metadataPreview(event: AuditEvent): string {
-  if (!event.metadata) {
-    return 'No metadata';
-  }
-
+  if (!event.metadata) return 'No metadata';
   const text = JSON.stringify(event.metadata);
-
   return text.length > 140 ? `${text.slice(0, 140)}...` : text;
 }
 
@@ -48,10 +45,7 @@ function actorLabel(event: AuditEvent): string {
 }
 
 function entityLabel(event: AuditEvent): string {
-  if (!event.entity) {
-    return 'N/A';
-  }
-
+  if (!event.entity) return 'N/A';
   return event.entity.name ?? event.entity.id ?? event.entity.type;
 }
 
@@ -78,8 +72,11 @@ export function AuditLogPanel() {
   const [entityType, setEntityType] = useState<AuditEntityType | 'all'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [retentionDays, setRetentionDays] = useState(90);
+  const [retentionResult, setRetentionResult] = useState<AuditRetentionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [retentionBusy, setRetentionBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const filterQuery = useMemo<AuditQueryInput>(() => ({
@@ -130,11 +127,7 @@ export function AuditLogPanel() {
     try {
       await auditApi.seedDemo();
       setPage(1);
-      const nextPageQuery = {
-        ...filterQuery,
-        page: 1,
-        pageSize,
-      };
+      const nextPageQuery = { ...filterQuery, page: 1, pageSize };
       const [nextSummary, nextPage] = await Promise.all([
         auditApi.summary(filterQuery),
         auditApi.page(nextPageQuery),
@@ -146,6 +139,35 @@ export function AuditLogPanel() {
       setError(err instanceof Error ? err.message : 'Cannot seed demo audit events');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runRetention(dryRun: boolean) {
+    const safeDays = Math.max(1, Math.min(3650, retentionDays || 1));
+
+    if (!dryRun) {
+      const confirmed = window.confirm(
+        `Delete audit logs older than ${safeDays} day(s)? This action cannot be undone.`,
+      );
+
+      if (!confirmed) return;
+    }
+
+    setRetentionBusy(true);
+    setError(null);
+
+    try {
+      const result = await auditApi.pruneRetention({ days: safeDays, dryRun });
+      setRetentionResult(result);
+
+      if (!dryRun) {
+        setPage(1);
+        await refresh();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cannot run audit retention');
+    } finally {
+      setRetentionBusy(false);
     }
   }
 
@@ -216,36 +238,28 @@ export function AuditLogPanel() {
           <label>
             Status
             <select value={status} onChange={(event) => updateStatus(event.target.value as AuditStatus | 'all')}>
-              {statusOptions.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
+              {statusOptions.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
 
           <label>
             Severity
             <select value={severity} onChange={(event) => updateSeverity(event.target.value as AuditSeverity | 'all')}>
-              {severityOptions.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
+              {severityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
 
           <label>
             Entity
             <select value={entityType} onChange={(event) => updateEntityType(event.target.value as AuditEntityType | 'all')}>
-              {entityOptions.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
+              {entityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
 
           <label>
             Page size
             <select value={pageSize} onChange={(event) => updatePageSize(Number(event.target.value))}>
-              {pageSizeOptions.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
+              {pageSizeOptions.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
         </div>
@@ -255,14 +269,49 @@ export function AuditLogPanel() {
         </p>
       </WidgetCard>
 
+      <WidgetCard title="Audit Retention" description="Dry-run or prune old audit records from persistent storage">
+        <div className="audit-log-panel__retention">
+          <label>
+            Keep latest days
+            <input
+              min={1}
+              max={3650}
+              type="number"
+              value={retentionDays}
+              onChange={(event) => setRetentionDays(Number(event.target.value))}
+            />
+          </label>
+
+          <div className="audit-log-panel__retention-actions">
+            <button type="button" disabled={retentionBusy} onClick={() => void runRetention(true)}>
+              Dry Run
+            </button>
+            <button type="button" disabled={retentionBusy} onClick={() => void runRetention(false)}>
+              Prune Old Logs
+            </button>
+          </div>
+        </div>
+
+        {retentionResult ? (
+          <div className="audit-log-panel__retention-result">
+            <strong>{retentionResult.dryRun ? 'Dry-run result' : 'Prune result'}</strong>
+            <span>Cutoff: {formatTime(retentionResult.cutoff)}</span>
+            <span>Matched: {retentionResult.matched}</span>
+            <span>Deleted: {retentionResult.deleted}</span>
+          </div>
+        ) : (
+          <p className="audit-log-panel__export-note">
+            Dry-run is safe and does not delete data. Prune requires confirmation.
+          </p>
+        )}
+      </WidgetCard>
+
       <WidgetCard title="Recent Audit Events" description={`Showing ${events.length} of ${pageResult.total} audit event(s)`}>
         <div className="audit-log-panel__pagination">
           <button type="button" disabled={loading || !canPrevious} onClick={() => setPage((value) => Math.max(1, value - 1))}>
             Previous
           </button>
-          <span>
-            Page {pageResult.page} / {totalPages}
-          </span>
+          <span>Page {pageResult.page} / {totalPages}</span>
           <button type="button" disabled={loading || !canNext} onClick={() => setPage((value) => value + 1)}>
             Next
           </button>
@@ -274,9 +323,7 @@ export function AuditLogPanel() {
               <div className="audit-log-panel__event-main">
                 <div>
                   <strong>{event.summary}</strong>
-                  <small>
-                    {event.action} · {actorLabel(event)} · {entityLabel(event)}
-                  </small>
+                  <small>{event.action} · {actorLabel(event)} · {entityLabel(event)}</small>
                   <small>{metadataPreview(event)}</small>
                 </div>
 
@@ -290,10 +337,7 @@ export function AuditLogPanel() {
             </article>
           ))}
 
-          {!loading && events.length === 0 ? (
-            <p className="muted">No audit events found for the current filter.</p>
-          ) : null}
-
+          {!loading && events.length === 0 ? <p className="muted">No audit events found for the current filter.</p> : null}
           {loading ? <p className="muted">Loading audit events...</p> : null}
         </div>
       </WidgetCard>
