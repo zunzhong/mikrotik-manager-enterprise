@@ -8,9 +8,9 @@ http://localhost:3000/api/v1
 
 ## Purpose
 
-The Audit Log Engine records system, API, user, scheduler, and agent activity for traceability.
+The Audit Log Engine records system, API, user, scheduler, agent, notification, and retention activity.
 
-It is designed to answer:
+It answers:
 
 ```txt
 Who did what?
@@ -18,11 +18,45 @@ When did it happen?
 Which entity was affected?
 Did it succeed or fail?
 What metadata was attached?
+How can activity be filtered, exported, and retained?
 ```
 
 ---
 
-# Audit Event Schema
+# Storage
+
+Audit logs are persisted with Prisma using the existing `AuditLog` model.
+
+```prisma
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+```
+
+## Mapping
+
+```txt
+AuditEvent.id        -> AuditLog.id
+AuditEvent.action    -> AuditLog.action
+AuditEvent.entity    -> AuditLog.entity/entityId
+AuditEvent.actor     -> AuditLog.metadata.actor
+AuditEvent.severity  -> AuditLog.metadata.severity
+AuditEvent.status    -> AuditLog.metadata.status
+AuditEvent.summary   -> AuditLog.metadata.summary
+AuditEvent.metadata  -> AuditLog.metadata.metadata
+AuditEvent.createdAt -> AuditLog.createdAt
+```
+
+---
+
+# Event Schema
 
 ```ts
 interface AuditEvent {
@@ -38,35 +72,25 @@ interface AuditEvent {
 }
 ```
 
-## Actor
+---
 
-```ts
-interface AuditActor {
-  type: 'system' | 'user' | 'api' | 'agent' | 'scheduler';
-  id?: string;
-  name?: string;
-  ip?: string;
-  userAgent?: string;
-}
-```
+# Query Filters
 
-## Entity
+Supported filters:
 
-```ts
-interface AuditEntity {
-  type:
-    | 'system'
-    | 'device'
-    | 'event'
-    | 'alert'
-    | 'notification_channel'
-    | 'notification_rule'
-    | 'notification_delivery'
-    | 'auth'
-    | 'config';
-  id?: string;
-  name?: string;
-}
+```txt
+limit
+page
+pageSize
+action
+actorType
+actorId
+entityType
+entityId
+severity
+status
+from
+to
 ```
 
 ---
@@ -79,75 +103,64 @@ interface AuditEntity {
 GET /audit/summary
 ```
 
-Optional filters:
-
-```txt
-action
-actorType
-actorId
-entityType
-entityId
-severity
-status
-from
-to
-```
-
 Example:
 
 ```http
 GET /audit/summary?status=failure&severity=warning
 ```
 
-Response data:
-
-```json
-{
-  "total": 4,
-  "success": 0,
-  "failure": 4,
-  "info": 0,
-  "warning": 4,
-  "critical": 0,
-  "generatedAt": "2026-07-08T00:00:00.000Z"
-}
-```
-
 ---
 
-## List audit events
+## List
 
 ```http
 GET /audit?limit=20
 ```
 
-Common filters:
+Examples:
 
 ```http
 GET /audit?status=failure&limit=20
 GET /audit?severity=critical&limit=20
 GET /audit?entityType=notification_channel&limit=20
 GET /audit?action=notification.channel.created&limit=20
-GET /audit?actorType=api&limit=20
 ```
 
 ---
 
-## Get one audit event
+## Paginated List
+
+```http
+GET /audit/page?page=1&pageSize=25
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 25,
+    "totalPages": 0,
+    "generatedAt": "2026-07-09T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+## Detail
 
 ```http
 GET /audit/:id
 ```
 
-Example:
-
-```http
-GET /audit/audit_123
-```
-
 ---
 
-## Create audit event
+## Create
 
 ```http
 POST /audit
@@ -155,13 +168,13 @@ Content-Type: application/json
 
 {
   "action": "manual.audit.test",
-  "summary": "Manual audit event from API docs",
+  "summary": "Manual audit event",
   "severity": "info",
   "status": "success",
   "actor": {
     "type": "api",
-    "id": "docs",
-    "name": "API Docs"
+    "id": "rest-client",
+    "name": "VS Code REST Client"
   },
   "entity": {
     "type": "system",
@@ -176,7 +189,7 @@ Content-Type: application/json
 
 ---
 
-## Seed demo audit events
+## Seed Demo
 
 ```http
 POST /audit/seed-demo
@@ -185,21 +198,91 @@ Content-Type: application/json
 {}
 ```
 
-This creates demo events for:
+---
+
+# Export
+
+## JSON
+
+```http
+GET /audit/export?format=json&limit=1000
+```
+
+## CSV
+
+```http
+GET /audit/export?format=csv&limit=1000
+```
+
+## Filtered CSV
+
+```http
+GET /audit/export?format=csv&status=failure&limit=500
+```
+
+Supported export filters:
 
 ```txt
-audit.seed_demo
-notification.channel.created
-notification.delivery.failed
+action
+actorType
+actorId
+entityType
+entityId
+severity
+status
+from
+to
+limit
+```
+
+PowerShell download:
+
+```powershell
+Invoke-WebRequest `
+  -Uri "http://localhost:3000/api/v1/audit/export?format=csv&limit=1000" `
+  -OutFile audit-log.csv
 ```
 
 ---
 
-# Notification Integration
+# Retention
 
-The Notification Engine writes audit events for management and delivery operations.
+## Dry-run
 
-## Channel actions
+```http
+POST /audit/retention/prune
+Content-Type: application/json
+
+{
+  "days": 90,
+  "dryRun": true
+}
+```
+
+## Delete old logs
+
+```http
+POST /audit/retention/prune
+Content-Type: application/json
+
+{
+  "days": 90,
+  "dryRun": false
+}
+```
+
+Safety:
+
+```txt
+dryRun defaults to true
+days must be positive
+days max is 3650
+retention action records audit.retention.dry_run or audit.retention.pruned
+```
+
+---
+
+# Notification Audit Actions
 
 ```txt
 notification.channel.created
@@ -207,45 +290,45 @@ notification.channel.updated
 notification.channel.deleted
 notification.channel.update_failed
 notification.channel.delete_failed
-```
-
-## Rule actions
-
-```txt
 notification.rule.created
 notification.rule.updated
 notification.rule.deleted
 notification.rule.update_failed
 notification.rule.delete_failed
-```
-
-## Delivery actions
-
-```txt
 notification.delivery.queued
 notification.delivery.process_pending
 notification.delivery.retry_one
 notification.delivery.retry_failed
-```
-
-## Defaults
-
-```txt
 notification.defaults.seeded
 notification.defaults.seed_skipped
 ```
 
 ---
 
+# Retention Audit Actions
+
+```txt
+audit.retention.dry_run
+audit.retention.pruned
+```
+
+---
+
 # Dashboard
 
-The Audit Log panel supports:
+Audit Log Panel supports:
 
 ```txt
 Summary cards
 Status filter
 Severity filter
-Entity type filter
+Entity filter
+Pagination
+Page size selector
+Export JSON
+Export CSV
+Retention dry-run
+Retention prune with confirmation
 Recent audit event list
 Metadata preview
 Seed Demo
@@ -254,39 +337,17 @@ Refresh
 
 ---
 
-# Smoke Test
-
-Run the Audit Log smoke test:
+# Smoke Tests
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/smoke-tests/audit-log-smoke.ps1
-```
-
-Skip notification integration part:
-
-```powershell
-powershell -ExecutionPolicy Bypass `
-  -File tools/smoke-tests/audit-log-smoke.ps1 `
-  -SkipNotificationIntegration
+powershell -ExecutionPolicy Bypass -File tools/smoke-tests/audit-retention-smoke.ps1
 ```
 
 ---
 
 # VS Code REST Client
 
-Use:
-
 ```txt
 tools/http/audit-log.http
-```
-
-Recommended flow:
-
-```txt
-Seed demo audit events
-List audit events
-Create manual audit event
-Get audit event by ID
-Filter by failure
-Filter by entity type
 ```
