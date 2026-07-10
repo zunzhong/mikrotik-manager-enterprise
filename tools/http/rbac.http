@@ -7,6 +7,25 @@ Content-Type: application/json
 
 {}
 
+### RBAC Guard: audit-export denied without headers
+GET {{baseUrl}}/api/v1/rbac/guard/probe/audit-export
+
+### RBAC Guard: audit-export allowed by admin role
+GET {{baseUrl}}/api/v1/rbac/guard/probe/audit-export
+x-rbac-roles: admin
+
+### RBAC Guard: audit-export allowed by direct permission
+GET {{baseUrl}}/api/v1/rbac/guard/probe/audit-export
+x-rbac-permissions: audit:export
+
+### RBAC Guard: rbac-manage allowed by owner role
+GET {{baseUrl}}/api/v1/rbac/guard/probe/rbac-manage
+x-rbac-roles: owner
+
+### RBAC Guard: rbac-manage allowed by super admin
+GET {{baseUrl}}/api/v1/rbac/guard/probe/rbac-manage
+x-rbac-super-admin: true
+
 ### RBAC: List permissions
 GET {{baseUrl}}/api/v1/rbac/permissions
 

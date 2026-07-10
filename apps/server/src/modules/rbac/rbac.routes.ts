@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { auditService } from '../audit/index.js';
-import { ALL_RBAC_PERMISSIONS } from './rbac.permissions.js';
 import { seedRbacDefaultsOnStartup, seedRbacDefaultsWithAudit } from './rbac.bootstrap.js';
+import { rbacGuard } from './rbac.guard.js';
+import { ALL_RBAC_PERMISSIONS } from './rbac.permissions.js';
 import { rbacService } from './rbac.service.js';
 import type { RbacPermission, RbacPrincipal } from './rbac.types.js';
 
@@ -44,6 +45,14 @@ function apiActor(id?: string) {
   };
 }
 
+function headerValue(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
 export async function rbacRoutes(app: FastifyInstance): Promise<void> {
   await seedRbacDefaultsOnStartup();
 
@@ -51,6 +60,40 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
     success: true,
     data: await seedRbacDefaultsWithAudit('rbac-api'),
   }));
+
+  app.get(
+    '/api/v1/rbac/guard/probe/audit-export',
+    {
+      preHandler: rbacGuard('audit:export'),
+    },
+    async (request) => ({
+      success: true,
+      data: {
+        permission: 'audit:export',
+        allowed: true,
+        userId: headerValue(request.headers['x-user-id']),
+        roleIds: headerValue(request.headers['x-rbac-roles']),
+        generatedAt: new Date().toISOString(),
+      },
+    }),
+  );
+
+  app.get(
+    '/api/v1/rbac/guard/probe/rbac-manage',
+    {
+      preHandler: rbacGuard('rbac:manage'),
+    },
+    async (request) => ({
+      success: true,
+      data: {
+        permission: 'rbac:manage',
+        allowed: true,
+        userId: headerValue(request.headers['x-user-id']),
+        roleIds: headerValue(request.headers['x-rbac-roles']),
+        generatedAt: new Date().toISOString(),
+      },
+    }),
+  );
 
   app.get('/api/v1/rbac/permissions', async () => ({
     success: true,
