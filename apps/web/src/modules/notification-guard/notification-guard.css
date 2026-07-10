@@ -1,0 +1,28 @@
+.notification-permission-notice {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notification-permission-notice ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.notification-permission-notice-ok {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.notification-permission-notice-warning {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.notification-permission-disabled {
+  cursor: not-allowed;
+  display: inline-flex;
+  opacity: 0.55;
+  pointer-events: none;
+}
