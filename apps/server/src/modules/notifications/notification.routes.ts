@@ -135,42 +135,60 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     data: notificationService.listRules(),
   }));
 
-  app.post('/api/v1/notifications/rules', async (request) => {
-    const body = createRuleSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/notifications/rules',
+    {
+      preHandler: notificationManagePreHandler,
+    },
+    async (request) => {
+      const body = createRuleSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: notificationService.createRule(body),
-    };
-  });
-
-  app.patch('/api/v1/notifications/rules/:id', async (request, reply) => {
-    const params = idParamsSchema.parse(request.params);
-    const body = updateRuleSchema.parse(request.body ?? {});
-    const rule = notificationService.updateRule(params.id, body);
-
-    if (!rule) {
-      reply.code(404);
       return {
-        success: false,
-        error: 'Notification rule not found',
+        success: true,
+        data: notificationService.createRule(body),
       };
-    }
+    },
+  );
 
-    return {
-      success: true,
-      data: rule,
-    };
-  });
+  app.patch(
+    '/api/v1/notifications/rules/:id',
+    {
+      preHandler: notificationManagePreHandler,
+    },
+    async (request, reply) => {
+      const params = idParamsSchema.parse(request.params);
+      const body = updateRuleSchema.parse(request.body ?? {});
+      const rule = notificationService.updateRule(params.id, body);
 
-  app.delete('/api/v1/notifications/rules/:id', async (request) => {
-    const params = idParamsSchema.parse(request.params);
+      if (!rule) {
+        reply.code(404);
+        return {
+          success: false,
+          error: 'Notification rule not found',
+        };
+      }
 
-    return {
-      success: true,
-      data: notificationService.deleteRule(params.id),
-    };
-  });
+      return {
+        success: true,
+        data: rule,
+      };
+    },
+  );
+
+  app.delete(
+    '/api/v1/notifications/rules/:id',
+    {
+      preHandler: notificationManagePreHandler,
+    },
+    async (request) => {
+      const params = idParamsSchema.parse(request.params);
+
+      return {
+        success: true,
+        data: notificationService.deleteRule(params.id),
+      };
+    },
+  );
 
   app.get('/api/v1/notifications/deliveries', async (request) => {
     const query = listDeliveriesQuerySchema.parse(request.query);

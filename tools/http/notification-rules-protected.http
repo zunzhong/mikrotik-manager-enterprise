@@ -1,0 +1,54 @@
+@baseUrl = http://localhost:3000
+@ruleId = protected-rule-demo
+
+### Notification rules: read remains open
+GET {{baseUrl}}/api/v1/notifications/rules
+
+### Notification rule create: denied without RBAC principal
+POST {{baseUrl}}/api/v1/notifications/rules
+Content-Type: application/json
+
+{
+  "name": "Denied Rule",
+  "enabled": true,
+  "eventTypes": ["SYSTEM_EVENT"],
+  "severities": ["info"],
+  "channelIds": ["demo-channel"]
+}
+
+### Notification rule create: allowed with notification:manage
+POST {{baseUrl}}/api/v1/notifications/rules
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "name": "Protected Rule",
+  "enabled": true,
+  "eventTypes": ["SYSTEM_EVENT"],
+  "severities": ["info"],
+  "channelIds": ["demo-channel"]
+}
+
+### Notification rule update: denied without RBAC principal
+PATCH {{baseUrl}}/api/v1/notifications/rules/{{ruleId}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### Notification rule update: allowed with notification:manage
+PATCH {{baseUrl}}/api/v1/notifications/rules/{{ruleId}}
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "enabled": false
+}
+
+### Notification rule delete: denied without RBAC principal
+DELETE {{baseUrl}}/api/v1/notifications/rules/{{ruleId}}
+
+### Notification rule delete: allowed with notification:manage
+DELETE {{baseUrl}}/api/v1/notifications/rules/{{ruleId}}
+x-rbac-permissions: notification:manage
