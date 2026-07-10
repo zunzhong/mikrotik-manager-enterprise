@@ -1,7 +1,8 @@
-import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { authGuardService } from '../application/auth-guard.service.js';
 import { authService } from '../application/auth.service.js';
+import { authSessionRoutes } from './auth.session.routes.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -28,6 +29,8 @@ const resetConfirmSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
+  await app.register(authSessionRoutes);
+
   app.post('/api/v1/auth/login', async (request) => {
     const body = loginSchema.parse(request.body ?? {});
 
@@ -43,7 +46,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/v1/auth/refresh', async (request) => {
     const body = refreshSchema.parse(request.body ?? {});
-    return { success: true, data: await authService.refresh(body.refreshToken) };
+
+    return {
+      success: true,
+      data: await authService.refresh(body.refreshToken),
+    };
   });
 
   app.get('/api/v1/auth/me', { preHandler: authGuardService.requireAuth() }, async (request) => ({
@@ -65,7 +72,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: authGuardService.requireAuth() },
     async (request) => {
       const params = request.params as { id: string };
-      return { success: true, data: await authService.revokeSession(request.user!.id, params.id) };
+
+      return {
+        success: true,
+        data: await authService.revokeSession(request.user!.id, params.id),
+      };
     },
   );
 
@@ -83,6 +94,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: authGuardService.requireAuth() },
     async (request) => {
       const body = changePasswordSchema.parse(request.body ?? {});
+
       return {
         success: true,
         data: await authService.changePassword(
@@ -96,11 +108,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/v1/auth/password-reset/request', async (request) => {
     const body = resetRequestSchema.parse(request.body ?? {});
-    return { success: true, data: await authService.requestPasswordReset(body.email) };
+
+    return {
+      success: true,
+      data: await authService.requestPasswordReset(body.email),
+    };
   });
 
   app.post('/api/v1/auth/password-reset/confirm', async (request) => {
     const body = resetConfirmSchema.parse(request.body ?? {});
+
     return {
       success: true,
       data: await authService.confirmPasswordReset(body.token, body.newPassword),

@@ -1,0 +1,24 @@
+@baseUrl = http://localhost:3000
+
+### Auth Session: anonymous current user
+GET {{baseUrl}}/api/v1/auth/session/current
+
+### Auth Session: current user from headers
+GET {{baseUrl}}/api/v1/auth/session/current
+x-user-id: demo-user
+x-user-email: demo@example.local
+x-user-name: Demo User
+x-rbac-roles: admin,auditor
+x-rbac-permissions: audit:export
+x-rbac-super-admin: false
+
+### Auth Session: RBAC principal from headers
+GET {{baseUrl}}/api/v1/auth/session/rbac-principal
+x-user-id: demo-user
+x-rbac-roles: admin
+x-rbac-permissions: audit:export
+
+### Auth Session: RBAC super admin principal
+GET {{baseUrl}}/api/v1/auth/session/rbac-principal
+x-user-id: super-admin
+x-rbac-super-admin: true
