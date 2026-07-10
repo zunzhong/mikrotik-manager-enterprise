@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js';
 import { auditService } from '../audit/index.js';
 import { seedRbacDefaultsOnStartup, seedRbacDefaultsWithAudit } from './rbac.bootstrap.js';
 import { rbacGuard } from './rbac.guard.js';
@@ -64,7 +65,7 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/api/v1/rbac/guard/probe/audit-export',
     {
-      preHandler: rbacGuard('audit:export'),
+      preHandler: [attachAuthContextPreHandler, rbacGuard('audit:export')],
     },
     async (request) => ({
       success: true,
@@ -81,7 +82,7 @@ export async function rbacRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/api/v1/rbac/guard/probe/rbac-manage',
     {
-      preHandler: rbacGuard('rbac:manage'),
+      preHandler: [attachAuthContextPreHandler, rbacGuard('rbac:manage')],
     },
     async (request) => ({
       success: true,

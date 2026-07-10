@@ -1,127 +1,115 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { rbacService } from './rbac.service.js';
-import type { RbacPermission, RbacPermissionCheckResult, RbacPrincipal } from './rbac.types.js';
+import type { RbacPermission, RbacPrincipal } from './rbac.types.js';
 
-export interface RbacRequestPrincipalOptions {
-  userIdHeader?: string;
-  rolesHeader?: string;
-  permissionsHeader?: string;
-  superAdminHeader?: string;
-}
+type RequestWithRbacContext = FastifyRequest & {
+  rbacPrincipal?: RbacPrincipal | null;
+};
 
-export interface RbacGuardOptions extends RbacRequestPrincipalOptions {
+export interface RbacGuardOptions {
   permission: RbacPermission;
   errorMessage?: string;
 }
 
-export interface RbacGuardFailureResponse {
-  success: false;
-  error: string;
-  data: {
-    permission: RbacPermission;
-    allowed: false;
-    roleIds: string[];
-    matchedBy?: RbacPermission;
-    generatedAt: string;
+export interface RbacGuardResult {
+  allowed: boolean;
+  principal: RbacPrincipal;
+  response?: {
+    success: false;
+    error: string;
+    data: {
+      permission: RbacPermission;
+      allowed: false;
+      userId?: string;
+      roleIds: string[];
+      generatedAt: string;
+    };
   };
 }
 
-export interface RbacGuardSuccess {
-  allowed: true;
-  principal: RbacPrincipal;
-  result: RbacPermissionCheckResult;
-}
-
-export interface RbacGuardFailure {
-  allowed: false;
-  principal: RbacPrincipal;
-  result: RbacPermissionCheckResult;
-  response: RbacGuardFailureResponse;
-}
-
-export type RbacGuardResult = RbacGuardSuccess | RbacGuardFailure;
-
-function readHeader(request: FastifyRequest, name: string): string | undefined {
-  const value = request.headers[name.toLowerCase()];
-
+function headerValue(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
-    return value[0];
+    return value[0] ?? null;
   }
 
-  return value;
+  return value ?? null;
 }
 
-function parseCsv(value: string | undefined): string[] {
-  if (!value) {
+function parseCsvHeader(value: string | string[] | undefined): string[] {
+  const raw = headerValue(value);
+
+  if (!raw) {
     return [];
   }
 
-  return value
+  return raw
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-function parseBoolean(value: string | undefined): boolean | undefined {
-  if (!value) {
-    return undefined;
+function parseBooleanHeader(value: string | string[] | undefined): boolean {
+  const raw = headerValue(value);
+
+  if (!raw) {
+    return false;
   }
 
-  return ['1', 'true', 'yes', 'y'].includes(value.toLowerCase());
+  return ['1', 'true', 'yes', 'y'].includes(raw.toLowerCase());
 }
 
-export function getRbacPrincipalFromRequest(
-  request: FastifyRequest,
-  options: RbacRequestPrincipalOptions = {},
-): RbacPrincipal {
-  const userId = readHeader(request, options.userIdHeader ?? 'x-user-id');
-  const roleIds = parseCsv(readHeader(request, options.rolesHeader ?? 'x-rbac-roles'));
-  const permissions = parseCsv(
-    readHeader(request, options.permissionsHeader ?? 'x-rbac-permissions'),
-  ) as RbacPermission[];
-  const isSuperAdmin = parseBoolean(
-    readHeader(request, options.superAdminHeader ?? 'x-rbac-super-admin'),
-  );
+export function getRbacPrincipalFromRequestContext(request: FastifyRequest): RbacPrincipal | null {
+  return (request as RequestWithRbacContext).rbacPrincipal ?? null;
+}
 
+export function getRbacPrincipalFromHeaders(request: FastifyRequest): RbacPrincipal {
   return {
-    userId,
-    roleIds: roleIds.length > 0 ? roleIds : undefined,
-    permissions: permissions.length > 0 ? permissions : undefined,
-    isSuperAdmin,
+    userId: headerValue(request.headers['x-user-id']) ?? undefined,
+    roleIds: parseCsvHeader(request.headers['x-rbac-roles']),
+    permissions: parseCsvHeader(request.headers['x-rbac-permissions']) as RbacPermission[],
+    isSuperAdmin: parseBooleanHeader(request.headers['x-rbac-super-admin']),
   };
+}
+
+export function getRbacPrincipalFromRequest(request: FastifyRequest): RbacPrincipal {
+  const contextPrincipal = getRbacPrincipalFromRequestContext(request);
+
+  if (contextPrincipal) {
+    return contextPrincipal;
+  }
+
+  return getRbacPrincipalFromHeaders(request);
 }
 
 export async function requireRbacPermission(
   request: FastifyRequest,
   options: RbacGuardOptions,
 ): Promise<RbacGuardResult> {
-  const principal = getRbacPrincipalFromRequest(request, options);
-  const result = await rbacService.checkPermission({
+  const principal = getRbacPrincipalFromRequest(request);
+  const check = await rbacService.checkPermission({
     principal,
     permission: options.permission,
   });
 
-  if (result.allowed) {
+  if (check.allowed) {
     return {
       allowed: true,
       principal,
-      result,
     };
   }
 
   return {
     allowed: false,
     principal,
-    result,
     response: {
       success: false,
       error: options.errorMessage ?? 'Permission denied',
       data: {
         permission: options.permission,
         allowed: false,
-        roleIds: result.roleIds,
-        matchedBy: result.matchedBy,
-        generatedAt: result.generatedAt,
+        userId: principal.userId,
+        roleIds: principal.roleIds ?? [],
+        generatedAt: new Date().toISOString(),
       },
     },
   };
@@ -129,14 +117,17 @@ export async function requireRbacPermission(
 
 export function createRbacPreHandler(options: RbacGuardOptions) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const guardResult = await requireRbacPermission(request, options);
+    const result = await requireRbacPermission(request, options);
 
-    if (!guardResult.allowed) {
-      reply.code(403).send(guardResult.response);
+    if (!result.allowed && result.response) {
+      reply.code(403).send(result.response);
     }
   };
 }
 
-export function rbacGuard(permission: RbacPermission) {
-  return createRbacPreHandler({ permission });
+export function rbacGuard(permission: RbacPermission, errorMessage?: string) {
+  return createRbacPreHandler({
+    permission,
+    errorMessage,
+  });
 }
