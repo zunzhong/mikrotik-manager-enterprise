@@ -1,0 +1,74 @@
+@baseUrl = http://localhost:3000
+@deviceId = protected-device-demo
+
+### Device list: read remains open
+GET {{baseUrl}}/api/v1/devices
+
+### Device create: denied without RBAC principal
+POST {{baseUrl}}/api/v1/devices
+Content-Type: application/json
+
+{
+  "name": "Denied Device",
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "tags": ["denied"]
+}
+
+### Device create: allowed with device:manage
+POST {{baseUrl}}/api/v1/devices
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{
+  "name": "Protected Device",
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "tags": ["protected"]
+}
+
+### Device update: denied without RBAC principal
+PATCH {{baseUrl}}/api/v1/devices/{{deviceId}}
+Content-Type: application/json
+
+{
+  "tags": ["denied-update"]
+}
+
+### Device update: allowed with device:manage
+PATCH {{baseUrl}}/api/v1/devices/{{deviceId}}
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{
+  "tags": ["protected-update"]
+}
+
+### Device delete: denied without RBAC principal
+DELETE {{baseUrl}}/api/v1/devices/{{deviceId}}
+
+### Device delete: allowed with device:manage
+DELETE {{baseUrl}}/api/v1/devices/{{deviceId}}
+x-rbac-permissions: device:manage
+
+### Device connection test remains unchanged for next commit
+POST {{baseUrl}}/api/v1/devices/test
+Content-Type: application/json
+
+{
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "timeoutMs": 1000
+}
