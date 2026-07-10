@@ -21,6 +21,22 @@ const notificationRetryPreHandler = [
   ),
 ];
 
+const notificationSendPreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['notification:send', 'notification:manage'] as RbacPermission[],
+    'Notification send permission is required',
+  ),
+];
+
+const notificationTestPreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['notification:test', 'notification:manage'] as RbacPermission[],
+    'Notification test permission is required',
+  ),
+];
+
 const idParamsSchema = z.object({
   id: z.string().min(1),
 });
@@ -86,9 +102,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.post(
     '/api/v1/notifications/channels',
-    {
-      preHandler: notificationManagePreHandler,
-    },
+    { preHandler: notificationManagePreHandler },
     async (request) => {
       const body = createChannelSchema.parse(request.body ?? {});
 
@@ -101,9 +115,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch(
     '/api/v1/notifications/channels/:id',
-    {
-      preHandler: notificationManagePreHandler,
-    },
+    { preHandler: notificationManagePreHandler },
     async (request, reply) => {
       const params = idParamsSchema.parse(request.params);
       const body = updateChannelSchema.parse(request.body ?? {});
@@ -126,9 +138,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete(
     '/api/v1/notifications/channels/:id',
-    {
-      preHandler: notificationManagePreHandler,
-    },
+    { preHandler: notificationManagePreHandler },
     async (request) => {
       const params = idParamsSchema.parse(request.params);
 
@@ -146,9 +156,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.post(
     '/api/v1/notifications/rules',
-    {
-      preHandler: notificationManagePreHandler,
-    },
+    { preHandler: notificationManagePreHandler },
     async (request) => {
       const body = createRuleSchema.parse(request.body ?? {});
 
@@ -161,9 +169,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch(
     '/api/v1/notifications/rules/:id',
-    {
-      preHandler: notificationManagePreHandler,
-    },
+    { preHandler: notificationManagePreHandler },
     async (request, reply) => {
       const params = idParamsSchema.parse(request.params);
       const body = updateRuleSchema.parse(request.body ?? {});
@@ -186,9 +192,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete(
     '/api/v1/notifications/rules/:id',
-    {
-      preHandler: notificationManagePreHandler,
-    },
+    { preHandler: notificationManagePreHandler },
     async (request) => {
       const params = idParamsSchema.parse(request.params);
 
@@ -210,9 +214,7 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
 
   app.post(
     '/api/v1/notifications/deliveries/:id/retry',
-    {
-      preHandler: notificationRetryPreHandler,
-    },
+    { preHandler: notificationRetryPreHandler },
     async (request) => {
       const params = idParamsSchema.parse(request.params);
 
@@ -223,20 +225,22 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post('/api/v1/notifications/process-pending', async (request) => {
-    const body = processPendingSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/notifications/process-pending',
+    { preHandler: notificationSendPreHandler },
+    async (request) => {
+      const body = processPendingSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await notificationService.processPending(body.limit),
-    };
-  });
+      return {
+        success: true,
+        data: await notificationService.processPending(body.limit),
+      };
+    },
+  );
 
   app.post(
     '/api/v1/notifications/retry-failed',
-    {
-      preHandler: notificationRetryPreHandler,
-    },
+    { preHandler: notificationRetryPreHandler },
     async (request) => {
       const body = processPendingSchema.parse(request.body ?? {});
 
@@ -252,26 +256,30 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     data: notificationService.seedDefaults(),
   }));
 
-  app.post('/api/v1/notifications/test', async (request) => {
-    const body = enqueueTestSchema.parse(request.body ?? {});
-    const deliveries = notificationService.enqueue({
-      eventType: body.eventType,
-      severity: body.severity,
-      title: body.title,
-      message: body.message,
-      source: body.source,
-      deviceId: body.deviceId,
-      deviceName: body.deviceName,
-      metadata: body.metadata,
-      createdAt: new Date().toISOString(),
-    });
+  app.post(
+    '/api/v1/notifications/test',
+    { preHandler: notificationTestPreHandler },
+    async (request) => {
+      const body = enqueueTestSchema.parse(request.body ?? {});
+      const deliveries = notificationService.enqueue({
+        eventType: body.eventType,
+        severity: body.severity,
+        title: body.title,
+        message: body.message,
+        source: body.source,
+        deviceId: body.deviceId,
+        deviceName: body.deviceName,
+        metadata: body.metadata,
+        createdAt: new Date().toISOString(),
+      });
 
-    return {
-      success: true,
-      data: {
-        queued: deliveries.length,
-        deliveries,
-      },
-    };
-  });
+      return {
+        success: true,
+        data: {
+          queued: deliveries.length,
+          deliveries,
+        },
+      };
+    },
+  );
 }

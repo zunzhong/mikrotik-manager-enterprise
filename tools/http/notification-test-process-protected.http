@@ -1,0 +1,62 @@
+@baseUrl = http://localhost:3000
+
+### Process pending: denied without RBAC principal
+POST {{baseUrl}}/api/v1/notifications/process-pending
+Content-Type: application/json
+
+{
+  "limit": 10
+}
+
+### Process pending: allowed with notification:send
+POST {{baseUrl}}/api/v1/notifications/process-pending
+Content-Type: application/json
+x-rbac-permissions: notification:send
+
+{
+  "limit": 10
+}
+
+### Process pending: allowed with notification:manage fallback
+POST {{baseUrl}}/api/v1/notifications/process-pending
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "limit": 10
+}
+
+### Notification test: denied without RBAC principal
+POST {{baseUrl}}/api/v1/notifications/test
+Content-Type: application/json
+
+{
+  "eventType": "SYSTEM_EVENT",
+  "severity": "info",
+  "title": "Denied Test",
+  "message": "This should be denied"
+}
+
+### Notification test: allowed with notification:test
+POST {{baseUrl}}/api/v1/notifications/test
+Content-Type: application/json
+x-rbac-permissions: notification:test
+
+{
+  "eventType": "SYSTEM_EVENT",
+  "severity": "info",
+  "title": "Protected Test",
+  "message": "Protected notification test"
+}
+
+### Notification test: allowed with notification:manage fallback
+POST {{baseUrl}}/api/v1/notifications/test
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "eventType": "SYSTEM_EVENT",
+  "severity": "info",
+  "title": "Protected Test With Manage",
+  "message": "Protected notification test using manage fallback"
+}
