@@ -3,6 +3,9 @@
 
 ### RBAC: Seed defaults manually
 POST {{baseUrl}}/api/v1/rbac/seed-defaults
+Content-Type: application/json
+
+{}
 
 ### RBAC: List permissions
 GET {{baseUrl}}/api/v1/rbac/permissions
