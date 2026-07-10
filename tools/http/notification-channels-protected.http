@@ -1,0 +1,56 @@
+@baseUrl = http://localhost:3000
+@channelId = protected-channel-demo
+
+### Notification channels: read remains open
+GET {{baseUrl}}/api/v1/notifications/channels
+
+### Notification channel create: denied without RBAC principal
+POST {{baseUrl}}/api/v1/notifications/channels
+Content-Type: application/json
+
+{
+  "name": "Denied Webhook",
+  "type": "webhook",
+  "enabled": true,
+  "config": {
+    "url": "https://example.local/denied"
+  }
+}
+
+### Notification channel create: allowed with notification:manage
+POST {{baseUrl}}/api/v1/notifications/channels
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "name": "Protected Webhook",
+  "type": "webhook",
+  "enabled": true,
+  "config": {
+    "url": "https://example.local/webhook"
+  }
+}
+
+### Notification channel update: denied without RBAC principal
+PATCH {{baseUrl}}/api/v1/notifications/channels/{{channelId}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### Notification channel update: allowed with notification:manage
+PATCH {{baseUrl}}/api/v1/notifications/channels/{{channelId}}
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "enabled": false
+}
+
+### Notification channel delete: denied without RBAC principal
+DELETE {{baseUrl}}/api/v1/notifications/channels/{{channelId}}
+
+### Notification channel delete: allowed with notification:manage
+DELETE {{baseUrl}}/api/v1/notifications/channels/{{channelId}}
+x-rbac-permissions: notification:manage

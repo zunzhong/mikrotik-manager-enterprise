@@ -1,9 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js';
+import { rbacGuard } from '../rbac/rbac.guard.js';
 import { notificationService } from './notification.service.js';
 
 const channelTypeValues = ['email', 'webhook', 'slack', 'telegram', 'in_app'] as const;
 const severityValues = ['info', 'success', 'warning', 'critical'] as const;
+
+const notificationManagePreHandler = [
+  attachAuthContextPreHandler,
+  rbacGuard('notification:manage'),
+];
 
 const idParamsSchema = z.object({
   id: z.string().min(1),
@@ -68,42 +75,60 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     data: notificationService.listChannels(),
   }));
 
-  app.post('/api/v1/notifications/channels', async (request) => {
-    const body = createChannelSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/notifications/channels',
+    {
+      preHandler: notificationManagePreHandler,
+    },
+    async (request) => {
+      const body = createChannelSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: notificationService.createChannel(body),
-    };
-  });
-
-  app.patch('/api/v1/notifications/channels/:id', async (request, reply) => {
-    const params = idParamsSchema.parse(request.params);
-    const body = updateChannelSchema.parse(request.body ?? {});
-    const channel = notificationService.updateChannel(params.id, body);
-
-    if (!channel) {
-      reply.code(404);
       return {
-        success: false,
-        error: 'Notification channel not found',
+        success: true,
+        data: notificationService.createChannel(body),
       };
-    }
+    },
+  );
 
-    return {
-      success: true,
-      data: channel,
-    };
-  });
+  app.patch(
+    '/api/v1/notifications/channels/:id',
+    {
+      preHandler: notificationManagePreHandler,
+    },
+    async (request, reply) => {
+      const params = idParamsSchema.parse(request.params);
+      const body = updateChannelSchema.parse(request.body ?? {});
+      const channel = notificationService.updateChannel(params.id, body);
 
-  app.delete('/api/v1/notifications/channels/:id', async (request) => {
-    const params = idParamsSchema.parse(request.params);
+      if (!channel) {
+        reply.code(404);
+        return {
+          success: false,
+          error: 'Notification channel not found',
+        };
+      }
 
-    return {
-      success: true,
-      data: notificationService.deleteChannel(params.id),
-    };
-  });
+      return {
+        success: true,
+        data: channel,
+      };
+    },
+  );
+
+  app.delete(
+    '/api/v1/notifications/channels/:id',
+    {
+      preHandler: notificationManagePreHandler,
+    },
+    async (request) => {
+      const params = idParamsSchema.parse(request.params);
+
+      return {
+        success: true,
+        data: notificationService.deleteChannel(params.id),
+      };
+    },
+  );
 
   app.get('/api/v1/notifications/rules', async () => ({
     success: true,
