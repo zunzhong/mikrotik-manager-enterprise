@@ -11,6 +11,11 @@ export interface RbacGuardOptions {
   errorMessage?: string;
 }
 
+export interface RbacAnyGuardOptions {
+  permissions: RbacPermission[];
+  errorMessage?: string;
+}
+
 export interface RbacGuardResult {
   allowed: boolean;
   principal: RbacPrincipal;
@@ -19,6 +24,7 @@ export interface RbacGuardResult {
     error: string;
     data: {
       permission: RbacPermission;
+      requiredPermissions?: RbacPermission[];
       allowed: false;
       userId?: string;
       roleIds: string[];
@@ -115,6 +121,45 @@ export async function requireRbacPermission(
   };
 }
 
+export async function requireAnyRbacPermission(
+  request: FastifyRequest,
+  options: RbacAnyGuardOptions,
+): Promise<RbacGuardResult> {
+  const principal = getRbacPrincipalFromRequest(request);
+  const permissions = options.permissions;
+
+  for (const permission of permissions) {
+    const check = await rbacService.checkPermission({
+      principal,
+      permission,
+    });
+
+    if (check.allowed) {
+      return {
+        allowed: true,
+        principal,
+      };
+    }
+  }
+
+  return {
+    allowed: false,
+    principal,
+    response: {
+      success: false,
+      error: options.errorMessage ?? 'Permission denied',
+      data: {
+        permission: permissions[0],
+        requiredPermissions: permissions,
+        allowed: false,
+        userId: principal.userId,
+        roleIds: principal.roleIds ?? [],
+        generatedAt: new Date().toISOString(),
+      },
+    },
+  };
+}
+
 export function createRbacPreHandler(options: RbacGuardOptions) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const result = await requireRbacPermission(request, options);
@@ -125,9 +170,26 @@ export function createRbacPreHandler(options: RbacGuardOptions) {
   };
 }
 
+export function createAnyRbacPreHandler(options: RbacAnyGuardOptions) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const result = await requireAnyRbacPermission(request, options);
+
+    if (!result.allowed && result.response) {
+      reply.code(403).send(result.response);
+    }
+  };
+}
+
 export function rbacGuard(permission: RbacPermission, errorMessage?: string) {
   return createRbacPreHandler({
     permission,
+    errorMessage,
+  });
+}
+
+export function rbacAnyGuard(permissions: RbacPermission[], errorMessage?: string) {
+  return createAnyRbacPreHandler({
+    permissions,
     errorMessage,
   });
 }

@@ -1,0 +1,61 @@
+@baseUrl = http://localhost:3000
+@userId = protected-rbac-user
+
+### Seed RBAC defaults
+POST {{baseUrl}}/api/v1/rbac/seed-defaults
+Content-Type: application/json
+
+{}
+
+### RBAC assignment: denied without RBAC principal
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
+Content-Type: application/json
+
+{
+  "roleId": "viewer",
+  "assignedBy": "rest-client"
+}
+
+### RBAC assignment: allowed by rbac:assign
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
+Content-Type: application/json
+x-rbac-permissions: rbac:assign
+
+{
+  "roleId": "viewer",
+  "assignedBy": "rest-client"
+}
+
+### RBAC assignment: allowed by legacy role.write permission
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
+Content-Type: application/json
+x-rbac-permissions: role.write
+
+{
+  "roleId": "auditor",
+  "assignedBy": "rest-client"
+}
+
+### RBAC assignment: allowed by owner role
+POST {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
+Content-Type: application/json
+x-rbac-roles: owner
+
+{
+  "roleId": "operator",
+  "assignedBy": "rest-client"
+}
+
+### RBAC assignment removal: denied without RBAC principal
+DELETE {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles/operator
+
+### RBAC assignment removal: allowed by rbac:assign
+DELETE {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles/operator
+x-rbac-permissions: rbac:assign
+
+### RBAC assignment removal: allowed by legacy role.write
+DELETE {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles/auditor
+x-rbac-permissions: role.write
+
+### RBAC list user roles remains readable
+GET {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles
