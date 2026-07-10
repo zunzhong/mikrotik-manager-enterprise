@@ -1,3 +1,4 @@
+import { AuthSessionDashboardSection } from '../modules/auth-session';
 import { useCallback } from 'react';
 import { usePollingData } from '../hooks/usePollingData';
 import { dashboardApi } from '../modules/dashboard/dashboard.api';
@@ -196,6 +197,7 @@ export function DashboardPage() {
       <AuditLogPanel />
 
       <RbacDashboardSection />
+      <AuthSessionDashboardSection />
 
       <div className="dashboard-grid">
         <WidgetCard title="Device Status" description="Latest managed device states">
