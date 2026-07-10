@@ -1,0 +1,23 @@
+@baseUrl = http://localhost:3000
+
+### Audit export: denied without RBAC principal
+GET {{baseUrl}}/api/v1/audit/export?format=json
+
+### Audit export: allowed by direct permission
+GET {{baseUrl}}/api/v1/audit/export?format=json
+x-rbac-permissions: audit:export
+
+### Audit export: allowed by admin role
+GET {{baseUrl}}/api/v1/audit/export?format=json
+x-rbac-roles: admin
+
+### Audit export CSV: allowed by direct permission
+GET {{baseUrl}}/api/v1/audit/export?format=csv
+x-rbac-permissions: audit:export
+
+### Audit export: allowed by super admin
+GET {{baseUrl}}/api/v1/audit/export?format=json
+x-rbac-super-admin: true
+
+### Audit list remains readable
+GET {{baseUrl}}/api/v1/audit?limit=10

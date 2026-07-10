@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js';
+import { rbacGuard } from '../rbac/rbac.guard.js';
 import { auditEventsToCsv, auditExportFilename, type AuditExportFormat } from './audit.export.js';
 import { auditService } from './audit.service.js';
 
@@ -91,37 +93,42 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  app.get('/api/v1/audit/export', async (request, reply) => {
-    const query = auditExportQuerySchema.parse(request.query);
-    const format = query.format as AuditExportFormat;
-    const events = await auditService.list({
-      ...query,
-      limit: query.limit ?? 1000,
-    });
+  app.get(
+    '/api/v1/audit/export',
+    {
+      preHandler: [attachAuthContextPreHandler, rbacGuard('audit:export')],
+    },
+    async (request, reply) => {
+      const query = auditExportQuerySchema.parse(request.query);
+      const format = query.format as AuditExportFormat;
+      const events = await auditService.list({
+        ...query,
+        limit: query.limit ?? 1000,
+      });
 
-    if (format === 'csv') {
-      const csv = auditEventsToCsv(events);
+      if (format === 'csv') {
+        const csv = auditEventsToCsv(events);
+        reply
+          .header('content-type', 'text/csv; charset=utf-8')
+          .header('content-disposition', `attachment; filename="${auditExportFilename('csv')}"`);
+
+        return csv;
+      }
 
       reply
-        .header('content-type', 'text/csv; charset=utf-8')
-        .header('content-disposition', `attachment; filename="${auditExportFilename('csv')}"`);
+        .header('content-type', 'application/json; charset=utf-8')
+        .header('content-disposition', `attachment; filename="${auditExportFilename('json')}"`);
 
-      return csv;
-    }
-
-    reply
-      .header('content-type', 'application/json; charset=utf-8')
-      .header('content-disposition', `attachment; filename="${auditExportFilename('json')}"`);
-
-    return {
-      success: true,
-      data: {
-        exportedAt: new Date().toISOString(),
-        count: events.length,
-        items: events,
-      },
-    };
-  });
+      return {
+        success: true,
+        data: {
+          exportedAt: new Date().toISOString(),
+          count: events.length,
+          items: events,
+        },
+      };
+    },
+  );
 
   app.post('/api/v1/audit/retention/prune', async (request) => {
     const body = auditRetentionSchema.parse(request.body ?? {});
