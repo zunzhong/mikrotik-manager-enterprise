@@ -1,0 +1,63 @@
+@baseUrl = http://localhost:3000
+
+### Device connection test: denied without RBAC principal
+POST {{baseUrl}}/api/v1/devices/test
+Content-Type: application/json
+
+{
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "timeoutMs": 1000
+}
+
+### Device connection test: allowed with device:connect
+POST {{baseUrl}}/api/v1/devices/test
+Content-Type: application/json
+x-rbac-permissions: device:connect
+
+{
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "timeoutMs": 1000
+}
+
+### Device connection test: allowed with device:test
+POST {{baseUrl}}/api/v1/devices/test
+Content-Type: application/json
+x-rbac-permissions: device:test
+
+{
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "timeoutMs": 1000
+}
+
+### Device connection test: allowed with device:manage fallback
+POST {{baseUrl}}/api/v1/devices/test
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{
+  "host": "192.0.2.10",
+  "port": 8728,
+  "username": "admin",
+  "password": "",
+  "useTls": false,
+  "loginMode": "auto",
+  "timeoutMs": 1000
+}
+
+### Device list remains readable
+GET {{baseUrl}}/api/v1/devices
