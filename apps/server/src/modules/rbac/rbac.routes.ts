@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { auditService } from '../audit/index.js';
 import { ALL_RBAC_PERMISSIONS } from './rbac.permissions.js';
+import { seedRbacDefaultsOnStartup, seedRbacDefaultsWithAudit } from './rbac.bootstrap.js';
 import { rbacService } from './rbac.service.js';
 import type { RbacPermission, RbacPrincipal } from './rbac.types.js';
 
@@ -44,6 +45,13 @@ function apiActor(id?: string) {
 }
 
 export async function rbacRoutes(app: FastifyInstance): Promise<void> {
+  await seedRbacDefaultsOnStartup();
+
+  app.post('/api/v1/rbac/seed-defaults', async () => ({
+    success: true,
+    data: await seedRbacDefaultsWithAudit('rbac-api'),
+  }));
+
   app.get('/api/v1/rbac/permissions', async () => ({
     success: true,
     data: ALL_RBAC_PERMISSIONS,

@@ -1,6 +1,9 @@
 @baseUrl = http://localhost:3000
 @userId = demo-user
 
+### RBAC: Seed defaults manually
+POST {{baseUrl}}/api/v1/rbac/seed-defaults
+
 ### RBAC: List permissions
 GET {{baseUrl}}/api/v1/rbac/permissions
 
@@ -92,6 +95,9 @@ Content-Type: application/json
 
 ### RBAC: Remove auditor role
 DELETE {{baseUrl}}/api/v1/rbac/users/{{userId}}/roles/auditor
+
+### Audit: RBAC defaults seeded events
+GET {{baseUrl}}/api/v1/audit?action=rbac.defaults.seeded&limit=20
 
 ### Audit: RBAC role assigned events
 GET {{baseUrl}}/api/v1/audit?action=rbac.user_role.assigned&limit=20
