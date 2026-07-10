@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js';
-import { rbacGuard } from '../rbac/rbac.guard.js';
+import { rbacAnyGuard, rbacGuard } from '../rbac/rbac.guard.js';
+import type { RbacPermission } from '../rbac/rbac.types.js';
 import { notificationService } from './notification.service.js';
 
 const channelTypeValues = ['email', 'webhook', 'slack', 'telegram', 'in_app'] as const;
@@ -10,6 +11,14 @@ const severityValues = ['info', 'success', 'warning', 'critical'] as const;
 const notificationManagePreHandler = [
   attachAuthContextPreHandler,
   rbacGuard('notification:manage'),
+];
+
+const notificationRetryPreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['notification:retry', 'notification:manage'] as RbacPermission[],
+    'Notification retry permission is required',
+  ),
 ];
 
 const idParamsSchema = z.object({
@@ -199,14 +208,20 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  app.post('/api/v1/notifications/deliveries/:id/retry', async (request) => {
-    const params = idParamsSchema.parse(request.params);
+  app.post(
+    '/api/v1/notifications/deliveries/:id/retry',
+    {
+      preHandler: notificationRetryPreHandler,
+    },
+    async (request) => {
+      const params = idParamsSchema.parse(request.params);
 
-    return {
-      success: true,
-      data: await notificationService.retryDelivery(params.id),
-    };
-  });
+      return {
+        success: true,
+        data: await notificationService.retryDelivery(params.id),
+      };
+    },
+  );
 
   app.post('/api/v1/notifications/process-pending', async (request) => {
     const body = processPendingSchema.parse(request.body ?? {});
@@ -217,14 +232,20 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  app.post('/api/v1/notifications/retry-failed', async (request) => {
-    const body = processPendingSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/notifications/retry-failed',
+    {
+      preHandler: notificationRetryPreHandler,
+    },
+    async (request) => {
+      const body = processPendingSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await notificationService.retryFailed(body.limit),
-    };
-  });
+      return {
+        success: true,
+        data: await notificationService.retryFailed(body.limit),
+      };
+    },
+  );
 
   app.post('/api/v1/notifications/seed-defaults', async () => ({
     success: true,

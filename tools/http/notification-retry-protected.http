@@ -1,0 +1,51 @@
+@baseUrl = http://localhost:3000
+@deliveryId = protected-delivery-demo
+
+### Notification deliveries: read remains open
+GET {{baseUrl}}/api/v1/notifications/deliveries?limit=20
+
+### Retry one delivery: denied without RBAC principal
+POST {{baseUrl}}/api/v1/notifications/deliveries/{{deliveryId}}/retry
+Content-Type: application/json
+
+{}
+
+### Retry one delivery: allowed with notification:retry
+POST {{baseUrl}}/api/v1/notifications/deliveries/{{deliveryId}}/retry
+Content-Type: application/json
+x-rbac-permissions: notification:retry
+
+{}
+
+### Retry one delivery: allowed with notification:manage fallback
+POST {{baseUrl}}/api/v1/notifications/deliveries/{{deliveryId}}/retry
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{}
+
+### Retry failed: denied without RBAC principal
+POST {{baseUrl}}/api/v1/notifications/retry-failed
+Content-Type: application/json
+
+{
+  "limit": 10
+}
+
+### Retry failed: allowed with notification:retry
+POST {{baseUrl}}/api/v1/notifications/retry-failed
+Content-Type: application/json
+x-rbac-permissions: notification:retry
+
+{
+  "limit": 10
+}
+
+### Retry failed: allowed with notification:manage fallback
+POST {{baseUrl}}/api/v1/notifications/retry-failed
+Content-Type: application/json
+x-rbac-permissions: notification:manage
+
+{
+  "limit": 10
+}
