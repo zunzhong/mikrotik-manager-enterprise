@@ -1,4 +1,5 @@
 export * from './rbac.bootstrap.js';
+export * from './rbac.guard.js';
 export * from './rbac.permissions.js';
 export * from './rbac.repository.js';
 export * from './rbac.roles.js';
