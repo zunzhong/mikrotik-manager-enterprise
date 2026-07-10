@@ -1,0 +1,54 @@
+@baseUrl = http://localhost:3000
+
+### Audit retention: denied without RBAC principal
+POST {{baseUrl}}/api/v1/audit/retention/prune
+Content-Type: application/json
+
+{
+  "days": 30,
+  "dryRun": true
+}
+
+### Audit retention: denied by audit export permission only
+POST {{baseUrl}}/api/v1/audit/retention/prune
+Content-Type: application/json
+x-rbac-permissions: audit:export
+
+{
+  "days": 30,
+  "dryRun": true
+}
+
+### Audit retention: allowed by direct audit prune permission
+POST {{baseUrl}}/api/v1/audit/retention/prune
+Content-Type: application/json
+x-rbac-permissions: audit:prune
+
+{
+  "days": 30,
+  "dryRun": true
+}
+
+### Audit retention: allowed by owner role
+POST {{baseUrl}}/api/v1/audit/retention/prune
+Content-Type: application/json
+x-rbac-roles: owner
+
+{
+  "days": 30,
+  "dryRun": true
+}
+
+### Audit retention: allowed by super admin
+POST {{baseUrl}}/api/v1/audit/retention/prune
+Content-Type: application/json
+x-rbac-super-admin: true
+
+{
+  "days": 30,
+  "dryRun": true
+}
+
+### Audit export still protected and allowed by audit export permission
+GET {{baseUrl}}/api/v1/audit/export?format=json
+x-rbac-permissions: audit:export

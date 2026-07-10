@@ -130,35 +130,41 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post('/api/v1/audit/retention/prune', async (request) => {
-    const body = auditRetentionSchema.parse(request.body ?? {});
-    const result = await auditService.pruneRetention(body);
+  app.post(
+    '/api/v1/audit/retention/prune',
+    {
+      preHandler: [attachAuthContextPreHandler, rbacGuard('audit:prune')],
+    },
+    async (request) => {
+      const body = auditRetentionSchema.parse(request.body ?? {});
+      const result = await auditService.pruneRetention(body);
 
-    await auditService.logSuccess({
-      action: body.dryRun ? 'audit.retention.dry_run' : 'audit.retention.pruned',
-      summary: body.dryRun
-        ? `Audit retention dry-run matched ${result.matched} event(s)`
-        : `Audit retention deleted ${result.deleted} event(s)`,
-      actor: {
-        type: 'api',
-        id: 'audit-retention',
-        name: 'Audit Retention API',
-      },
-      entity: {
-        type: 'system',
-        id: 'audit',
-        name: 'Audit Log Engine',
-      },
-      metadata: {
-        retention: result,
-      },
-    });
+      await auditService.logSuccess({
+        action: body.dryRun ? 'audit.retention.dry_run' : 'audit.retention.pruned',
+        summary: body.dryRun
+          ? `Audit retention dry-run matched ${result.matched} event(s)`
+          : `Audit retention deleted ${result.deleted} event(s)`,
+        actor: {
+          type: 'api',
+          id: 'audit-retention',
+          name: 'Audit Retention API',
+        },
+        entity: {
+          type: 'system',
+          id: 'audit',
+          name: 'Audit Log Engine',
+        },
+        metadata: {
+          retention: result,
+        },
+      });
 
-    return {
-      success: true,
-      data: result,
-    };
-  });
+      return {
+        success: true,
+        data: result,
+      };
+    },
+  );
 
   app.get('/api/v1/audit', async (request) => {
     const query = auditQuerySchema.parse(request.query);
