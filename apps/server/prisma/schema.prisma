@@ -8,20 +8,20 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String?
   passwordHash String?
-  role         String   @default("admin")
-  isActive     Boolean  @default(true)
+  role         String    @default("admin")
+  isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  roles     UserRole[]
-  auditLogs AuditLog[]
-  mfaSecret  MfaSecret?
-  sessions Session[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  roles               UserRole[]
+  auditLogs           AuditLog[]
+  mfaSecret           MfaSecret?
+  sessions            Session[]
   passwordResetTokens PasswordResetToken[]
 
   @@index([email])
@@ -92,20 +92,20 @@ model DeviceGroup {
 }
 
 model Device {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   name              String
   host              String
-  port              Int      @default(8728)
+  port              Int       @default(8728)
   username          String
   passwordEncrypted String
-  useTls            Boolean  @default(false)
-  loginMode         String   @default("auto")
-  status            String   @default("unknown")
+  useTls            Boolean   @default(false)
+  loginMode         String    @default("auto")
+  status            String    @default("unknown")
   lastSeenAt        DateTime?
   lastError         String?
-  tags              String[] @default([])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  tags              String[]  @default([])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   groupId String?
   group   DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
@@ -157,7 +157,7 @@ model InventorySection {
 }
 
 model InventoryItem {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   sectionId  String
   externalId String?
   name       String?
@@ -178,11 +178,11 @@ model InventoryDiff {
   currentSnapshotId  String
   createdAt          DateTime @default(now())
   summary            Json?
-  changeCount         Int      @default(0)
+  changeCount        Int      @default(0)
 
-  device           Device            @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  previousSnapshot InventorySnapshot @relation("PreviousSnapshot", fields: [previousSnapshotId], references: [id], onDelete: Cascade)
-  currentSnapshot  InventorySnapshot @relation("CurrentSnapshot", fields: [currentSnapshotId], references: [id], onDelete: Cascade)
+  device           Device                @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  previousSnapshot InventorySnapshot     @relation("PreviousSnapshot", fields: [previousSnapshotId], references: [id], onDelete: Cascade)
+  currentSnapshot  InventorySnapshot     @relation("CurrentSnapshot", fields: [currentSnapshotId], references: [id], onDelete: Cascade)
   changes          InventoryDiffChange[]
 
   @@index([deviceId])
@@ -190,7 +190,7 @@ model InventoryDiff {
 }
 
 model InventoryDiffChange {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   diffId     String
   category   String
   path       String
@@ -216,7 +216,7 @@ model ComplianceReport {
   summary    Json?
   createdAt  DateTime @default(now())
 
-  device  Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  device  Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   results ComplianceResult[]
 
   @@index([deviceId])
@@ -242,17 +242,17 @@ model ComplianceResult {
 }
 
 model BackupRecord {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   deviceId    String
   type        String
-  status      String   @default("pending")
+  status      String    @default("pending")
   fileName    String
   filePath    String?
   sizeBytes   Int?
   checksum    String?
   metadata    Json?
   error       String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   completedAt DateTime?
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -264,16 +264,16 @@ model BackupRecord {
 }
 
 model Alert {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   deviceId       String?
   ruleKey        String
   severity       String
-  status         String   @default("open")
+  status         String    @default("open")
   title          String
   message        String
   source         String
   metadata       Json?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
   acknowledgedAt DateTime?
   resolvedAt     DateTime?
 
@@ -305,13 +305,13 @@ model AuditLog {
 }
 
 model Session {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   userId           String
-  refreshTokenHash String   @unique
+  refreshTokenHash String    @unique
   userAgent        String?
   ipAddress        String?
-  createdAt        DateTime @default(now())
-  lastUsedAt       DateTime @default(now())
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
   expiresAt        DateTime
   revokedAt        DateTime?
 
@@ -324,10 +324,10 @@ model Session {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
-  createdAt DateTime @default(now())
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
   expiresAt DateTime
   usedAt    DateTime?
 

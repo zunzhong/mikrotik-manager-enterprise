@@ -1,0 +1,32 @@
+﻿# Repo Health Report
+
+Started: 12/07/2026 12:09:31 AM
+Finished: 12/07/2026 12:11:18 AM
+Working directory: E:\ZUNZHONG\MIKROTIK\mikrotik-manager\mikrotik-manager-enterprise\mikrotik-manager-enterprise
+
+## Results
+
+- [PASS] Install lockfile dependencies check - exit 0
+  Command: pnpm install --frozen-lockfile
+- [PASS] Format check - exit 0
+  Command: pnpm format:check
+- [PASS] Auto format - exit 0
+  Command: pnpm format
+- [PASS] Format check after auto-fix - exit 0
+  Command: pnpm format:check
+- [PASS] Prisma format - exit 0
+  Command: pnpm --filter @mme/server prisma:format
+- [PASS] Prisma generate - exit 0
+  Command: pnpm --filter @mme/server prisma:generate
+- [PASS] Server typecheck - exit 0
+  Command: pnpm --filter @mme/server typecheck
+- [PASS] Web typecheck - exit 0
+  Command: pnpm --filter @mme/web typecheck
+- [PASS] Workspace typecheck - exit 0
+  Command: pnpm typecheck
+- [PASS] Workspace build - exit 0
+  Command: pnpm build
+- [PASS] Workspace tests - exit 0
+  Command: pnpm test
+
+Final status: PASS
