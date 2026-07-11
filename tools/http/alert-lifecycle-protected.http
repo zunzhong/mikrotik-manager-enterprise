@@ -1,0 +1,60 @@
+@baseUrl = http://localhost:3000
+@alertId = demo-alert
+
+### Alert lifecycle summary: read remains open
+GET {{baseUrl}}/api/v1/alert-lifecycle/summary
+
+### Alert lifecycle list: read remains open
+GET {{baseUrl}}/api/v1/alert-lifecycle
+
+### Acknowledge alert: denied without RBAC principal
+POST {{baseUrl}}/api/v1/alert-lifecycle/{{alertId}}/acknowledge
+Content-Type: application/json
+
+{
+  "reason": "Denied acknowledge"
+}
+
+### Acknowledge alert: allowed with alert:acknowledge
+POST {{baseUrl}}/api/v1/alert-lifecycle/{{alertId}}/acknowledge
+Content-Type: application/json
+x-rbac-permissions: alert:acknowledge
+
+{
+  "reason": "Protected acknowledge"
+}
+
+### Acknowledge alert: allowed with alert:update fallback
+POST {{baseUrl}}/api/v1/alert-lifecycle/{{alertId}}/acknowledge
+Content-Type: application/json
+x-rbac-permissions: alert:update
+
+{
+  "reason": "Protected acknowledge via update fallback"
+}
+
+### Resolve alert: denied without RBAC principal
+POST {{baseUrl}}/api/v1/alert-lifecycle/{{alertId}}/resolve
+Content-Type: application/json
+
+{
+  "reason": "Denied resolve"
+}
+
+### Resolve alert: allowed with alert:resolve
+POST {{baseUrl}}/api/v1/alert-lifecycle/{{alertId}}/resolve
+Content-Type: application/json
+x-rbac-permissions: alert:resolve
+
+{
+  "reason": "Protected resolve"
+}
+
+### Resolve alert: allowed with alert:manage fallback
+POST {{baseUrl}}/api/v1/alert-lifecycle/{{alertId}}/resolve
+Content-Type: application/json
+x-rbac-permissions: alert:manage
+
+{
+  "reason": "Protected resolve via manage fallback"
+}

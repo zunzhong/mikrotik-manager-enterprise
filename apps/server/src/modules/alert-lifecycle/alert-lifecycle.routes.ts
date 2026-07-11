@@ -1,11 +1,30 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { HttpError } from '../../errors/http-error.js';
+import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js';
+import { rbacAnyGuard } from '../rbac/rbac.guard.js';
+import type { RbacPermission } from '../rbac/rbac.types.js';
 import { alertLifecycleService } from './alert-lifecycle.service.js';
 import type { AlertLifecycleSeverity, AlertLifecycleStatus } from './alert-lifecycle.types.js';
 
 const statusValues = ['open', 'acknowledged', 'resolved'] as const;
 const severityValues = ['info', 'warning', 'critical'] as const;
+
+const alertAcknowledgePreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['alert:acknowledge', 'alert:update', 'alert:manage'] as RbacPermission[],
+    'Alert acknowledge permission is required',
+  ),
+];
+
+const alertResolvePreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['alert:resolve', 'alert:update', 'alert:manage'] as RbacPermission[],
+    'Alert resolve permission is required',
+  ),
+];
 
 const listQuerySchema = z.object({
   deviceId: z.string().optional(),
@@ -31,14 +50,15 @@ const bulkActionBodySchema = actionBodySchema.extend({
   alertIds: z.array(z.string().min(1)).min(1).max(500),
 });
 
-function splitEnum<T extends readonly string[]>(
+function splitEnum<const T extends readonly string[]>(
   value: string | undefined,
   allowed: T,
 ): T[number][] | undefined {
-  if (!value) return undefined;
+  if (!value) {
+    return undefined;
+  }
 
   const allowedSet = new Set<string>(allowed);
-
   const values = value
     .split(',')
     .map((item) => item.trim())
@@ -131,43 +151,55 @@ export async function alertLifecycleRoutes(app: FastifyInstance): Promise<void> 
     };
   });
 
-  app.post('/api/v1/alert-lifecycle/:id/acknowledge', async (request) => {
-    const params = alertParamsSchema.parse(request.params);
-    const body = actionBodySchema.parse(request.body ?? {});
-    const alert = await alertLifecycleService.acknowledge(params.id, {
-      reason: body.reason ?? 'Acknowledged manually',
-      metadata: {
-        action: 'manual_acknowledge',
-      },
-    });
+  app.post(
+    '/api/v1/alert-lifecycle/:id/acknowledge',
+    {
+      preHandler: alertAcknowledgePreHandler,
+    },
+    async (request) => {
+      const params = alertParamsSchema.parse(request.params);
+      const body = actionBodySchema.parse(request.body ?? {});
+      const alert = await alertLifecycleService.acknowledge(params.id, {
+        reason: body.reason ?? 'Acknowledged manually',
+        metadata: {
+          action: 'manual_acknowledge',
+        },
+      });
 
-    if (!alert) {
-      throw new HttpError(404, 'ALERT_NOT_FOUND', 'Alert not found');
-    }
+      if (!alert) {
+        throw new HttpError(404, 'ALERT_NOT_FOUND', 'Alert not found');
+      }
 
-    return {
-      success: true,
-      data: alert,
-    };
-  });
+      return {
+        success: true,
+        data: alert,
+      };
+    },
+  );
 
-  app.post('/api/v1/alert-lifecycle/:id/resolve', async (request) => {
-    const params = alertParamsSchema.parse(request.params);
-    const body = actionBodySchema.parse(request.body ?? {});
-    const alert = await alertLifecycleService.resolve(params.id, {
-      reason: body.reason ?? 'Resolved manually',
-      metadata: {
-        action: 'manual_resolve',
-      },
-    });
+  app.post(
+    '/api/v1/alert-lifecycle/:id/resolve',
+    {
+      preHandler: alertResolvePreHandler,
+    },
+    async (request) => {
+      const params = alertParamsSchema.parse(request.params);
+      const body = actionBodySchema.parse(request.body ?? {});
+      const alert = await alertLifecycleService.resolve(params.id, {
+        reason: body.reason ?? 'Resolved manually',
+        metadata: {
+          action: 'manual_resolve',
+        },
+      });
 
-    if (!alert) {
-      throw new HttpError(404, 'ALERT_NOT_FOUND', 'Alert not found');
-    }
+      if (!alert) {
+        throw new HttpError(404, 'ALERT_NOT_FOUND', 'Alert not found');
+      }
 
-    return {
-      success: true,
-      data: alert,
-    };
-  });
+      return {
+        success: true,
+        data: alert,
+      };
+    },
+  );
 }
