@@ -1,0 +1,74 @@
+@baseUrl = http://localhost:3000
+@deviceId = protected-device-demo
+
+### Ping action: denied without RBAC principal
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/ping
+Content-Type: application/json
+
+{
+  "address": "8.8.8.8",
+  "count": 2
+}
+
+### Ping action: allowed with device:test
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/ping
+Content-Type: application/json
+x-rbac-permissions: device:test
+
+{
+  "address": "8.8.8.8",
+  "count": 2
+}
+
+### Ping action: allowed with device:connect
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/ping
+Content-Type: application/json
+x-rbac-permissions: device:connect
+
+{
+  "address": "8.8.8.8",
+  "count": 2
+}
+
+### Backup action: denied without RBAC principal
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/backup
+Content-Type: application/json
+
+{
+  "name": "denied-backup"
+}
+
+### Backup action: allowed with device:sync
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/backup
+Content-Type: application/json
+x-rbac-permissions: device:sync
+
+{
+  "name": "protected-backup"
+}
+
+### Supout action: allowed with device:manage fallback
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/supout
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{
+  "name": "protected-supout"
+}
+
+### Reboot action: denied without RBAC principal
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/reboot
+Content-Type: application/json
+
+{
+  "confirm": true
+}
+
+### Reboot action: allowed with device:manage only
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/actions/reboot
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{
+  "confirm": true
+}
