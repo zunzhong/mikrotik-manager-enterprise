@@ -54,6 +54,22 @@ const deviceSyncPreHandler = [
   ),
 ];
 
+const deviceSafeActionPreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['device:test', 'device:connect', 'device:manage'] as RbacPermission[],
+    'Device action test permission is required',
+  ),
+];
+
+const deviceFileActionPreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['device:sync', 'device:manage'] as RbacPermission[],
+    'Device file action permission is required',
+  ),
+];
+
 function ssePayload(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
@@ -272,43 +288,67 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post('/api/v1/devices/:id/actions/ping', async (request) => {
-    const params = deviceIdParamsSchema.parse(request.params);
-    const input = pingActionSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/devices/:id/actions/ping',
+    {
+      preHandler: deviceSafeActionPreHandler,
+    },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      const input = pingActionSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await routerOsDeviceActionService.ping(params.id, input),
-    };
-  });
+      return {
+        success: true,
+        data: await routerOsDeviceActionService.ping(params.id, input),
+      };
+    },
+  );
 
-  app.post('/api/v1/devices/:id/actions/backup', async (request) => {
-    const params = deviceIdParamsSchema.parse(request.params);
-    const input = fileActionSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/devices/:id/actions/backup',
+    {
+      preHandler: deviceFileActionPreHandler,
+    },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      const input = fileActionSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await routerOsDeviceActionService.backup(params.id, input),
-    };
-  });
+      return {
+        success: true,
+        data: await routerOsDeviceActionService.backup(params.id, input),
+      };
+    },
+  );
 
-  app.post('/api/v1/devices/:id/actions/supout', async (request) => {
-    const params = deviceIdParamsSchema.parse(request.params);
-    const input = fileActionSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/devices/:id/actions/supout',
+    {
+      preHandler: deviceFileActionPreHandler,
+    },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      const input = fileActionSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await routerOsDeviceActionService.supout(params.id, input),
-    };
-  });
+      return {
+        success: true,
+        data: await routerOsDeviceActionService.supout(params.id, input),
+      };
+    },
+  );
 
-  app.post('/api/v1/devices/:id/actions/reboot', async (request) => {
-    const params = deviceIdParamsSchema.parse(request.params);
-    const input = rebootActionSchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/devices/:id/actions/reboot',
+    {
+      preHandler: deviceManagePreHandler,
+    },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      const input = rebootActionSchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await routerOsDeviceActionService.reboot(params.id, input),
-    };
-  });
+      return {
+        success: true,
+        data: await routerOsDeviceActionService.reboot(params.id, input),
+      };
+    },
+  );
 }
