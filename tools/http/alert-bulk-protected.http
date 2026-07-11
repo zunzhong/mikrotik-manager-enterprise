@@ -1,0 +1,87 @@
+@baseUrl = http://localhost:3000
+@alertId = demo-alert
+@deviceId = demo-device
+
+### Bulk acknowledge: denied without RBAC principal
+POST {{baseUrl}}/api/v1/alert-lifecycle/bulk/acknowledge
+Content-Type: application/json
+
+{
+  "alertIds": ["{{alertId}}"],
+  "reason": "Denied bulk acknowledge"
+}
+
+### Bulk acknowledge: allowed with alert:bulk
+POST {{baseUrl}}/api/v1/alert-lifecycle/bulk/acknowledge
+Content-Type: application/json
+x-rbac-permissions: alert:bulk
+
+{
+  "alertIds": ["{{alertId}}"],
+  "reason": "Protected bulk acknowledge"
+}
+
+### Bulk acknowledge: allowed with alert:update fallback
+POST {{baseUrl}}/api/v1/alert-lifecycle/bulk/acknowledge
+Content-Type: application/json
+x-rbac-permissions: alert:update
+
+{
+  "alertIds": ["{{alertId}}"],
+  "reason": "Protected bulk acknowledge via update fallback"
+}
+
+### Bulk resolve: denied without RBAC principal
+POST {{baseUrl}}/api/v1/alert-lifecycle/bulk/resolve
+Content-Type: application/json
+
+{
+  "alertIds": ["{{alertId}}"],
+  "reason": "Denied bulk resolve"
+}
+
+### Bulk resolve: allowed with alert:bulk
+POST {{baseUrl}}/api/v1/alert-lifecycle/bulk/resolve
+Content-Type: application/json
+x-rbac-permissions: alert:bulk
+
+{
+  "alertIds": ["{{alertId}}"],
+  "reason": "Protected bulk resolve"
+}
+
+### Bulk resolve: allowed with alert:manage fallback
+POST {{baseUrl}}/api/v1/alert-lifecycle/bulk/resolve
+Content-Type: application/json
+x-rbac-permissions: alert:manage
+
+{
+  "alertIds": ["{{alertId}}"],
+  "reason": "Protected bulk resolve via manage fallback"
+}
+
+### Device resolve active: denied without RBAC principal
+POST {{baseUrl}}/api/v1/alert-lifecycle/device/{{deviceId}}/resolve-active
+Content-Type: application/json
+
+{
+  "reason": "Denied device resolve active"
+}
+
+### Device resolve active: allowed with alert:resolve
+POST {{baseUrl}}/api/v1/alert-lifecycle/device/{{deviceId}}/resolve-active
+Content-Type: application/json
+x-rbac-permissions: alert:resolve
+
+{
+  "reason": "Protected device resolve active"
+}
+
+### Device resolve active: allowed with alert:bulk
+POST {{baseUrl}}/api/v1/alert-lifecycle/device/{{deviceId}}/resolve-active
+Content-Type: application/json
+x-rbac-permissions: alert:bulk
+
+{
+  "reason": "Protected device resolve active via bulk"
+}

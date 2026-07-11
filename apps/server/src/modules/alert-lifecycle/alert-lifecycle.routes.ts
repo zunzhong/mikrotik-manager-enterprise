@@ -26,6 +26,22 @@ const alertResolvePreHandler = [
   ),
 ];
 
+const alertBulkPreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['alert:bulk', 'alert:update', 'alert:manage'] as RbacPermission[],
+    'Alert bulk permission is required',
+  ),
+];
+
+const alertDeviceBulkResolvePreHandler = [
+  attachAuthContextPreHandler,
+  rbacAnyGuard(
+    ['alert:bulk', 'alert:resolve', 'alert:update', 'alert:manage'] as RbacPermission[],
+    'Alert device bulk resolve permission is required',
+  ),
+];
+
 const listQuerySchema = z.object({
   deviceId: z.string().optional(),
   ruleKey: z.string().optional(),
@@ -94,48 +110,66 @@ export async function alertLifecycleRoutes(app: FastifyInstance): Promise<void> 
     data: await alertLifecycleService.listActive(),
   }));
 
-  app.post('/api/v1/alert-lifecycle/bulk/acknowledge', async (request) => {
-    const body = bulkActionBodySchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/alert-lifecycle/bulk/acknowledge',
+    {
+      preHandler: alertBulkPreHandler,
+    },
+    async (request) => {
+      const body = bulkActionBodySchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await alertLifecycleService.acknowledgeMany(body.alertIds, {
-        reason: body.reason ?? 'Bulk acknowledged manually',
-        metadata: {
-          action: 'bulk_manual_acknowledge',
-        },
-      }),
-    };
-  });
+      return {
+        success: true,
+        data: await alertLifecycleService.acknowledgeMany(body.alertIds, {
+          reason: body.reason ?? 'Bulk acknowledged manually',
+          metadata: {
+            action: 'bulk_manual_acknowledge',
+          },
+        }),
+      };
+    },
+  );
 
-  app.post('/api/v1/alert-lifecycle/bulk/resolve', async (request) => {
-    const body = bulkActionBodySchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/alert-lifecycle/bulk/resolve',
+    {
+      preHandler: alertBulkPreHandler,
+    },
+    async (request) => {
+      const body = bulkActionBodySchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await alertLifecycleService.resolveMany(body.alertIds, {
-        reason: body.reason ?? 'Bulk resolved manually',
-        metadata: {
-          action: 'bulk_manual_resolve',
-        },
-      }),
-    };
-  });
+      return {
+        success: true,
+        data: await alertLifecycleService.resolveMany(body.alertIds, {
+          reason: body.reason ?? 'Bulk resolved manually',
+          metadata: {
+            action: 'bulk_manual_resolve',
+          },
+        }),
+      };
+    },
+  );
 
-  app.post('/api/v1/alert-lifecycle/device/:deviceId/resolve-active', async (request) => {
-    const params = deviceParamsSchema.parse(request.params);
-    const body = actionBodySchema.parse(request.body ?? {});
+  app.post(
+    '/api/v1/alert-lifecycle/device/:deviceId/resolve-active',
+    {
+      preHandler: alertDeviceBulkResolvePreHandler,
+    },
+    async (request) => {
+      const params = deviceParamsSchema.parse(request.params);
+      const body = actionBodySchema.parse(request.body ?? {});
 
-    return {
-      success: true,
-      data: await alertLifecycleService.resolveActiveForDevice(params.deviceId, {
-        reason: body.reason ?? 'Resolved all active device alerts manually',
-        metadata: {
-          action: 'manual_resolve_device_active',
-        },
-      }),
-    };
-  });
+      return {
+        success: true,
+        data: await alertLifecycleService.resolveActiveForDevice(params.deviceId, {
+          reason: body.reason ?? 'Resolved all active device alerts manually',
+          metadata: {
+            action: 'manual_resolve_device_active',
+          },
+        }),
+      };
+    },
+  );
 
   app.get('/api/v1/alert-lifecycle/:id', async (request) => {
     const params = alertParamsSchema.parse(request.params);
