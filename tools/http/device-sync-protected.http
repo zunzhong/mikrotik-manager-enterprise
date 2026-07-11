@@ -1,0 +1,70 @@
+@baseUrl = http://localhost:3000
+@deviceId = protected-device-demo
+
+### Realtime devices read remains open
+GET {{baseUrl}}/api/v1/realtime/devices
+
+### Scheduler status read remains open
+GET {{baseUrl}}/api/v1/realtime/scheduler/status
+
+### Scheduler start: denied without RBAC principal
+POST {{baseUrl}}/api/v1/realtime/scheduler/start
+Content-Type: application/json
+
+{
+  "intervalMs": 30000,
+  "ttlMs": 60000
+}
+
+### Scheduler start: allowed with device:sync
+POST {{baseUrl}}/api/v1/realtime/scheduler/start
+Content-Type: application/json
+x-rbac-permissions: device:sync
+
+{
+  "intervalMs": 30000,
+  "ttlMs": 60000
+}
+
+### Scheduler start: allowed with device:manage fallback
+POST {{baseUrl}}/api/v1/realtime/scheduler/start
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{
+  "intervalMs": 30000,
+  "ttlMs": 60000
+}
+
+### Scheduler stop: denied without RBAC principal
+POST {{baseUrl}}/api/v1/realtime/scheduler/stop
+Content-Type: application/json
+
+{}
+
+### Scheduler stop: allowed with device:sync
+POST {{baseUrl}}/api/v1/realtime/scheduler/stop
+Content-Type: application/json
+x-rbac-permissions: device:sync
+
+{}
+
+### Realtime refresh: denied without RBAC principal
+POST {{baseUrl}}/api/v1/realtime/devices/{{deviceId}}/refresh
+Content-Type: application/json
+
+{}
+
+### Realtime refresh: allowed with device:sync
+POST {{baseUrl}}/api/v1/realtime/devices/{{deviceId}}/refresh
+Content-Type: application/json
+x-rbac-permissions: device:sync
+
+{}
+
+### Device realtime refresh alias: allowed with device:manage fallback
+POST {{baseUrl}}/api/v1/devices/{{deviceId}}/realtime/refresh
+Content-Type: application/json
+x-rbac-permissions: device:manage
+
+{}
