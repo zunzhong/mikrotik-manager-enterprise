@@ -33,6 +33,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "..\..\artifacts\payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Dirs]
+Name: "{commonappdata}\MikroTik Manager Enterprise"
+Name: "{commonappdata}\MikroTik Manager Enterprise\data"
+Name: "{commonappdata}\MikroTik Manager Enterprise\config"
+Name: "{commonappdata}\MikroTik Manager Enterprise\backups"
+Name: "{commonappdata}\MikroTik Manager Enterprise\logs"
+
 [Icons]
 Name: "{group}\Open Dashboard"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"
 Name: "{group}\Start MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" start"
@@ -42,10 +49,10 @@ Name: "{group}\Backup Data"; Filename: "powershell.exe"; Parameters: "-NoProfile
 Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" install -NoOpen"; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
 
 [UninstallRun]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" uninstall -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
 
 [Code]
 function PrepareToInstall(var NeedsRestart: Boolean): String;

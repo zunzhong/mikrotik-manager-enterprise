@@ -1,12 +1,18 @@
 param(
-  [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'backup', 'uninstall')]
+  [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'backup', 'uninstall', 'validate')]
   [string]$Action = 'start',
-  [switch]$NoOpen
+  [switch]$NoOpen,
+  [string]$DataRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $AppDir = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$DataDir = Join-Path $env:ProgramData 'MikroTik Manager Enterprise'
+$CommonAppData = [Environment]::GetFolderPath('CommonApplicationData')
+if ([string]::IsNullOrWhiteSpace($DataRoot)) {
+  if ([string]::IsNullOrWhiteSpace($CommonAppData)) { throw 'Windows không cung cấp đường dẫn ProgramData.' }
+  $DataRoot = Join-Path $CommonAppData 'MikroTik Manager Enterprise'
+}
+$DataDir = [IO.Path]::GetFullPath($DataRoot)
 $Runtime = Join-Path $AppDir 'runtime\node.exe'
 $ServiceExe = Join-Path $AppDir 'service\MME.Service.exe'
 $ServiceXml = Join-Path $AppDir 'service\MME.Service.xml'
@@ -212,6 +218,7 @@ try {
     'status' { Get-Service -Name MME -ErrorAction SilentlyContinue | Format-List; Read-Host 'Nhấn Enter để đóng' }
     'backup' { Assert-Administrator; Backup-Data }
     'uninstall' { Assert-Administrator; & $ServiceExe stop; & $ServiceExe uninstall }
+    'validate' { Write-BootstrapLog 'Windows PowerShell validation đạt.' }
   }
 } catch {
   try { Write-BootstrapLog "LỖI: $($_ | Out-String)" } catch { }

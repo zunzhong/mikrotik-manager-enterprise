@@ -64,6 +64,14 @@ jobs:
             $parseErrors | ForEach-Object { Write-Error $_.Message }
             throw 'PowerShell installer script không hợp lệ.'
           }
+          $validationRoot = Join-Path $env:RUNNER_TEMP 'mme-powershell-validation'
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File packaging/windows/MME-Control.ps1 validate -NoOpen -DataRoot $validationRoot
+          if ($LASTEXITCODE -ne 0) { throw 'MME-Control.ps1 không chạy được bằng Windows PowerShell 5.1.' }
+          if (-not (Test-Path "$validationRoot\logs\bootstrap.log")) {
+            throw 'Windows PowerShell không tạo được bootstrap.log.'
+          }
+          Remove-Item $validationRoot -Recurse -Force
           pnpm --filter @mme/server prisma:generate
           pnpm lint
           pnpm typecheck
@@ -131,11 +139,24 @@ jobs:
           $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Không tìm thấy Windows installer để kiểm thử.' }
           $artifactDir = (Resolve-Path 'artifacts').Path
+          function Write-MMEDiagnostics {
+            $diagnosticDir = "$env:ProgramData\MikroTik Manager Enterprise\logs"
+            if (Test-Path $diagnosticDir) {
+              Get-ChildItem $diagnosticDir -File | ForEach-Object {
+                Write-Host "===== $($_.Name) ====="
+                Get-Content $_.FullName -Tail 200 -ErrorAction Continue
+              }
+            }
+            Get-Service MME -ErrorAction SilentlyContinue | Format-List Name, Status, StartType
+          }
 
           $freshInstall = Start-Process -FilePath $installer.FullName `
             -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-fresh.log") `
             -Wait -PassThru
-          if ($freshInstall.ExitCode -ne 0) { throw "Cài mới thất bại: exit code $($freshInstall.ExitCode)" }
+          if ($freshInstall.ExitCode -ne 0) {
+            Write-MMEDiagnostics
+            throw "Cài mới thất bại: exit code $($freshInstall.ExitCode)"
+          }
 
           $deadline = (Get-Date).AddSeconds(90)
           do {
@@ -143,7 +164,7 @@ jobs:
             if ($ready.status -eq 'ready') { break }
             Start-Sleep -Seconds 2
           } while ((Get-Date) -lt $deadline)
-          if ($ready.status -ne 'ready') { throw 'API không ready sau khi cài mới.' }
+          if ($ready.status -ne 'ready') { Write-MMEDiagnostics; throw 'API không ready sau khi cài mới.' }
           if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'SQLite database chưa được tạo.' }
 
