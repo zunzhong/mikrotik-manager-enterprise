@@ -61,6 +61,7 @@ jobs:
       - name: Build MME Desktop native SQLite
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           $env:DATABASE_URL = 'file:./mme-build.db'
           pnpm --filter @mme/server prisma:generate:sqlite
           pnpm --filter @mme/server prisma:sql:sqlite
