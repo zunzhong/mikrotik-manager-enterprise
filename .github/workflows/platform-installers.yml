@@ -105,9 +105,12 @@ jobs:
         run: |
           $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Không tìm thấy Windows installer để kiểm thử.' }
+          $artifactDir = (Resolve-Path 'artifacts').Path
 
-          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=artifacts/install-fresh.log
-          if ($LASTEXITCODE -ne 0) { throw "Cài mới thất bại: exit code $LASTEXITCODE" }
+          $freshInstall = Start-Process -FilePath $installer.FullName `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-fresh.log") `
+            -Wait -PassThru
+          if ($freshInstall.ExitCode -ne 0) { throw "Cài mới thất bại: exit code $($freshInstall.ExitCode)" }
 
           $deadline = (Get-Date).AddSeconds(90)
           do {
@@ -119,25 +122,32 @@ jobs:
           if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'SQLite database chưa được tạo.' }
 
-          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=artifacts/install-upgrade.log
-          if ($LASTEXITCODE -ne 0) { throw "Nâng cấp tại chỗ thất bại: exit code $LASTEXITCODE" }
+          $upgradeInstall = Start-Process -FilePath $installer.FullName `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-upgrade.log") `
+            -Wait -PassThru
+          if ($upgradeInstall.ExitCode -ne 0) { throw "Nâng cấp tại chỗ thất bại: exit code $($upgradeInstall.ExitCode)" }
           $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 10
           if ($ready.status -ne 'ready') { throw 'API không ready sau khi nâng cấp.' }
 
           $uninstaller = Get-ChildItem 'C:\Program Files\MikroTik Manager Enterprise\unins*.exe' | Select-Object -First 1
           if (-not $uninstaller) { throw 'Không tìm thấy uninstaller.' }
-          & $uninstaller.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=artifacts/uninstall.log
-          if ($LASTEXITCODE -ne 0) { throw "Gỡ cài đặt thất bại: exit code $LASTEXITCODE" }
+          $uninstall = Start-Process -FilePath $uninstaller.FullName `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$artifactDir\uninstall.log") `
+            -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "Gỡ cài đặt thất bại: exit code $($uninstall.ExitCode)" }
           if (Get-Service MME -ErrorAction SilentlyContinue) { throw 'Windows Service còn tồn tại sau khi gỡ.' }
 
       - name: Tạo checksum SHA-256
+        if: always()
         shell: pwsh
         run: |
           $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Không tìm thấy installer để tạo checksum.' }
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           "$($hash.Hash.ToLowerInvariant())  $($installer.Name)" | Set-Content "$($installer.FullName).sha256" -Encoding ascii
 
       - name: Upload Windows installer
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mme-windows-installer-${{ steps.version.outputs.value }}
