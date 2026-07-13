@@ -69,9 +69,9 @@ jobs:
           pnpm --filter @mme/routeros-core build
           pnpm --filter @mme/routeros-sdk build
           pnpm --filter @mme/server build
-          pnpm --filter @mme/server deploy --legacy --prod artifacts/payload
+          pnpm --config.node-linker=hoisted --filter @mme/server deploy --legacy --prod artifacts/payload
 
-          $prismaCli = Get-ChildItem 'artifacts/payload/node_modules/.pnpm' -Recurse -Filter index.js |
+          $prismaCli = Get-ChildItem 'artifacts/payload/node_modules' -Recurse -Filter index.js |
             Where-Object { $_.FullName -match 'prisma@.*node_modules[\\/]prisma[\\/]build[\\/]index.js$' } |
             Select-Object -First 1
           if (-not $prismaCli) { throw 'Không tìm thấy Prisma CLI trong production payload.' }
