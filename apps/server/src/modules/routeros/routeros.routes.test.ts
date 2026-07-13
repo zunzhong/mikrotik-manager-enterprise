@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { createTransport, TcpTransport, TlsTransport } from '@mme/routeros-sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routerOsSdkAdapter } from './routeros-sdk.adapter.js';
 import { routerosRoutes } from './routeros.routes.js';
@@ -54,5 +55,12 @@ describe('RouterOS SDK routes', () => {
       timeoutMs: 15000,
     });
     await app.close();
+  });
+
+  it('selects the correct transport for API and API-SSL', () => {
+    const common = { host: '10.0.0.2', port: 8728, timeoutMs: 15000 };
+
+    expect(createTransport({ ...common, tls: false })).toBeInstanceOf(TcpTransport);
+    expect(createTransport({ ...common, port: 8729, tls: true })).toBeInstanceOf(TlsTransport);
   });
 });

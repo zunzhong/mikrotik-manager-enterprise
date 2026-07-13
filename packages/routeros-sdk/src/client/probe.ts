@@ -26,7 +26,7 @@ export async function probeRouterOs(options: RouterOsClientOptions): Promise<Rou
     await client.connect();
     const identity = await client.system.identity();
     const resource = await client.system.resource();
-    const routerboard = await client.system.routerboard();
+    const routerboard = await client.system.routerboard().catch(() => undefined);
 
     return {
       online: true,
@@ -34,10 +34,10 @@ export async function probeRouterOs(options: RouterOsClientOptions): Promise<Rou
       identity: value(identity.name),
       version: value(resource.version),
       architecture: value(resource.architectureName, resource.architecture),
-      boardName: value(routerboard.model, resource.boardName),
-      serialNumber: value(routerboard.serialNumber),
+      boardName: value(routerboard?.model, resource.boardName),
+      serialNumber: value(routerboard?.serialNumber),
       uptime: value(resource.uptime),
-      raw: { identity, resource, routerboard },
+      raw: { identity, resource, routerboard: routerboard ?? {} },
     };
   } catch (error) {
     return {

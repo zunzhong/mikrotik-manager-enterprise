@@ -113,4 +113,17 @@ Trên MikroTik, xác nhận dịch vụ API, port và dải địa chỉ đượ
 /ip/service/print detail where name=api-ssl
 ```
 
-Chỉ bật **Use API-SSL** khi kết nối tới dịch vụ `api-ssl`; dịch vụ `api` thông thường phải bỏ chọn.
+Chỉ chọn **API-SSL (TLS)** khi kết nối tới dịch vụ `api-ssl`; dịch vụ `api` thông thường phải chọn
+**API (TCP)**.
+
+### Test và thêm thiết bị trên web
+
+1. Mở **Devices → RouterOS Live Probe**.
+2. Chọn `API (TCP)` hoặc `API-SSL (TLS)` trong ô **Protocol**.
+3. Cổng mặc định tự chuyển thành `8728` cho API hoặc `8729` cho API-SSL; vẫn có thể nhập port tùy chỉnh.
+4. Nhập host, username, password rồi chọn **Test Connection**.
+5. Khi trạng thái là **Online**, nhập tên quản lý và chọn **Add Device**.
+
+Nút **Add Device** chỉ được bật cho đúng bộ thông tin vừa test thành công. Mật khẩu RouterOS được mã hóa
+bằng AES-256-GCM trước khi ghi vào database. API-SSL chấp nhận chứng thư tự ký của MikroTik trong mạng
+quản trị; nên dùng chứng thư tin cậy khi triển khai qua mạng không tin cậy.

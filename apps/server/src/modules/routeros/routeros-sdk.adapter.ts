@@ -86,17 +86,17 @@ export class RouterOsSdkAdapter {
       // replies cannot be consumed by another in-flight reader on the same socket.
       const identity = await client.system.identity();
       const resource = await client.system.resource();
-      const routerboard = await client.system.routerboard();
+      const routerboard = await client.system.routerboard().catch(() => undefined);
       return {
         online: true,
         latencyMs: Date.now() - startedAt,
         identity: value(identity.name),
         version: value(resource.version),
         architecture: value(resource.architectureName, resource.architecture),
-        boardName: value(routerboard.model, resource.boardName),
-        serialNumber: value(routerboard.serialNumber),
+        boardName: value(routerboard?.model, resource.boardName),
+        serialNumber: value(routerboard?.serialNumber),
         uptime: value(resource.uptime),
-        raw: { identity, resource, routerboard },
+        raw: { identity, resource, routerboard: routerboard ?? {} },
       };
     } catch (error) {
       return {
@@ -145,14 +145,14 @@ export class RouterOsSdkAdapter {
       await client.connect();
       const identity = await client.system.identity();
       const resource = await client.system.resource();
-      const routerboard = await client.system.routerboard();
+      const routerboard = await client.system.routerboard().catch(() => undefined);
       const health = await client.print('/system/health/print').catch(() => []);
       const services = await client.print('/ip/service/print').catch(() => []);
       return {
         collectedAt: new Date().toISOString(),
         identity: { ...identity },
         resource: { ...resource },
-        routerboard: { ...routerboard },
+        routerboard: { ...(routerboard ?? {}) },
         health,
         services,
       };

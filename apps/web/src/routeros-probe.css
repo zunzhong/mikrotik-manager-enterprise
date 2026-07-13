@@ -34,12 +34,17 @@
   color: #94a3b8;
   font-size: 13px;
 }
-.probe-form input {
+.probe-form input,
+.probe-form select,
+.probe-add-device input {
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 14px;
   background: rgba(2, 6, 23, 0.35);
   color: inherit;
   padding: 11px 12px;
+}
+.probe-form select option {
+  color: #0f172a;
 }
 .checkbox-row {
   align-content: end;
@@ -55,9 +60,35 @@
   gap: 14px;
   margin-top: 18px;
 }
+.probe-add-device {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 16px;
+  background: rgba(8, 145, 178, 0.08);
+}
+.probe-add-device label,
+.probe-add-device div {
+  display: grid;
+  gap: 6px;
+}
+.probe-add-device label,
+.probe-add-device small {
+  color: #94a3b8;
+  font-size: 13px;
+}
+.small-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 @media (max-width: 1100px) {
   .probe-form,
-  .probe-result {
+  .probe-result,
+  .probe-add-device {
     grid-template-columns: 1fr;
   }
   .probe-header {

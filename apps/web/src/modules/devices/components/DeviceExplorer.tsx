@@ -57,7 +57,7 @@ export function DeviceExplorer() {
         {!loading && devices.length === 0 ? (
           <div className="empty-state">
             <strong>No devices yet</strong>
-            <p>Add a MikroTik router from backend API or upcoming UI form.</p>
+            <p>Test a RouterOS connection above, then add the router to MME.</p>
           </div>
         ) : null}
 
