@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config/config.service.js';
+import { prismaService } from '../database/index.js';
 
 function getHealthPayload() {
   return {
@@ -21,6 +22,16 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
     return {
       success: true,
       data: getHealthPayload(),
+    };
+  });
+
+  app.get('/ready', async (_request, reply) => {
+    const database = await prismaService.healthCheck();
+    if (!database) reply.code(503);
+
+    return {
+      status: database ? 'ready' : 'not_ready',
+      checks: { database },
     };
   });
 }

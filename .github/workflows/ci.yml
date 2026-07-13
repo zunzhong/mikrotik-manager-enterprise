@@ -57,7 +57,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
 
       - name: Format check
         run: pnpm format:check
@@ -84,7 +84,7 @@ jobs:
         run: pnpm --filter @mme/routeros-core test
 
       - name: Run server tests
-        run: pnpm --filter @mme/server test || true
+        run: pnpm --if-present --filter @mme/server test
 
   docker:
     name: Docker Build Gate
@@ -125,7 +125,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
 
       - name: pnpm audit
         run: pnpm audit --audit-level moderate

@@ -9,9 +9,15 @@ const envDevAuthPermissions = import.meta.env.VITE_AUTH_DEV_PERMISSIONS as strin
 const envDevAuthSuperAdmin = import.meta.env.VITE_AUTH_DEV_SUPER_ADMIN as string | undefined;
 
 function buildApiUrl(path: string): string {
-  return explicitApiBaseUrl && explicitApiBaseUrl.length > 0
-    ? `${explicitApiBaseUrl}${path}`
-    : path;
+  if (explicitApiBaseUrl && explicitApiBaseUrl.length > 0) {
+    return `${explicitApiBaseUrl}${path}`;
+  }
+
+  if (!import.meta.env.DEV && typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:3000${path}`;
+  }
+
+  return path;
 }
 
 function isTruthy(value: string | undefined | null): boolean {
@@ -67,8 +73,11 @@ function getDevAuthHeaders(): Record<string, string> {
 }
 
 function mergeHeaders(headers: HeadersInit | undefined): HeadersInit {
+  const token = readLocalStorage('mme-token');
+
   return {
     ...(headers as Record<string, string> | undefined),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...getDevAuthHeaders(),
   };
 }
@@ -86,6 +95,11 @@ export class ApiError extends Error {
 
 async function readJson<T>(response: Response, path: string): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401 && path !== '/api/v1/auth/login') {
+      window.localStorage.removeItem('mme-token');
+      window.location.assign('/login');
+    }
+
     throw new ApiError(`API request failed with status ${response.status}`, response.status, path);
   }
 

@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '../modules/auth/auth.api';
 
 export function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -13,6 +15,7 @@ export function LoginPage() {
       const result = await authApi.login(email, password);
       window.localStorage.setItem('mme-token', result.accessToken ?? result.token ?? '');
       setMessage(`Signed in as ${result.user?.email ?? email}`);
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Login failed');
     }
@@ -40,6 +43,9 @@ export function LoginPage() {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void login();
+          }}
         />
 
         <button className="theme-toggle" onClick={login}>
@@ -47,6 +53,7 @@ export function LoginPage() {
         </button>
 
         {message ? <div className="info-banner">{message}</div> : null}
+        <a href="/setup">Kiểm tra cài đặt và cơ sở dữ liệu</a>
       </div>
     </div>
   );

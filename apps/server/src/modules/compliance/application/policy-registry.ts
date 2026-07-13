@@ -125,6 +125,109 @@ export const policyEvaluators: CompliancePolicyEvaluator[] = compliancePolicies.
             : makeResult(policy.key, policy.severity, 'fail', 'FTP service is enabled', service);
         }
 
+        case 'services.www.disabled-or-restricted': {
+          const service = findIpService(context.sections, 'www');
+          if (!service)
+            return makeResult(policy.key, policy.severity, 'unknown', 'WWW service not found');
+          if (boolDisabled(service.disabled))
+            return makeResult(
+              policy.key,
+              policy.severity,
+              'pass',
+              'WWW service is disabled',
+              service,
+            );
+          const address = service.address;
+          return typeof address === 'string' && address.length > 0 && address !== '0.0.0.0/0'
+            ? makeResult(
+                policy.key,
+                policy.severity,
+                'warning',
+                'WWW service is address-restricted',
+                service,
+              )
+            : makeResult(
+                policy.key,
+                policy.severity,
+                'fail',
+                'WWW service is broadly exposed',
+                service,
+              );
+        }
+
+        case 'services.ssh.restricted': {
+          const service = findIpService(context.sections, 'ssh');
+          if (!service)
+            return makeResult(policy.key, policy.severity, 'unknown', 'SSH service not found');
+          if (boolDisabled(service.disabled))
+            return makeResult(
+              policy.key,
+              policy.severity,
+              'pass',
+              'SSH service is disabled',
+              service,
+            );
+          const address = service.address;
+          return typeof address === 'string' && address.length > 0 && address !== '0.0.0.0/0'
+            ? makeResult(
+                policy.key,
+                policy.severity,
+                'pass',
+                'SSH service is address-restricted',
+                service,
+              )
+            : makeResult(
+                policy.key,
+                policy.severity,
+                'fail',
+                'SSH service is not address-restricted',
+                service,
+              );
+        }
+
+        case 'firewall.input.drop-rule': {
+          const section = context.sections.get('/ip/firewall/filter/print');
+          if (!section)
+            return makeResult(
+              policy.key,
+              policy.severity,
+              'unknown',
+              'Firewall filter inventory not found',
+            );
+          const rule = section.items
+            .map(rawOf)
+            .find(
+              (item) =>
+                item.chain === 'input' &&
+                (item.action === 'drop' || item.action === 'reject') &&
+                !boolDisabled(item.disabled),
+            );
+          return rule
+            ? makeResult(
+                policy.key,
+                policy.severity,
+                'pass',
+                'Enabled input drop/reject rule found',
+                rule,
+              )
+            : makeResult(
+                policy.key,
+                policy.severity,
+                'fail',
+                'No enabled input drop/reject rule found',
+              );
+        }
+
+        case 'system.romon.disabled': {
+          const section = context.sections.get('/tool/romon/print');
+          const romon = section?.items.map(rawOf)[0];
+          if (!romon)
+            return makeResult(policy.key, policy.severity, 'unknown', 'RoMON inventory not found');
+          return romon.enabled === true || romon.enabled === 'true' || romon.enabled === 'yes'
+            ? makeResult(policy.key, policy.severity, 'fail', 'RoMON is enabled', romon)
+            : makeResult(policy.key, policy.severity, 'pass', 'RoMON is disabled', romon);
+        }
+
         case 'system.default-admin.review': {
           const section = context.sections.get('/user/print');
           if (!section)

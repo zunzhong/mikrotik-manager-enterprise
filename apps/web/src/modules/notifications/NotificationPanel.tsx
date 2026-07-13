@@ -4,6 +4,7 @@ import { WidgetCard } from '../dashboard/components/WidgetCard';
 import { notificationApi } from './notification.api';
 import type {
   NotificationChannel,
+  NotificationChannelType,
   NotificationDelivery,
   NotificationRule,
 } from './notification.types';
@@ -30,7 +31,7 @@ function latestDeliveryAt(deliveries: NotificationDelivery[]): string {
   return latest ? new Date(latest).toLocaleString() : 'N/A';
 }
 
-function channelName(channels: NotificationChannel[], channelId: string): string {
+function resolveChannelName(channels: NotificationChannel[], channelId: string): string {
   return channels.find((channel) => channel.id === channelId)?.name ?? channelId;
 }
 
@@ -62,8 +63,12 @@ export function NotificationPanel({
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
   const [busyEntityId, setBusyEntityId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [webhookName, setWebhookName] = useState('Enterprise Webhook');
-  const [webhookUrl, setWebhookUrl] = useState('');
+  const [channelName, setChannelName] = useState('Kênh thông báo MME');
+  const [channelType, setChannelType] =
+    useState<Exclude<NotificationChannelType, 'in_app'>>('telegram');
+  const [channelConfig, setChannelConfig] = useState(
+    JSON.stringify({ botToken: '', chatId: '' }, null, 2),
+  );
   const [createRule, setCreateRule] = useState(true);
 
   const webhookChannels = useMemo(
@@ -193,27 +198,40 @@ export function NotificationPanel({
     }
   }
 
-  async function createWebhookChannel() {
-    const url = webhookUrl.trim();
+  function selectChannelType(type: Exclude<NotificationChannelType, 'in_app'>) {
+    setChannelType(type);
+    const templates: Record<typeof type, Record<string, unknown>> = {
+      telegram: { botToken: '', chatId: '' },
+      slack: { webhookUrl: '' },
+      webhook: { url: '', method: 'POST', timeoutMs: 10000 },
+      email: {
+        host: '',
+        port: 587,
+        secure: false,
+        user: '',
+        password: '',
+        from: '',
+        to: '',
+      },
+    };
+    setChannelConfig(JSON.stringify(templates[type], null, 2));
+  }
 
-    if (!url) {
-      setActionError('Webhook URL is required.');
+  async function createNotificationChannel() {
+    let config: Record<string, unknown>;
+    try {
+      config = JSON.parse(channelConfig) as Record<string, unknown>;
+    } catch {
+      setActionError('Cấu hình JSON không hợp lệ.');
       return;
     }
 
     await runAction(async () => {
       const channel = await notificationApi.createChannel({
-        name: webhookName.trim() || 'Enterprise Webhook',
-        type: 'webhook',
+        name: channelName.trim() || `MME ${channelType}`,
+        type: channelType,
         enabled: true,
-        config: {
-          url,
-          method: 'POST',
-          timeoutMs: 10000,
-          headers: {
-            'x-source': 'mikrotik-manager-enterprise',
-          },
-        },
+        config,
       });
 
       if (createRule) {
@@ -225,9 +243,7 @@ export function NotificationPanel({
           channelIds: [channel.id],
         });
       }
-
-      setWebhookUrl('');
-    }, 'Cannot create webhook channel');
+    }, 'Không thể tạo kênh thông báo.');
   }
 
   return (
@@ -277,28 +293,40 @@ export function NotificationPanel({
         <SummaryCard label="Retryable" value={retryableCount} hint="failed or skipped" />
       </div>
 
-      <WidgetCard
-        title="Create Webhook Channel"
-        description="Send critical events to n8n, webhook.site, or an internal receiver"
-      >
+      <WidgetCard title="Tạo kênh thông báo" description="Hỗ trợ Email, Telegram, Slack và Webhook">
         <div className="notification-panel__form">
           <label>
-            Name
+            Tên kênh
             <input
               type="text"
-              value={webhookName}
-              onChange={(event) => setWebhookName(event.target.value)}
-              placeholder="Enterprise Webhook"
+              value={channelName}
+              onChange={(event) => setChannelName(event.target.value)}
+              placeholder="Kênh cảnh báo MME"
             />
           </label>
 
           <label>
-            Webhook URL
-            <input
-              type="url"
-              value={webhookUrl}
-              onChange={(event) => setWebhookUrl(event.target.value)}
-              placeholder="https://example.com/webhook"
+            Loại kênh
+            <select
+              value={channelType}
+              onChange={(event) =>
+                selectChannelType(event.target.value as Exclude<NotificationChannelType, 'in_app'>)
+              }
+            >
+              <option value="telegram">Telegram</option>
+              <option value="email">Email SMTP</option>
+              <option value="slack">Slack</option>
+              <option value="webhook">Webhook</option>
+            </select>
+          </label>
+
+          <label>
+            Cấu hình JSON
+            <textarea
+              rows={9}
+              value={channelConfig}
+              onChange={(event) => setChannelConfig(event.target.value)}
+              spellCheck={false}
             />
           </label>
 
@@ -308,11 +336,11 @@ export function NotificationPanel({
               checked={createRule}
               onChange={(event) => setCreateRule(event.target.checked)}
             />
-            Create critical alert rule
+            Tự tạo rule cho cảnh báo critical/warning
           </label>
 
-          <button type="button" disabled={busy} onClick={() => void createWebhookChannel()}>
-            Create Webhook
+          <button type="button" disabled={busy} onClick={() => void createNotificationChannel()}>
+            Tạo và lưu kênh
           </button>
         </div>
       </WidgetCard>
@@ -429,7 +457,7 @@ export function NotificationPanel({
                 <strong>{delivery.payload.title}</strong>
                 <small>
                   {delivery.payload.eventType} · {delivery.channelType} ·{' '}
-                  {channelName(channels, delivery.channelId)}
+                  {resolveChannelName(channels, delivery.channelId)}
                 </small>
                 <small>
                   Attempts: {delivery.attempts} · {deliveryTimestamp(delivery)}

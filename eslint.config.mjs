@@ -13,6 +13,15 @@ export default [
     ],
   },
   js.configs.recommended,
+  {
+    files: ['project-docs/snippets/**/*.browser.js'],
+    languageOptions: {
+      globals: {
+        localStorage: 'readonly',
+        location: 'readonly',
+      },
+    },
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],

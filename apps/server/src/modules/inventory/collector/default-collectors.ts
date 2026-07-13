@@ -258,6 +258,13 @@ export const defaultInventoryCollectors = [
     path: '/tool/netwatch/print',
   }),
   new RouterOsPrintCollector({
+    key: 'system.romon',
+    category: 'system',
+    label: 'RoMON',
+    path: '/tool/romon/print',
+    enabledByDefault: false,
+  }),
+  new RouterOsPrintCollector({
     key: 'qos.simple-queue',
     category: 'qos',
     label: 'Simple Queue',

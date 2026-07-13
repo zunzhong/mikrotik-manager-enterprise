@@ -1,6 +1,6 @@
 {
   "name": "mikrotik-manager-enterprise",
-  "version": "0.1.0",
+  "version": "4.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "setup:database": "pnpm --filter @mme/server prisma:push && pnpm --filter @mme/server prisma:seed"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

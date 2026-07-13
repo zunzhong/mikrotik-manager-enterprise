@@ -7,6 +7,8 @@ dist/
 build/
 coverage/
 .turbo/
+artifacts/
+*.zip
 
 # Logs
 *.log
@@ -16,6 +18,7 @@ logs/
 .env
 .env.local
 .env.*
+!.env.example
 
 # IDE
 .vscode/
@@ -32,6 +35,10 @@ Thumbs.db
 # Prisma
 prisma/dev.db
 prisma/dev.db-journal
+apps/server/prisma/schema.sqlite.prisma
+apps/server/prisma/schema.sqlite.sql
+apps/server/prisma/*.db
+apps/server/prisma/*.db-journal
 
 # Docker
 docker-data/

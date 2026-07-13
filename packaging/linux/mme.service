@@ -1,0 +1,16 @@
+[Unit]
+Description=MikroTik Manager Enterprise
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/mikrotik-manager-enterprise/mme.env
+WorkingDirectory=/opt/mikrotik-manager-enterprise
+ExecStart=/opt/mikrotik-manager-enterprise/runtime/node /opt/mikrotik-manager-enterprise/dist/server.js
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

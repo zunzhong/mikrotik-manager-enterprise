@@ -1,61 +1,77 @@
 # MikroTik Manager Enterprise
 
-> Enterprise-grade MikroTik Controller & Monitoring Platform.
+Enterprise controller and monitoring platform for MikroTik RouterOS 6 and 7.
 
----
+## Included modules
 
-## 🚀 Project Status
+- Multi-device management and RouterOS API/TLS connectivity
+- Inventory snapshots, diffs, interface explorer and topology
+- Realtime monitoring, alerts and notification delivery
+- Backup/restore orchestration and compliance reporting
+- Authentication, sessions, MFA, RBAC and audit logs
+- React management console and Fastify/Prisma API
+- PostgreSQL, Redis and Docker Compose deployment
 
-🚧 Under Development
+## Requirements
 
----
+- Node.js 22+
+- pnpm 11.9+
+- PostgreSQL 16 and Redis 7, or Docker Desktop / Docker Engine
 
-## ✨ Features (Planned)
+## Docker installation
 
-- RouterOS 6 & 7 Support
-- Multi Device Management
-- Dashboard
-- Real-time Monitoring
-- Web Terminal
-- Firewall Management
-- Queue Management
-- PPPoE Management
-- Backup & Restore
-- Notification (Telegram / Discord / Email)
-- REST API
-- Docker Deployment
+```bash
+cp .env.example .env
+# Change JWT_SECRET, ENCRYPTION_KEY and DEFAULT_ADMIN_PASSWORD in .env
+docker compose up -d postgres redis
+docker compose run --rm server pnpm setup:database
+docker compose up -d --build
+```
 
----
+Open `http://localhost:5173`. The API is served on `http://localhost:3000`.
 
-## 🛠 Tech Stack
+## Windows EXE and Linux DEB
 
-### Backend
+The `Platform Installers` GitHub Actions workflow builds a Windows x64 setup executable and a
+Linux amd64 Debian package. Windows is the primary supported desktop installation target. See
+`project-docs/deployment/PLATFORM-INSTALLERS.md` for requirements and release instructions.
 
-- Node.js
-- TypeScript
-- Express
-- Prisma
-- Socket.IO
+## Local development
 
-### Frontend
+Start PostgreSQL and Redis, then use a localhost database URL in `.env`:
 
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- shadcn/ui
+```bash
+pnpm install --frozen-lockfile
+pnpm setup:database
+pnpm --filter @mme/server dev
+```
 
-### Database
+In a second terminal:
 
-- SQLite
-- PostgreSQL
+```bash
+pnpm --filter @mme/web dev
+```
 
----
+The preflight endpoint checks database connectivity, schema, an active administrator, free
+storage and production secrets:
 
-## 📄 License
+```bash
+curl http://localhost:3000/api/v1/setup/preflight
+curl http://localhost:3000/ready
+```
 
-MIT License
+## Quality gates
 
----
+```bash
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
 
-Developed with ❤️ by the MikroTik Manager Enterprise Community.
+Deployment, backup and release checklists are in `project-docs/deployment`.
+
+## License
+
+MIT

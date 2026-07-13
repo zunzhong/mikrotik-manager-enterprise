@@ -386,20 +386,22 @@ export class NotificationService {
     const existingChannels = notificationStore.listChannels();
 
     if (existingChannels.length > 0) {
-      auditService.logSuccess({
-        action: 'notification.defaults.seed_skipped',
-        summary: 'Notification defaults already exist, seed skipped',
-        actor: notificationActor,
-        entity: {
-          type: 'system',
-          id: 'notification-engine',
-          name: 'Notification Engine',
-        },
-        metadata: {
-          channels: existingChannels.length,
-          rules: notificationStore.listRules().length,
-        },
-      });
+      void auditService
+        .logSuccess({
+          action: 'notification.defaults.seed_skipped',
+          summary: 'Notification defaults already exist, seed skipped',
+          actor: notificationActor,
+          entity: {
+            type: 'system',
+            id: 'notification-engine',
+            name: 'Notification Engine',
+          },
+          metadata: {
+            channels: existingChannels.length,
+            rules: notificationStore.listRules().length,
+          },
+        })
+        .catch(() => undefined);
 
       return {
         channels: existingChannels,
@@ -422,20 +424,22 @@ export class NotificationService {
       channelIds: [inApp.id],
     });
 
-    auditService.logSuccess({
-      action: 'notification.defaults.seeded',
-      summary: 'Notification defaults were seeded',
-      actor: notificationActor,
-      entity: {
-        type: 'system',
-        id: 'notification-engine',
-        name: 'Notification Engine',
-      },
-      metadata: {
-        channelId: inApp.id,
-        ruleId: criticalRule.id,
-      },
-    });
+    void auditService
+      .logSuccess({
+        action: 'notification.defaults.seeded',
+        summary: 'Notification defaults were seeded',
+        actor: notificationActor,
+        entity: {
+          type: 'system',
+          id: 'notification-engine',
+          name: 'Notification Engine',
+        },
+        metadata: {
+          channelId: inApp.id,
+          ruleId: criticalRule.id,
+        },
+      })
+      .catch(() => undefined);
 
     return {
       channels: [inApp],

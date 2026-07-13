@@ -1,9 +1,14 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Navigate, NavLink, Outlet } from 'react-router-dom';
 import { navigationItems } from './navigation';
 import { useTheme } from '../theme/useTheme';
 
 export function AppShell() {
   const { theme, toggleTheme } = useTheme();
+  const hasToken = Boolean(window.localStorage.getItem('mme-token'));
+
+  if (!hasToken) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="app-shell" data-theme={theme}>

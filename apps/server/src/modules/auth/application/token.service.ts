@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface AuthTokenPayload {
   userId: string;
@@ -12,7 +12,15 @@ function base64url(input: string): string {
 }
 
 export class TokenService {
-  private readonly secret = process.env.JWT_SECRET ?? process.env.ENCRYPTION_KEY ?? 'dev-secret';
+  private readonly secret: string;
+
+  public constructor(secret?: string) {
+    this.secret = secret ?? process.env.JWT_SECRET ?? process.env.ENCRYPTION_KEY ?? 'dev-secret';
+
+    if (process.env.NODE_ENV === 'production' && this.secret === 'dev-secret') {
+      throw new Error('JWT_SECRET must be configured in production.');
+    }
+  }
 
   public sign(payload: Omit<AuthTokenPayload, 'exp'>, expiresInSeconds = 60 * 60 * 8): string {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -29,18 +37,40 @@ export class TokenService {
   }
 
   public verify(token: string): AuthTokenPayload | null {
-    const [header, body, signature] = token.split('.');
-    if (!header || !body || !signature) return null;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
 
-    const expected = this.signature(`${header}.${body}`);
-    if (expected !== signature) return null;
+      const [header, body, signature] = parts;
+      if (!header || !body || !signature) return null;
 
-    const payload = JSON.parse(
-      Buffer.from(body, 'base64url').toString('utf-8'),
-    ) as AuthTokenPayload;
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+      const decodedHeader = JSON.parse(Buffer.from(header, 'base64url').toString('utf-8')) as {
+        alg?: string;
+        typ?: string;
+      };
+      if (decodedHeader.alg !== 'HS256' || decodedHeader.typ !== 'JWT') return null;
 
-    return payload;
+      const expected = this.signature(`${header}.${body}`);
+      const actualBuffer = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expected);
+      if (
+        actualBuffer.length !== expectedBuffer.length ||
+        !timingSafeEqual(actualBuffer, expectedBuffer)
+      )
+        return null;
+
+      const payload = JSON.parse(
+        Buffer.from(body, 'base64url').toString('utf-8'),
+      ) as AuthTokenPayload;
+      if (!payload.userId || !payload.email || !payload.role || !Number.isFinite(payload.exp)) {
+        return null;
+      }
+      if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+
+      return payload;
+    } catch {
+      return null;
+    }
   }
 
   private signature(value: string): string {

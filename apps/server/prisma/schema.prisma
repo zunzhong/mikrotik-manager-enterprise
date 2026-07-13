@@ -103,7 +103,7 @@ model Device {
   status            String    @default("unknown")
   lastSeenAt        DateTime?
   lastError         String?
-  tags              String[]  @default([])
+  tags              Json      @default("[]")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

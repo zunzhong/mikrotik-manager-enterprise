@@ -9,6 +9,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
     ports:
       - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mme -d mme']
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   redis:
     image: redis:7
@@ -22,19 +27,27 @@ services:
     env_file:
       - .env
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - '3000:3000'
     volumes:
       - backup-data:/app/data/backups
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/ready']
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   web:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     ports:
       - '5173:5173'
 

@@ -8,6 +8,7 @@ import type {
   AuthSessionState,
   CreateAuthSessionPrincipalInput,
 } from './auth.types.js';
+import { tokenService } from './application/token.service.js';
 
 export const DEFAULT_AUTH_HEADER_NAMES: AuthHeaderNames = {
   userId: 'x-user-id',
@@ -120,6 +121,34 @@ export function authSessionPrincipalFromHeaders(
 }
 
 export function authSessionStateFromRequest(request: FastifyRequest): AuthSessionState {
+  const authorization = headerValue(request, 'authorization');
+  const bearerToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length).trim()
+    : undefined;
+
+  if (bearerToken) {
+    const payload = tokenService.verify(bearerToken);
+
+    if (!payload) {
+      return createAnonymousAuthState('Invalid or expired bearer token');
+    }
+
+    return createAuthenticatedAuthState(
+      createAuthSessionPrincipal({
+        userId: payload.userId,
+        email: payload.email,
+        roleIds: [payload.role],
+        isSuperAdmin: payload.role === 'admin' || payload.role === 'super-admin',
+        source: 'session',
+        expiresAt: new Date(payload.exp * 1000).toISOString(),
+      }),
+    );
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return createAnonymousAuthState('Missing bearer token');
+  }
+
   const principal = authSessionPrincipalFromHeaders(authHeaderInputFromRequest(request));
 
   if (!principal) {

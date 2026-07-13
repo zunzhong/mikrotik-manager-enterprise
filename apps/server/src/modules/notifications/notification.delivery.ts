@@ -1,4 +1,5 @@
 import { notificationStore } from './notification.store.js';
+import nodemailer from 'nodemailer';
 import type {
   NotificationChannel,
   NotificationDelivery,
@@ -10,6 +11,15 @@ interface WebhookConfig {
   method: 'POST' | 'PUT' | 'PATCH';
   headers: Record<string, string>;
   timeoutMs: number;
+}
+
+function getConfigBoolean(
+  config: Record<string, unknown>,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const value = config[key];
+  return typeof value === 'boolean' ? value : fallback;
 }
 
 function unsupportedChannelReason(delivery: NotificationDelivery): string {
@@ -184,6 +194,18 @@ export class NotificationDeliveryWorker {
       return this.deliverWebhook(delivery, channel);
     }
 
+    if (delivery.channelType === 'slack') {
+      return this.deliverSlack(delivery, channel);
+    }
+
+    if (delivery.channelType === 'telegram') {
+      return this.deliverTelegram(delivery, channel);
+    }
+
+    if (delivery.channelType === 'email') {
+      return this.deliverEmail(delivery, channel);
+    }
+
     return notificationStore.markSkipped(delivery.id, unsupportedChannelReason(delivery));
   }
 
@@ -218,6 +240,89 @@ export class NotificationDeliveryWorker {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async deliverSlack(
+    delivery: NotificationDelivery,
+    channel: NotificationChannel,
+  ): Promise<NotificationDelivery | null> {
+    const url = getConfigText(channel.config, 'webhookUrl');
+    if (!url) throw new Error(`Slack channel '${channel.name}' is missing config.webhookUrl`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: `[${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}\n${delivery.payload.message}`,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Slack webhook returned HTTP ${response.status}`);
+    }
+
+    return notificationStore.markSent(delivery.id);
+  }
+
+  private async deliverTelegram(
+    delivery: NotificationDelivery,
+    channel: NotificationChannel,
+  ): Promise<NotificationDelivery | null> {
+    const botToken = getConfigText(channel.config, 'botToken');
+    const chatId = getConfigText(channel.config, 'chatId');
+    if (!botToken || !chatId) {
+      throw new Error(
+        `Telegram channel '${channel.name}' requires config.botToken and config.chatId`,
+      );
+    }
+
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: `[${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}\n${delivery.payload.message}`,
+        disable_web_page_preview: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Telegram API returned HTTP ${response.status}`);
+    }
+
+    return notificationStore.markSent(delivery.id);
+  }
+
+  private async deliverEmail(
+    delivery: NotificationDelivery,
+    channel: NotificationChannel,
+  ): Promise<NotificationDelivery | null> {
+    const host = getConfigText(channel.config, 'host');
+    const from = getConfigText(channel.config, 'from');
+    const to = getConfigText(channel.config, 'to');
+    if (!host || !from || !to) {
+      throw new Error(
+        `Email channel '${channel.name}' requires config.host, config.from and config.to`,
+      );
+    }
+
+    const user = getConfigText(channel.config, 'user');
+    const password = getConfigText(channel.config, 'password');
+    const transporter = nodemailer.createTransport({
+      host,
+      port: getConfigNumber(channel.config, 'port', 587),
+      secure: getConfigBoolean(channel.config, 'secure', false),
+      ...(user && password ? { auth: { user, pass: password } } : {}),
+    });
+
+    await transporter.sendMail({
+      from,
+      to,
+      subject: `[MME][${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}`,
+      text: `${delivery.payload.message}\n\nNguồn: ${delivery.payload.source}\nThời gian: ${delivery.payload.createdAt}`,
+    });
+
+    return notificationStore.markSent(delivery.id);
   }
 }
 

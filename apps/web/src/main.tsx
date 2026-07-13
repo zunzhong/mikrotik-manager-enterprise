@@ -11,6 +11,7 @@ import { DevicesPage } from './pages/DevicesPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SetupPage } from './pages/SetupPage';
 import { TopologyPage } from './pages/TopologyPage';
 import './styles.css';
 import './inventory.css';
@@ -33,12 +34,14 @@ import './mfa.css';
 import './rbac.css';
 import './routeros-probe.css';
 import './modules/events/events.css';
+import './setup.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/setup" element={<SetupPage />} />
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />

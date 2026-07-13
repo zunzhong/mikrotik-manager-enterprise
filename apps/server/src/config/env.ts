@@ -16,6 +16,7 @@ const envSchema = z.object({
   REDIS_DB: z.coerce.number().int().min(0).default(0),
   ENCRYPTION_KEY: z.string().min(16).default('change-me-32-byte-minimum-secret-key'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  WEB_DIST_PATH: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

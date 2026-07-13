@@ -57,7 +57,14 @@ function headerValue(value: string | string[] | undefined): string | null {
 }
 
 export async function rbacRoutes(app: FastifyInstance): Promise<void> {
-  await seedRbacDefaultsOnStartup();
+  try {
+    await seedRbacDefaultsOnStartup();
+  } catch (error) {
+    app.log.warn(
+      { error },
+      'RBAC startup seed skipped because the database is unavailable; setup preflight remains accessible',
+    );
+  }
 
   app.post('/api/v1/rbac/seed-defaults', async () => ({
     success: true,

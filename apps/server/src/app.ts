@@ -33,7 +33,9 @@ import { routerOsApiRoutes } from './modules/routeros-api/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
+import { registerWebApp } from './plugins/web-app.js';
 import { healthRoutes } from './routes/health.js';
+import { setupRoutes } from './routes/setup.js';
 import { auditRoutes } from './modules/audit/index.js';
 import { rbacRoutes } from './modules/rbac/index.js';
 
@@ -54,6 +56,7 @@ export async function buildApp() {
   registerNotificationEventBridge();
 
   await app.register(healthRoutes);
+  await app.register(setupRoutes);
   await app.register(eventRoutes);
   await app.register(alertLifecycleRoutes);
   await app.register(notificationRoutes);
@@ -74,6 +77,7 @@ export async function buildApp() {
   await moduleRegistry.loadAll(app);
   await app.register(auditRoutes);
   await app.register(rbacRoutes);
+  await registerWebApp(app);
 
   return app;
 }

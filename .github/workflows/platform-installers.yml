@@ -1,0 +1,219 @@
+name: Platform Installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Installer version
+        required: true
+        default: 4.1.0
+      platform:
+        description: Nền tảng cần build
+        required: true
+        default: windows
+        type: choice
+        options:
+          - windows
+          - linux
+          - all
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    name: Windows EXE Installer
+    if: github.event_name == 'push' || inputs.platform == 'windows' || inputs.platform == 'all'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}'.TrimStart('v') }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Cài dependencies và kiểm tra chất lượng
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @mme/server prisma:generate
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+
+      - name: Build MME Desktop native SQLite
+        shell: pwsh
+        run: |
+          $env:DATABASE_URL = 'file:./mme-build.db'
+          pnpm --filter @mme/server prisma:generate:sqlite
+          pnpm --filter @mme/server prisma:sql:sqlite
+          pnpm --filter @mme/web build
+          pnpm --filter @mme/routeros-core build
+          pnpm --filter @mme/routeros-sdk build
+          pnpm --filter @mme/server build
+          pnpm --filter @mme/server deploy --legacy --prod artifacts/payload
+
+          $sqliteEngine = Get-ChildItem 'artifacts/payload/node_modules' -Recurse -Filter 'query_engine-windows*.dll.node' |
+            Select-Object -First 1
+          if (-not $sqliteEngine) { throw 'Không tìm thấy Prisma SQLite engine dành cho Windows trong native payload.' }
+
+          Copy-Item apps/web/dist artifacts/payload/web -Recurse
+          Copy-Item packaging artifacts/payload/packaging -Recurse
+          New-Item -ItemType Directory -Force artifacts/payload/runtime, artifacts/payload/service | Out-Null
+          Copy-Item (Get-Command node).Source artifacts/payload/runtime/node.exe
+          Invoke-WebRequest `
+            'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET461.exe' `
+            -OutFile artifacts/payload/service/MME.Service.exe
+
+          if (-not (Test-Path artifacts/payload/dist/server.js)) { throw 'Thiếu server build.' }
+          if (-not (Test-Path artifacts/payload/web/index.html)) { throw 'Thiếu web build.' }
+          if (-not (Test-Path artifacts/payload/prisma/schema.sqlite.sql)) { throw 'Thiếu SQLite schema.' }
+          if (-not (Test-Path artifacts/payload/runtime/node.exe)) { throw 'Thiếu Node runtime.' }
+          if (-not (Test-Path artifacts/payload/service/MME.Service.exe)) { throw 'Thiếu service wrapper.' }
+
+      - name: Compile Inno Setup installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DMyAppVersion=${{ steps.version.outputs.value }}" packaging/windows/mme-installer.iss
+
+      - name: Smoke test cài đặt, nâng cấp và gỡ cài đặt
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Không tìm thấy Windows installer để kiểm thử.' }
+
+          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=artifacts/install-fresh.log
+          if ($LASTEXITCODE -ne 0) { throw "Cài mới thất bại: exit code $LASTEXITCODE" }
+
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            try { $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 3 } catch { $ready = $null }
+            if ($ready.status -eq 'ready') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          if ($ready.status -ne 'ready') { throw 'API không ready sau khi cài mới.' }
+          if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
+          if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'SQLite database chưa được tạo.' }
+
+          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=artifacts/install-upgrade.log
+          if ($LASTEXITCODE -ne 0) { throw "Nâng cấp tại chỗ thất bại: exit code $LASTEXITCODE" }
+          $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 10
+          if ($ready.status -ne 'ready') { throw 'API không ready sau khi nâng cấp.' }
+
+          $uninstaller = Get-ChildItem 'C:\Program Files\MikroTik Manager Enterprise\unins*.exe' | Select-Object -First 1
+          if (-not $uninstaller) { throw 'Không tìm thấy uninstaller.' }
+          & $uninstaller.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=artifacts/uninstall.log
+          if ($LASTEXITCODE -ne 0) { throw "Gỡ cài đặt thất bại: exit code $LASTEXITCODE" }
+          if (Get-Service MME -ErrorAction SilentlyContinue) { throw 'Windows Service còn tồn tại sau khi gỡ.' }
+
+      - name: Tạo checksum SHA-256
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
+          $hash = Get-FileHash $installer.FullName -Algorithm SHA256
+          "$($hash.Hash.ToLowerInvariant())  $($installer.Name)" | Set-Content "$($installer.FullName).sha256" -Encoding ascii
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: mme-windows-installer-${{ steps.version.outputs.value }}
+          path: |
+            artifacts/MikroTik-Manager-Enterprise-Setup-*.exe
+            artifacts/MikroTik-Manager-Enterprise-Setup-*.exe.sha256
+            artifacts/*.log
+          if-no-files-found: error
+
+  linux-installer:
+    name: Linux DEB Installer
+    if: github.event_name == 'push' || inputs.platform == 'linux' || inputs.platform == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then version='${{ inputs.version }}'; else version='${{ github.ref_name }}'; version="${version#v}"; fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build Debian package
+        shell: bash
+        run: |
+          version='${{ steps.version.outputs.value }}'
+          root="artifacts/deb-root"
+          app="$root/opt/mikrotik-manager-enterprise"
+          mkdir -p "$app" "$root/usr/local/bin" "$root/lib/systemd/system" "$root/DEBIAN" artifacts
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          export DATABASE_URL='file:./mme-build.db'
+          pnpm --filter @mme/server prisma:generate:sqlite
+          pnpm --filter @mme/server prisma:sql:sqlite
+          pnpm --filter @mme/web build
+          pnpm --filter @mme/routeros-core build
+          pnpm --filter @mme/routeros-sdk build
+          pnpm --filter @mme/server build
+          pnpm --filter @mme/server deploy --legacy --prod "$app"
+          prisma_cli="$(find "$app/node_modules/.pnpm" -path '*/prisma/build/index.js' -print -quit)"
+          test -n "$prisma_cli"
+          node "$prisma_cli" generate --schema "$app/prisma/schema.sqlite.prisma"
+          cp -a apps/web/dist "$app/web"
+          mkdir -p "$app/runtime"
+          cp "$(command -v node)" "$app/runtime/node"
+          chmod 0755 "$app/runtime/node"
+          install -m 0755 packaging/linux/mme-control "$root/usr/local/bin/mme-control"
+          install -m 0644 packaging/linux/mme.service "$root/lib/systemd/system/mme.service"
+          cat > "$root/DEBIAN/control" <<EOF
+          Package: mikrotik-manager-enterprise
+          Version: $version
+          Section: admin
+          Priority: optional
+          Architecture: amd64
+          Depends: openssl, systemd
+          Maintainer: MikroTik Manager Enterprise Community
+          Description: Enterprise MikroTik controller and monitoring platform
+          EOF
+          cat > "$root/DEBIAN/postinst" <<'EOF'
+          #!/bin/sh
+          set -e
+          systemctl daemon-reload
+          systemctl enable mme.service
+          echo 'Chạy lệnh: sudo mme-control install'
+          EOF
+          chmod 0755 "$root/DEBIAN/postinst"
+          dpkg-deb --build --root-owner-group "$root" "artifacts/mikrotik-manager-enterprise_${version}_amd64.deb"
+          dpkg-deb --info "artifacts/mikrotik-manager-enterprise_${version}_amd64.deb"
+
+      - name: Upload Linux installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: mme-linux-installer-${{ steps.version.outputs.value }}
+          path: artifacts/*.deb
+          if-no-files-found: error
