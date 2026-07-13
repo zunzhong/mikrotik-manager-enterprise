@@ -178,9 +178,20 @@ function Install-MME {
   Set-ProcessEnvironment
   try {
     Write-BootstrapLog 'Bắt đầu khởi tạo SQLite.'
-    $setupOutput = & $Runtime (Join-Path $AppDir 'dist\scripts\setup-native.js') 2>&1
+    # Windows PowerShell 5.1 chuyển mọi nội dung stderr của native process thành
+    # ErrorRecord. Node.js hiện ghi cảnh báo SQLite experimental ra stderr dù
+    # tiến trình kết thúc thành công, vì vậy tạm cho phép thu thập cả hai luồng
+    # và chỉ quyết định thành công/thất bại bằng exit code thực tế của Node.js.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+      $ErrorActionPreference = 'Continue'
+      $setupOutput = & $Runtime (Join-Path $AppDir 'dist\scripts\setup-native.js') 2>&1
+      $setupExitCode = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousErrorActionPreference
+    }
     if ($setupOutput) { $setupOutput | Out-String | Add-Content $BootstrapLog -Encoding UTF8 }
-    if ($LASTEXITCODE -ne 0) { throw 'Khởi tạo SQLite hoặc tài khoản quản trị thất bại.' }
+    if ($setupExitCode -ne 0) { throw "Khởi tạo SQLite hoặc tài khoản quản trị thất bại (exit code: $setupExitCode)." }
     Write-BootstrapLog 'Khởi tạo SQLite đạt.'
   } catch {
     Restore-Data $backup
