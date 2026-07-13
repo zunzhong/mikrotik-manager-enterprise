@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @mme/server dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @mme/routeros-core build && pnpm --filter @mme/routeros-sdk build && pnpm -r typecheck",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
