@@ -107,6 +107,7 @@ function Restore-Data([string]$Archive) {
 }
 
 function Write-ServiceConfiguration {
+  $serverEntry = '"' + (Join-Path $AppDir 'dist\server.js') + '"'
   $environmentLines = (Read-Environment).GetEnumerator() | ForEach-Object {
     $name = [Security.SecurityElement]::Escape($_.Key)
     $value = [Security.SecurityElement]::Escape($_.Value)
@@ -118,7 +119,7 @@ function Write-ServiceConfiguration {
   <name>MikroTik Manager Enterprise</name>
   <description>Dịch vụ quản lý và giám sát MikroTik Enterprise.</description>
   <executable>$([Security.SecurityElement]::Escape($Runtime))</executable>
-  <arguments>$([Security.SecurityElement]::Escape((Join-Path $AppDir 'dist\server.js')))</arguments>
+  <arguments>$([Security.SecurityElement]::Escape($serverEntry))</arguments>
   <workingdirectory>$([Security.SecurityElement]::Escape($AppDir))</workingdirectory>
 $($environmentLines -join "`r`n")
   <logpath>$([Security.SecurityElement]::Escape($LogDir))</logpath>

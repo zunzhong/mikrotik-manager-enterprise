@@ -146,6 +146,23 @@ jobs:
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           "$($hash.Hash.ToLowerInvariant())  $($installer.Name)" | Set-Content "$($installer.FullName).sha256" -Encoding ascii
 
+      - name: Thu thập chẩn đoán Windows Service
+        if: always()
+        shell: pwsh
+        run: |
+          $service = Get-Service MME -ErrorAction SilentlyContinue
+          if ($service) {
+            $service | Format-List Name, Status, StartType | Out-File artifacts/service-status.log -Encoding utf8
+          } else {
+            'Windows Service MME không tồn tại tại thời điểm thu thập.' | Out-File artifacts/service-status.log -Encoding utf8
+          }
+          $serviceLogDir = "$env:ProgramData\MikroTik Manager Enterprise\logs"
+          if (Test-Path $serviceLogDir) {
+            Get-ChildItem $serviceLogDir -File | ForEach-Object {
+              Copy-Item $_.FullName "artifacts/service-$($_.Name)" -Force -ErrorAction Continue
+            }
+          }
+
       - name: Upload Windows installer
         if: always()
         uses: actions/upload-artifact@v4
