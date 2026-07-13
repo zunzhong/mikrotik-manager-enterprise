@@ -12,7 +12,7 @@ Docker Compose chỉ còn là tùy chọn cho bản Enterprise Server.
 
 ## Windows (nền tảng ưu tiên)
 
-Bản phát hành chính thức dự kiến có tên:
+Bản phát hành chính thức có tên:
 
 `MikroTik-Manager-Enterprise-Setup-<phiên-bản>-x64.exe`
 
@@ -20,10 +20,10 @@ Yêu cầu:
 
 - Windows 10 22H2 hoặc Windows 11 x64.
 - Đã bật phần cứng ảo hóa nếu sử dụng các tính năng cần WSL, nhưng MME Desktop không bắt buộc WSL.
-- Tối thiểu 4 GB dung lượng trống.
+- Tối thiểu 2 GB dung lượng trống.
 - Microsoft Edge WebView2 hoặc trình duyệt hiện đại.
 
-Installer phải thực hiện các việc sau:
+Installer thực hiện các việc sau:
 
 1. Kiểm tra hệ điều hành, cổng mạng và dung lượng.
 2. Tạo thư mục dữ liệu trong `C:\ProgramData\MikroTik Manager Enterprise`.
@@ -32,6 +32,9 @@ Installer phải thực hiện các việc sau:
 5. Đăng ký MME dưới dạng Windows Service.
 6. Tạo shortcut mở Dashboard, khởi động, dừng và xem trạng thái dịch vụ.
 7. Sao lưu dữ liệu trước khi nâng cấp.
+
+Hướng dẫn cài đặt, kiểm tra checksum, sao lưu và xử lý sự cố chi tiết nằm tại
+[`HUONG-DAN-CAI-DAT-WINDOWS.md`](./HUONG-DAN-CAI-DAT-WINDOWS.md).
 
 Nếu installer chưa được ký số, Windows SmartScreen có thể cảnh báo. Bản phát hành công khai nên
 được ký bằng chứng thư code-signing.

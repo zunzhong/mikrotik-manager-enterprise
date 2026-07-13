@@ -35,6 +35,8 @@ Open `http://localhost:5173`. The API is served on `http://localhost:3000`.
 The `Platform Installers` GitHub Actions workflow builds a Windows x64 setup executable and a
 Linux amd64 Debian package. Windows is the primary supported desktop installation target. See
 `project-docs/deployment/PLATFORM-INSTALLERS.md` for requirements and release instructions.
+The Windows Desktop installer bundles its Node.js runtime and uses embedded SQLite, so it does
+not require Docker, PostgreSQL, Redis, Node.js or pnpm on the target computer.
 
 ## Local development
 

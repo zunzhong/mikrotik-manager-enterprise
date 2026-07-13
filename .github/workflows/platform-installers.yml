@@ -46,7 +46,14 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.version }}' } else { '${{ github.ref_name }}'.TrimStart('v') }
+          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $version = if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            '${{ inputs.version }}'
+          } elseif ('${{ github.ref_type }}' -eq 'tag') {
+            '${{ github.ref_name }}'.TrimStart('v')
+          } else {
+            $packageVersion
+          }
           "value=$version" >> $env:GITHUB_OUTPUT
 
       - name: Cài dependencies và kiểm tra chất lượng
@@ -108,6 +115,7 @@ jobs:
 
           Copy-Item apps/web/dist artifacts/payload/web -Recurse
           Copy-Item packaging artifacts/payload/packaging -Recurse
+          Copy-Item project-docs/deployment/HUONG-DAN-CAI-DAT-WINDOWS.md artifacts/payload/HUONG-DAN-CAI-DAT-WINDOWS.md
           New-Item -ItemType Directory -Force artifacts/payload/runtime, artifacts/payload/service | Out-Null
           Copy-Item (Get-Command node).Source artifacts/payload/runtime/node.exe
           Invoke-WebRequest `
@@ -173,6 +181,9 @@ jobs:
           } while ((Get-Date) -lt $deadline)
           if ($ready.status -ne 'ready') { Write-MMEDiagnostics; throw 'API không ready sau khi cài mới.' }
           if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
+          if ((Get-CimInstance Win32_Service -Filter "Name='MME'").StartMode -ne 'Auto') { throw 'Windows Service MME không tự khởi động cùng Windows.' }
+          $installedServer = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise\dist\server.js'
+          if (-not (Test-Path $installedServer)) { throw 'Ứng dụng không được cài vào Program Files của ổ hệ thống.' }
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'SQLite database chưa được tạo.' }
 
           $upgradeInstall = Start-Process -FilePath $installer.FullName `
@@ -182,13 +193,15 @@ jobs:
           $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 10
           if ($ready.status -ne 'ready') { throw 'API không ready sau khi nâng cấp.' }
 
-          $uninstaller = Get-ChildItem 'C:\Program Files\MikroTik Manager Enterprise\unins*.exe' | Select-Object -First 1
+          $installDir = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise'
+          $uninstaller = Get-ChildItem "$installDir\unins*.exe" | Select-Object -First 1
           if (-not $uninstaller) { throw 'Không tìm thấy uninstaller.' }
           $uninstall = Start-Process -FilePath $uninstaller.FullName `
             -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$artifactDir\uninstall.log") `
             -Wait -PassThru
           if ($uninstall.ExitCode -ne 0) { throw "Gỡ cài đặt thất bại: exit code $($uninstall.ExitCode)" }
           if (Get-Service MME -ErrorAction SilentlyContinue) { throw 'Windows Service còn tồn tại sau khi gỡ.' }
+          if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'Dữ liệu người dùng bị xóa ngoài ý muốn khi gỡ cài đặt.' }
 
       - name: Tạo checksum SHA-256
         if: always()
@@ -201,6 +214,8 @@ jobs:
           }
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           "$($hash.Hash.ToLowerInvariant())  $($installer.Name)" | Set-Content "$($installer.FullName).sha256" -Encoding ascii
+          "$($hash.Hash.ToLowerInvariant())  $($installer.Name)" | Set-Content artifacts/SHA256SUMS.txt -Encoding ascii
+          Copy-Item project-docs/deployment/HUONG-DAN-CAI-DAT-WINDOWS.md artifacts/HUONG-DAN-CAI-DAT-WINDOWS.md -Force
 
       - name: Thu thập chẩn đoán Windows Service
         if: always()
@@ -232,6 +247,8 @@ jobs:
           path: |
             artifacts/MikroTik-Manager-Enterprise-Setup-*.exe
             artifacts/MikroTik-Manager-Enterprise-Setup-*.exe.sha256
+            artifacts/SHA256SUMS.txt
+            artifacts/HUONG-DAN-CAI-DAT-WINDOWS.md
             artifacts/*.log
           if-no-files-found: warn
 
