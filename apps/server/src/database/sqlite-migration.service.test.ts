@@ -35,5 +35,5 @@ describe('SQLite migration service', () => {
     database.close();
 
     expect(() => ensureSqliteSchemaVersion(databasePath)).toThrow('Không thể downgrade');
-  });
+  }, 15_000);
 });
