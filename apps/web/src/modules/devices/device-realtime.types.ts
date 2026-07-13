@@ -23,11 +23,14 @@ export interface HealthReport {
 
 export interface DeviceRealtimeSnapshot {
   deviceId: string;
+  deviceName?: string;
   collectedAt: string;
   online: boolean;
   latencyMs: number;
   error?: string;
   resource?: Record<string, unknown>;
+  identity?: Record<string, unknown>;
+  routerboard?: Record<string, unknown>;
   health?: Record<string, unknown>[];
   interfaces?: Record<string, unknown>[];
   healthReport?: HealthReport;

@@ -36,11 +36,60 @@
 .settings-panel {
   margin-top: 18px;
 }
+.account-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.account-profile-grid label,
+.account-meta {
+  display: grid;
+  gap: 7px;
+}
+.account-profile-grid label > span,
+.account-meta > span {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.account-profile-grid input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.35);
+  color: inherit;
+  padding: 11px 12px;
+}
+[data-theme='light'] .account-profile-grid input {
+  background: #f8fafc;
+}
+.account-profile-grid small,
+.account-meta small {
+  color: #94a3b8;
+}
+.account-state {
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  font-size: 12px;
+  font-weight: 700;
+}
+.account-state.inactive {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+}
 @media (max-width: 1000px) {
   .settings-grid {
     grid-template-columns: 1fr;
   }
   .settings-toolbar {
     flex-direction: column;
+  }
+  .account-profile-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -4,9 +4,14 @@ import { authApi } from '../auth.api';
 export function PasswordSecurityPanel() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
 
   async function changePassword() {
+    if (newPassword !== confirmPassword) {
+      setMessage('Mật khẩu xác nhận không khớp.');
+      return;
+    }
     setMessage('Changing password...');
 
     try {
@@ -14,6 +19,7 @@ export function PasswordSecurityPanel() {
       setMessage('Password changed. All sessions were revoked.');
       setCurrentPassword('');
       setNewPassword('');
+      setConfirmPassword('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Password change failed');
     }
@@ -43,9 +49,21 @@ export function PasswordSecurityPanel() {
           onChange={(event) => setNewPassword(event.target.value)}
         />
 
+        <label>Confirm new password</label>
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          autoComplete="new-password"
+        />
+
         <small>Minimum 8 characters, uppercase, lowercase, number and special character.</small>
 
-        <button className="small-button" onClick={changePassword}>
+        <button
+          className="small-button"
+          onClick={changePassword}
+          disabled={!currentPassword || !newPassword || !confirmPassword}
+        >
           Change Password
         </button>
       </div>

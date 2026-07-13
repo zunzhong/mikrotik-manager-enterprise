@@ -53,6 +53,19 @@ export class InventoryRepository {
     });
   }
 
+  public updateSnapshot(
+    snapshotId: string,
+    input: { status: string; summary: Record<string, unknown> },
+  ) {
+    return prisma.inventorySnapshot.update({
+      where: { id: snapshotId },
+      data: {
+        status: input.status,
+        summary: input.summary as Prisma.InputJsonValue,
+      },
+    });
+  }
+
   public async listSnapshots(deviceId: string) {
     return prisma.inventorySnapshot.findMany({
       where: { deviceId },

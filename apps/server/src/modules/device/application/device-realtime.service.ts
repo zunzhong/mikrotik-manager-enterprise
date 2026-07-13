@@ -13,11 +13,14 @@ import { deviceRepository } from '../infrastructure/device.repository.js';
 
 export interface DeviceRealtimeSnapshot {
   deviceId: string;
+  deviceName?: string;
   collectedAt: string;
   online: boolean;
   latencyMs: number;
   error?: string;
   resource?: object;
+  identity?: object;
+  routerboard?: object;
   health?: object[];
   interfaces?: object[];
   healthReport?: HealthReport;
@@ -146,24 +149,34 @@ export class DeviceRealtimeService {
     try {
       await client.connect();
 
-      const [resource, health, interfaces] = await Promise.all([
-        client.system.resource().then((data) => ({ ...data }) as RouterOsResourceLike),
-        safePrint<RouterOsHealthLike>(client, '/system/health/print'),
-        safePrint(client, '/interface/print'),
-      ]);
+      // Do not overlap commands on one RouterOS sentence stream.
+      const identity = (await safePrint(client, '/system/identity/print'))[0] ?? {};
+      const resource = { ...(await client.system.resource()) } as RouterOsResourceLike;
+      const routerboard = (await safePrint(client, '/system/routerboard/print'))[0] ?? {};
+      const health = await safePrint<RouterOsHealthLike>(client, '/system/health/print');
+      const interfaces = await safePrint(client, '/interface/print');
 
       const healthReport = calculateHealthScore(resource, health);
 
       const snapshot: DeviceRealtimeSnapshot = {
         deviceId,
+        deviceName: device.name,
         collectedAt: new Date().toISOString(),
         online: true,
         latencyMs: Date.now() - startedAt,
         resource,
+        identity,
+        routerboard,
         health,
         interfaces,
         healthReport,
       };
+
+      await deviceRepository.update(deviceId, {
+        status: healthReport.status === 'healthy' ? 'online' : 'degraded',
+        lastSeenAt: new Date(),
+        lastError: null,
+      });
 
       this.publishRealtimeEvents(device.id, device.name, snapshot);
 
@@ -171,11 +184,17 @@ export class DeviceRealtimeService {
     } catch (error) {
       const snapshot: DeviceRealtimeSnapshot = {
         deviceId,
+        deviceName: device.name,
         collectedAt: new Date().toISOString(),
         online: false,
         latencyMs: Date.now() - startedAt,
         error: error instanceof Error ? error.message : 'Realtime refresh failed',
       };
+
+      await deviceRepository.update(deviceId, {
+        status: 'offline',
+        lastError: snapshot.error ?? 'Realtime refresh failed',
+      });
 
       this.publishRealtimeEvents(device.id, device.name, snapshot);
 

@@ -160,11 +160,26 @@ function healthName(row: RouterOsHealthLike): string {
   return String(row.name ?? row.type ?? '').toLowerCase();
 }
 
-function evaluateTemperature(health: RouterOsHealthLike[], issues: HealthIssue[]): void {
+function sensorValues(
+  health: RouterOsHealthLike[],
+  matches: (name: string) => boolean,
+): Array<{ name: string; value: unknown }> {
+  const values: Array<{ name: string; value: unknown }> = [];
   for (const row of health) {
-    if (!healthName(row).includes('temp')) continue;
+    const named = healthName(row);
+    if (named && matches(named)) values.push({ name: named, value: row.value });
+    for (const [key, value] of Object.entries(row)) {
+      if (key !== 'name' && key !== 'type' && key !== 'value' && matches(key.toLowerCase())) {
+        values.push({ name: key, value });
+      }
+    }
+  }
+  return values;
+}
 
-    const temperature = toNumber(row.value);
+function evaluateTemperature(health: RouterOsHealthLike[], issues: HealthIssue[]): void {
+  for (const sensor of sensorValues(health, (name) => name.includes('temp'))) {
+    const temperature = toNumber(sensor.value);
     if (temperature === undefined) continue;
 
     if (temperature >= TEMPERATURE_CRITICAL_CELSIUS) {
@@ -197,10 +212,8 @@ function evaluateTemperature(health: RouterOsHealthLike[], issues: HealthIssue[]
 }
 
 function evaluateVoltage(health: RouterOsHealthLike[], issues: HealthIssue[]): void {
-  for (const row of health) {
-    if (!healthName(row).includes('voltage')) continue;
-
-    const voltage = toNumber(row.value);
+  for (const sensor of sensorValues(health, (name) => name.includes('voltage'))) {
+    const voltage = toNumber(sensor.value);
     if (voltage === undefined) continue;
 
     if (voltage <= VOLTAGE_LOW_WARNING || voltage >= VOLTAGE_HIGH_WARNING) {

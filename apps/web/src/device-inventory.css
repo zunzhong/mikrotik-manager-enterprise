@@ -50,6 +50,28 @@
 .tree-category {
   margin-bottom: 16px;
 }
+.tree-category summary {
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  list-style: none;
+}
+.tree-category summary::-webkit-details-marker {
+  display: none;
+}
+.tree-category summary span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.tree-category__arrow {
+  transition: transform 0.18s ease;
+  color: #67e8f9;
+  font-size: 20px;
+}
+.tree-category[open] .tree-category__arrow {
+  transform: rotate(90deg);
+}
 .tree-category strong {
   text-transform: capitalize;
   display: block;
@@ -117,6 +139,36 @@
   background: rgba(2, 6, 23, 0.45);
   border-radius: 10px;
   padding: 10px;
+}
+.inventory-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.inventory-field-grid div {
+  border-radius: 9px;
+  background: rgba(59, 130, 246, 0.08);
+  padding: 8px;
+  min-width: 0;
+}
+.inventory-field-grid dt {
+  color: #94a3b8;
+  font-size: 11px;
+}
+.inventory-field-grid dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.raw-object summary {
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.raw-object code {
+  margin-top: 7px;
+  white-space: pre-wrap;
 }
 [data-theme='light'] .object-row code {
   color: #0369a1;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
 import type { InventorySnapshotSummary } from './device-inventory.types';
-import { formatMaybe, snapshotSummary } from './device-dashboard.utils';
+import { formatBytes, formatMaybe, snapshotSummary } from './device-dashboard.utils';
 
 export interface DeviceDashboardProps {
   deviceId: string;
@@ -45,6 +45,7 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
   }, [deviceId]);
 
   const info = useMemo(() => snapshotSummary(snapshot), [snapshot]);
+  const systemGroups = useMemo(() => buildSystemGroups(snapshot?.summary), [snapshot]);
 
   if (loading) {
     return (
@@ -83,9 +84,44 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
         <MetricCard label="Board" value={formatMaybe(info.board)} />
         <MetricCard label="Serial" value={formatMaybe(info.serial)} />
         <MetricCard label="Uptime" value={formatMaybe(info.uptime)} />
-        <MetricCard label="CPU Load" value={formatMaybe(info.cpuLoad)} />
-        <MetricCard label="Free Memory" value={formatMaybe(info.freeMemory)} />
-        <MetricCard label="Free Disk" value={formatMaybe(info.freeDisk)} />
+        <MetricCard label="CPU Load" value={info.cpuLoad ? `${info.cpuLoad}%` : 'N/A'} />
+        <MetricCard
+          label="Free Memory"
+          value={`${formatBytes(info.freeMemory)} / ${formatBytes(info.totalMemory)}`}
+        />
+        <MetricCard
+          label="Free Disk"
+          value={`${formatBytes(info.freeDisk)} / ${formatBytes(info.totalDisk)}`}
+        />
+        <MetricCard label="CPU" value={formatMaybe(info.cpu)} />
+        <MetricCard label="CPU Cores" value={formatMaybe(info.cpuCount)} />
+        <MetricCard
+          label="CPU Frequency"
+          value={info.cpuFrequency ? `${info.cpuFrequency} MHz` : 'N/A'}
+        />
+        <MetricCard label="Platform" value={formatMaybe(info.platform)} />
+        <MetricCard label="Build Time" value={formatMaybe(info.buildTime)} />
+        <MetricCard label="Current Firmware" value={formatMaybe(info.currentFirmware)} />
+        <MetricCard label="Upgrade Firmware" value={formatMaybe(info.upgradeFirmware)} />
+      </div>
+
+      <div className="device-dashboard__card">
+        <h3>System Details</h3>
+        <div className="system-detail-groups">
+          {systemGroups.map((group) => (
+            <section key={group.name}>
+              <h4>{group.name}</h4>
+              <dl>
+                {group.values.map(([key, value]) => (
+                  <div key={key}>
+                    <dt>{humanLabel(key)}</dt>
+                    <dd>{String(value ?? '—')}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ))}
+        </div>
       </div>
 
       <div className="device-dashboard__card">
@@ -119,6 +155,44 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
       </div>
     </section>
   );
+}
+
+function buildSystemGroups(
+  summary: unknown,
+): Array<{ name: string; values: Array<[string, unknown]> }> {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return [];
+  const source = summary as Record<string, unknown>;
+  const groups: Array<{ name: string; values: Array<[string, unknown]> }> = [];
+  for (const key of ['identity', 'resource', 'routerboard']) {
+    const value = source[key];
+    if (value && typeof value === 'object' && !Array.isArray(value))
+      groups.push({
+        name: humanLabel(key),
+        values: Object.entries(value as Record<string, unknown>),
+      });
+  }
+  const health = source.health;
+  if (Array.isArray(health)) {
+    groups.push({
+      name: 'Health Sensors',
+      values: health.flatMap((row, index) =>
+        row && typeof row === 'object'
+          ? Object.entries(row as Record<string, unknown>).map(
+              ([key, value]) => [`${index + 1}.${key}`, value] as [string, unknown],
+            )
+          : [],
+      ),
+    });
+  }
+  return groups;
+}
+
+function humanLabel(value: string): string {
+  return value
+    .replace(/^\d+\./, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

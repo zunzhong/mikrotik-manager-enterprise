@@ -93,12 +93,17 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
         <aside className="inventory-tree">
           <h3>Inventory Tree</h3>
 
-          {(tree.data?.categories ?? []).map((category) => (
-            <div className="tree-category" key={category.category}>
-              <strong>{category.category}</strong>
-              <small>
-                {category.sectionCount} sections • {category.itemCount} items
-              </small>
+          {(tree.data?.categories ?? []).map((category, index) => (
+            <details className="tree-category" key={category.category} open={index < 2}>
+              <summary>
+                <span className="tree-category__arrow">›</span>
+                <span>
+                  <strong>{category.category}</strong>
+                  <small>
+                    {category.sectionCount} sections · {category.itemCount} items
+                  </small>
+                </span>
+              </summary>
 
               <div className="tree-section-list">
                 {category.sections.map((item) => (
@@ -113,7 +118,7 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
                   </button>
                 ))}
               </div>
-            </div>
+            </details>
           ))}
 
           {!tree.loading && (tree.data?.categories.length ?? 0) === 0 ? (
@@ -144,7 +149,14 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
                       <strong>{item.name ?? item.externalId ?? item.id}</strong>
                       <small>{item.externalId}</small>
                     </div>
-                    <code>{JSON.stringify(item.raw)}</code>
+                    <InventoryObjectFields
+                      raw={item.raw}
+                      bridgePort={section.data?.path === '/interface/bridge/port/print'}
+                    />
+                    <details className="raw-object">
+                      <summary>Dữ liệu RouterOS gốc</summary>
+                      <code>{JSON.stringify(item.raw, null, 2)}</code>
+                    </details>
                   </div>
                 ))}
               </div>
@@ -153,5 +165,30 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
         </section>
       </div>
     </div>
+  );
+}
+
+function InventoryObjectFields({
+  raw,
+  bridgePort,
+}: {
+  raw: Record<string, unknown>;
+  bridgePort: boolean;
+}) {
+  const entries = Object.entries(raw).filter(([key]) => key !== '.id');
+  const label = (key: string) => {
+    if (bridgePort && key === 'interface') return 'Interface';
+    if (bridgePort && key === 'bridge') return 'Bridge';
+    return key.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  };
+  return (
+    <dl className="inventory-field-grid">
+      {entries.map(([key, value]) => (
+        <div key={key}>
+          <dt>{label(key)}</dt>
+          <dd>{String(value ?? '—')}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

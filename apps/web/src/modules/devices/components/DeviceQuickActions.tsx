@@ -1,63 +1,94 @@
 import { useState } from 'react';
-import { deviceApi, type Device } from '../device.api';
+import { deviceApi, type Device, type DeviceActionResult } from '../device.api';
+import { backupApi } from '../../backup/backup.api';
 
 export interface DeviceQuickActionsProps {
   device: Device;
   onInventoryCollected?: () => void;
 }
 
+function resultText(result: DeviceActionResult): string {
+  const finished = new Date(result.finishedAt).toLocaleString();
+  return `${result.success ? 'Hoàn tất' : 'Thất bại'} lúc ${finished} (${result.durationMs} ms) — ${result.message}`;
+}
+
 export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuickActionsProps) {
-  const [message, setMessage] = useState<string>('');
-  const [busyAction, setBusyAction] = useState<string>('');
+  const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState<boolean | null>(null);
+  const [busyAction, setBusyAction] = useState('');
 
-  async function runAction(
-    action: string,
-    fn: () => Promise<{ message: string; success?: boolean }>,
-  ) {
+  async function runAction(action: string, fn: () => Promise<DeviceActionResult>) {
     setBusyAction(action);
-    setMessage(`${action} running...`);
-
+    setSuccess(null);
+    setMessage(`${action}: đang thực hiện...`);
     try {
       const result = await fn();
-      setMessage(result.message);
+      setSuccess(result.success);
+      setMessage(resultText(result));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : `${action} failed`);
+      setSuccess(false);
+      setMessage(error instanceof Error ? error.message : `${action} thất bại`);
     } finally {
       setBusyAction('');
     }
   }
 
   async function collectInventory() {
-    await runAction('Inventory', async () => {
-      await deviceApi.collectInventory(device.id);
+    setBusyAction('Inventory');
+    setMessage('Đang đồng bộ Inventory...');
+    try {
+      const result = await deviceApi.collectInventory(device.id);
       onInventoryCollected?.();
-      return { message: 'Inventory collection completed.', success: true };
-    });
+      setSuccess(true);
+      setMessage(
+        `Đã đồng bộ Inventory lúc ${new Date().toLocaleString()} — snapshot ${result.snapshotId}.`,
+      );
+    } catch (error) {
+      setSuccess(false);
+      setMessage(error instanceof Error ? error.message : 'Đồng bộ Inventory thất bại.');
+    } finally {
+      setBusyAction('');
+    }
   }
 
-  async function ping() {
-    await runAction('Ping', () =>
-      deviceApi.pingDevice(device.id, { address: device.host, count: 4 }),
+  function pingFromDevice() {
+    const address = window.prompt('Nhập IP hoặc DDNS mà router sẽ ping tới:', '8.8.8.8')?.trim();
+    if (!address) return;
+    void runAction('Device Ping To', () =>
+      deviceApi.pingFromDevice(device.id, { address, count: 4 }),
     );
   }
 
-  async function backup() {
-    await runAction('Backup', () => deviceApi.createBackup(device.id));
+  function createBackup() {
+    if (!window.confirm(`Tạo file backup mới trên ${device.name}?`)) return;
+    void runAction('Create Backup', async () => {
+      const startedAt = new Date().toISOString();
+      const backup = await backupApi.create(device.id, 'binary');
+      const finishedAt = backup.completedAt ?? new Date().toISOString();
+      return {
+        action: 'create-backup',
+        success: backup.status === 'completed',
+        startedAt,
+        finishedAt,
+        durationMs: new Date(finishedAt).getTime() - new Date(startedAt).getTime(),
+        message:
+          backup.status === 'completed'
+            ? `Đã tạo ${backup.fileName}`
+            : (backup.error ?? `Trạng thái: ${backup.status}`),
+        data: backup,
+      };
+    });
   }
 
-  async function supout() {
-    await runAction('Supout', () => deviceApi.generateSupout(device.id));
+  function createSupout() {
+    if (!window.confirm(`Tạo file supout trên ${device.name}? Quá trình có thể mất một lúc.`))
+      return;
+    void runAction('Create Supout', () => deviceApi.generateSupout(device.id, { confirm: true }));
   }
 
-  async function reboot() {
-    const confirmed = window.confirm(`Reboot ${device.name}? This will interrupt connectivity.`);
-    if (!confirmed) return;
-
-    await runAction('Reboot', () => deviceApi.rebootDevice(device.id, true));
-  }
-
-  function comingSoon(action: string) {
-    setMessage(`${action} will be connected in an upcoming sprint.`);
+  function reboot() {
+    if (!window.confirm(`Khởi động lại ${device.name}? Kết nối sẽ bị gián đoạn.`)) return;
+    void runAction('Reboot', () => deviceApi.rebootDevice(device.id, true));
   }
 
   return (
@@ -65,41 +96,47 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
       <div className="device-quick-actions__header">
         <div>
           <h3>Quick Actions</h3>
-          <p>Run common management operations for this router.</p>
+          <p>Thao tác trực tiếp trên {device.name}; mọi kết quả đều kèm thời gian hoàn tất.</p>
         </div>
       </div>
-
       <div className="device-quick-actions__grid">
         <button
           type="button"
           onClick={() => void collectInventory()}
-          disabled={busyAction === 'Inventory'}
+          disabled={Boolean(busyAction)}
         >
-          {busyAction === 'Inventory' ? 'Collecting...' : 'Collect Inventory'}
+          {busyAction === 'Inventory' ? 'Đang thu thập...' : 'Collect Inventory'}
         </button>
-
-        <button type="button" onClick={() => void ping()} disabled={busyAction === 'Ping'}>
-          {busyAction === 'Ping' ? 'Pinging...' : 'Ping'}
+        <button
+          type="button"
+          onClick={() => void runAction('Ping to Device', () => deviceApi.pingToDevice(device.id))}
+          disabled={Boolean(busyAction)}
+        >
+          {busyAction === 'Ping to Device' ? 'Đang ping...' : 'Ping to Device'}
         </button>
-
-        <button type="button" onClick={() => void backup()} disabled={busyAction === 'Backup'}>
-          {busyAction === 'Backup' ? 'Creating...' : 'Backup'}
+        <button type="button" onClick={pingFromDevice} disabled={Boolean(busyAction)}>
+          {busyAction === 'Device Ping To' ? 'Đang ping...' : 'Device Ping To'}
         </button>
-
-        <button type="button" onClick={() => void supout()} disabled={busyAction === 'Supout'}>
-          {busyAction === 'Supout' ? 'Generating...' : 'Supout'}
+        <button type="button" onClick={createBackup} disabled={Boolean(busyAction)}>
+          {busyAction === 'Create Backup' ? 'Đang tạo...' : 'Create Backup'}
         </button>
-
-        <button type="button" onClick={() => comingSoon('Safe Mode')}>
-          Safe Mode
+        <button type="button" onClick={createSupout} disabled={Boolean(busyAction)}>
+          {busyAction === 'Create Supout' ? 'Đang tạo...' : 'Create Supout'}
         </button>
-
-        <button type="button" onClick={() => void reboot()} disabled={busyAction === 'Reboot'}>
-          {busyAction === 'Reboot' ? 'Sending...' : 'Reboot'}
+        <button
+          className="danger-action"
+          type="button"
+          onClick={reboot}
+          disabled={Boolean(busyAction)}
+        >
+          {busyAction === 'Reboot' ? 'Đang gửi lệnh...' : 'Reboot'}
         </button>
       </div>
-
-      {message ? <div className="device-quick-actions__message">{message}</div> : null}
+      {message ? (
+        <div className="device-quick-actions__message" data-success={success}>
+          {message}
+        </div>
+      ) : null}
     </section>
   );
 }

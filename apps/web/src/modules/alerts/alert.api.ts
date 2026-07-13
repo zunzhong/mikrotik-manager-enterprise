@@ -22,6 +22,7 @@ export interface AlertRecord {
   createdAt: string;
   acknowledgedAt?: string;
   resolvedAt?: string;
+  device?: { id: string; name: string; host: string };
 }
 
 export interface AlertEvaluationResult {
@@ -41,6 +42,7 @@ export const alertApi = {
   rules: () => apiGet<AlertRule[]>('/api/v1/alerts/rules'),
   list: () => apiGet<AlertRecord[]>('/api/v1/alerts'),
   acknowledge: (alertId: string) => apiPatch<AlertRecord>(`/api/v1/alerts/${alertId}/ack`, {}),
+  resolve: (alertId: string) => apiPatch<AlertRecord>(`/api/v1/alerts/${alertId}/resolve`, {}),
   evaluateAll: () => apiPost<AlertEvaluationResult>('/api/v1/alerts/evaluate', {}),
   evaluateDevice: (deviceId: string) =>
     apiPost<AlertEvaluationResult>(`/api/v1/devices/${deviceId}/alerts/evaluate`, {}),

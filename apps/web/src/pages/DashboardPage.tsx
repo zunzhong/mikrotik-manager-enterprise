@@ -134,6 +134,11 @@ export function DashboardPage() {
         <SummaryCard label="Online" value={data?.devices.online ?? 0} hint="currently reachable" />
         <SummaryCard label="Offline" value={data?.devices.offline ?? 0} hint="requires attention" />
         <SummaryCard
+          label="Warning"
+          value={data?.devices.degraded ?? 0}
+          hint="health threshold exceeded"
+        />
+        <SummaryCard
           label="Open Alerts"
           value={data?.alerts.open ?? 0}
           hint={`${data?.alerts.critical ?? 0} critical`}

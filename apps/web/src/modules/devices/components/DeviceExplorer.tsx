@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { DeviceDashboard } from '../DeviceDashboard';
 import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
@@ -9,6 +10,9 @@ import { deviceApi, type Device } from '../device.api';
 import { DeviceDetailHeader } from './DeviceDetailHeader';
 import { DeviceInventoryPanel } from './DeviceInventoryPanel';
 import { DeviceQuickActions } from './DeviceQuickActions';
+import { DeviceTerminal } from './DeviceTerminal';
+import { DeviceAlertsPanel } from './DeviceAlertsPanel';
+import { DeviceBackupsPanel } from './DeviceBackupsPanel';
 import { StatusBadge } from './StatusBadge';
 
 const tabs = [
@@ -25,8 +29,17 @@ const tabs = [
 export function DeviceExplorer() {
   const loadDevices = useCallback(() => deviceApi.list(), []);
   const { data, loading, error, refresh } = useAsyncData(loadDevices);
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    () => searchParams.get('device') ?? undefined,
+  );
   const [activeTab, setActiveTab] = useState('Overview');
+
+  useEffect(() => {
+    const requested = searchParams.get('device') ?? undefined;
+    setSelectedId(requested);
+    setActiveTab('Overview');
+  }, [searchParams]);
 
   const devices = data ?? [];
   const selected = useMemo<Device | undefined>(() => {
@@ -35,6 +48,7 @@ export function DeviceExplorer() {
 
   function selectDevice(deviceId: string) {
     setSelectedId(deviceId);
+    setSearchParams({ device: deviceId }, { replace: true });
     setActiveTab('Overview');
   }
 
@@ -74,6 +88,9 @@ export function DeviceExplorer() {
                 {device.host}:{device.port}
               </span>
               <StatusBadge status={device.status} />
+              <span className="device-list-item__arrow" aria-hidden="true">
+                ›
+              </span>
             </button>
           ))}
         </div>
@@ -125,12 +142,7 @@ export function DeviceExplorer() {
                   <DeviceInterfaceExplorer deviceId={selected.id} />
                 ) : null}
 
-                {activeTab === 'Backups' ? (
-                  <ComingSoonPanel
-                    title="Backup Center"
-                    description="Manual backup, schedule backup and restore actions will be connected in the Backup epic."
-                  />
-                ) : null}
+                {activeTab === 'Backups' ? <DeviceBackupsPanel deviceId={selected.id} /> : null}
 
                 {activeTab === 'Compliance' ? (
                   <ComingSoonPanel
@@ -139,18 +151,10 @@ export function DeviceExplorer() {
                   />
                 ) : null}
 
-                {activeTab === 'Alerts' ? (
-                  <ComingSoonPanel
-                    title="Alerts"
-                    description="Device alert timeline and notification rules will be connected after realtime monitoring."
-                  />
-                ) : null}
+                {activeTab === 'Alerts' ? <DeviceAlertsPanel deviceId={selected.id} /> : null}
 
                 {activeTab === 'Terminal' ? (
-                  <ComingSoonPanel
-                    title="Terminal"
-                    description="Browser RouterOS terminal with audit log will be connected in a dedicated Terminal sprint."
-                  />
+                  <DeviceTerminal deviceId={selected.id} deviceName={selected.name} />
                 ) : null}
               </main>
             </div>

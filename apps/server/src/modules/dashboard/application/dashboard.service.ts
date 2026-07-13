@@ -6,6 +6,7 @@ export class DashboardService {
       totalDevices,
       onlineDevices,
       offlineDevices,
+      degradedDevices,
       openAlerts,
       criticalAlerts,
       latestCompliance,
@@ -14,6 +15,7 @@ export class DashboardService {
       prisma.device.count(),
       prisma.device.count({ where: { status: 'online' } }),
       prisma.device.count({ where: { status: 'offline' } }),
+      prisma.device.count({ where: { status: 'degraded' } }),
       prisma.alert.count({ where: { status: 'open' } }),
       prisma.alert.count({ where: { status: 'open', severity: 'critical' } }),
       prisma.complianceReport.findMany({
@@ -37,7 +39,8 @@ export class DashboardService {
         total: totalDevices,
         online: onlineDevices,
         offline: offlineDevices,
-        unknown: Math.max(totalDevices - onlineDevices - offlineDevices, 0),
+        degraded: degradedDevices,
+        unknown: Math.max(totalDevices - onlineDevices - offlineDevices - degradedDevices, 0),
       },
       alerts: {
         open: openAlerts,

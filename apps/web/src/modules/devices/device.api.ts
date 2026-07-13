@@ -3,6 +3,7 @@ import type {
   DeviceActionResult,
   DeviceFileActionInput,
   DevicePingInput,
+  DeviceTerminalInput,
 } from './device-action.types';
 import type {
   InventoryCollectResult,
@@ -73,8 +74,11 @@ export const deviceApi = {
 
   realtimeStreamUrl: (id: string) => buildApiUrl(`/api/v1/realtime/devices/${id}/stream`),
 
-  pingDevice: (id: string, input: DevicePingInput = {}) =>
-    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping`, input),
+  pingToDevice: (id: string, count = 4) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping-to-device`, { count }),
+
+  pingFromDevice: (id: string, input: DevicePingInput) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/ping-from-device`, input),
 
   createBackup: (id: string, input: DeviceFileActionInput = {}) =>
     apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/backup`, input),
@@ -84,6 +88,9 @@ export const deviceApi = {
 
   rebootDevice: (id: string, confirm: boolean) =>
     apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/reboot`, { confirm }),
+
+  terminal: (id: string, input: DeviceTerminalInput) =>
+    apiPost<DeviceActionResult>(`/api/v1/devices/${id}/actions/terminal`, input),
 
   probe: (input: RouterOsProbeInput) =>
     apiPost<RouterOsProbeResult>('/api/v1/routeros/probe', normalizeProbeInput(input)),
@@ -130,6 +137,7 @@ export type {
   DeviceActionResult,
   DeviceFileActionInput,
   DevicePingInput,
+  DeviceTerminalInput,
 } from './device-action.types';
 
 export type {

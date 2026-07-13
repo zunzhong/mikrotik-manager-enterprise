@@ -1,4 +1,5 @@
 import { PasswordSecurityPanel } from '../modules/auth/components/PasswordSecurityPanel';
+import { AccountProfilePanel } from '../modules/auth/components/AccountProfilePanel';
 import { SecuritySessionsPanel } from '../modules/auth/components/SecuritySessionsPanel';
 import { SystemStatusPanel } from '../modules/system/components/SystemStatusPanel';
 
@@ -10,6 +11,7 @@ export function SettingsPage() {
         <p>Configure platform, users, integrations and system preferences.</p>
       </div>
 
+      <AccountProfilePanel />
       <SystemStatusPanel />
       <SecuritySessionsPanel />
       <PasswordSecurityPanel />

@@ -55,3 +55,37 @@
   border-bottom: 1px solid #eaecf0;
   padding: 8px;
 }
+.system-detail-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.system-detail-groups section {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  padding: 12px;
+}
+.system-detail-groups h4 {
+  margin: 0 0 10px;
+}
+.system-detail-groups dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+.system-detail-groups dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  padding-bottom: 6px;
+}
+.system-detail-groups dt {
+  color: #94a3b8;
+}
+.system-detail-groups dd {
+  margin: 0;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}

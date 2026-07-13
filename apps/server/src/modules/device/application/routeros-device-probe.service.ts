@@ -31,11 +31,22 @@ export class RouterOsDeviceProbeService {
     try {
       await routerOsSdkAdapter.connect(client);
 
-      const identityResult = await Promise.allSettled([
-        routerOsSdkAdapter.run(client, '/system/identity/print'),
-        routerOsSdkAdapter.run(client, '/system/resource/print'),
-        routerOsSdkAdapter.run(client, '/system/routerboard/print'),
-      ]);
+      // RouterOS API uses a single ordered sentence stream. Keep commands sequential.
+      const identityResult = [];
+      for (const path of [
+        '/system/identity/print',
+        '/system/resource/print',
+        '/system/routerboard/print',
+      ]) {
+        try {
+          identityResult.push({
+            status: 'fulfilled' as const,
+            value: await routerOsSdkAdapter.run(client, path),
+          });
+        } catch (reason) {
+          identityResult.push({ status: 'rejected' as const, reason });
+        }
+      }
 
       const identity =
         identityResult[0].status === 'fulfilled' ? firstRecord(identityResult[0].value) : {};

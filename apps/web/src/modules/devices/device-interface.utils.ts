@@ -48,28 +48,33 @@ export function interfaceSectionCount(
 }
 
 export function mapInterfaceRows(sections: InventorySectionDetail[]): InterfaceExplorerRow[] {
-  const rows: InterfaceExplorerRow[] = [];
+  const rows = new Map<string, InterfaceExplorerRow>();
 
-  for (const section of sections.filter(isInterfaceSection)) {
+  const interfaceSections = sections.filter((section) =>
+    ['/interface/print', '/interface/ethernet/print'].includes(section.path),
+  );
+  for (const section of interfaceSections) {
     for (const item of section.items ?? []) {
       const raw = asRecord(item.raw);
+      const name = text(raw.name) ?? text(raw.interface) ?? item.name ?? 'unknown';
+      const existing = rows.get(name);
 
-      rows.push({
-        id: item.id ?? recordId(raw, `${section.id}-${rows.length}`),
-        name: text(raw.name) ?? item.name ?? 'unknown',
-        type: text(raw.type) ?? section.name,
-        running: text(raw.running),
-        disabled: text(raw.disabled),
-        mtu: text(raw.mtu),
-        actualMtu: text(raw.actualMtu),
-        macAddress: text(raw.macAddress),
-        comment: text(raw.comment),
-        raw,
+      rows.set(name, {
+        id: existing?.id ?? item.id ?? recordId(raw, `${section.id}-${rows.size}`),
+        name,
+        type: text(raw.type) ?? existing?.type ?? section.name,
+        running: text(raw.running) ?? existing?.running,
+        disabled: text(raw.disabled) ?? existing?.disabled,
+        mtu: text(raw.mtu) ?? existing?.mtu,
+        actualMtu: text(raw.actualMtu) ?? text(raw['actual-mtu']) ?? existing?.actualMtu,
+        macAddress: text(raw.macAddress) ?? text(raw['mac-address']) ?? existing?.macAddress,
+        comment: text(raw.comment) ?? existing?.comment,
+        raw: { ...(existing?.raw ?? {}), ...raw },
       });
     }
   }
 
-  return rows;
+  return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function interfaceStatus(

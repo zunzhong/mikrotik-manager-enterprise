@@ -14,6 +14,24 @@ export const defaultInventoryCollectors = [
     path: '/system/resource/print',
   }),
   new RouterOsPrintCollector({
+    key: 'system.routerboard',
+    category: 'system',
+    label: 'RouterBOARD',
+    path: '/system/routerboard/print',
+  }),
+  new RouterOsPrintCollector({
+    key: 'system.health',
+    category: 'system',
+    label: 'Health Sensors',
+    path: '/system/health/print',
+  }),
+  new RouterOsPrintCollector({
+    key: 'system.note',
+    category: 'system',
+    label: 'System Note',
+    path: '/system/note/print',
+  }),
+  new RouterOsPrintCollector({
     key: 'system.license',
     category: 'system',
     label: 'License',
@@ -55,6 +73,12 @@ export const defaultInventoryCollectors = [
     category: 'interfaces',
     label: 'Interfaces',
     path: '/interface/print',
+  }),
+  new RouterOsPrintCollector({
+    key: 'interfaces.ethernet',
+    category: 'interfaces',
+    label: 'Ethernet Details',
+    path: '/interface/ethernet/print',
   }),
   new RouterOsPrintCollector({
     key: 'interfaces.bridge',

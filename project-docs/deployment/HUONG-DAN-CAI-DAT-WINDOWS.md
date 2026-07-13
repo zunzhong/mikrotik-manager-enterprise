@@ -61,7 +61,7 @@ Kết quả mong đợi: Service có trạng thái `Running`, API trả về `st
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.1-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.2-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -127,3 +127,24 @@ Chỉ chọn **API-SSL (TLS)** khi kết nối tới dịch vụ `api-ssl`; dị
 Nút **Add Device** chỉ được bật cho đúng bộ thông tin vừa test thành công. Mật khẩu RouterOS được mã hóa
 bằng AES-256-GCM trước khi ghi vào database. API-SSL chấp nhận chứng thư tự ký của MikroTik trong mạng
 quản trị; nên dùng chứng thư tin cậy khi triển khai qua mạng không tin cậy.
+
+## 10. Sử dụng giao diện quản trị 4.1.2
+
+- **Settings → Thông tin tài khoản** hiển thị tên, email đăng nhập, vai trò và trạng thái mật khẩu.
+  Mật khẩu hiện tại không thể hiển thị thành chữ vì MME chỉ lưu bản băm bảo mật; dùng mục
+  **Password Security** để thay đổi.
+- Dashboard tự đồng bộ trạng thái RouterOS mỗi 30 giây. Thiết bị vượt ngưỡng CPU, RAM, ổ đĩa hoặc
+  nhiệt độ được đánh dấu `Warning/Degraded`; sự kiện ghi cả giá trị thực tế và ngưỡng cảnh báo.
+- Tại **Devices**, chọn thiết bị rồi dùng thanh menu ngang cố định để mở Overview, Realtime,
+  Interfaces, Inventory, Backups, Alerts hoặc Terminal.
+- **Ping to Device** chạy ping từ máy Windows cài MME tới địa chỉ quản lý của router.
+- **Device Ping To** yêu cầu một IP/DDNS và chạy `/ping` từ chính MikroTik tới đích đó.
+- **Create Backup**, **Create Supout** và **Reboot** đều yêu cầu xác nhận; kết quả hiển thị trạng thái,
+  thời điểm hoàn tất và thời gian thực hiện.
+- **New Terminal** nhận câu lệnh dạng API RouterOS, ví dụ `/system/resource/print` hoặc
+  `/ping address=8.8.8.8 count=4`. Lệnh có khả năng phá hủy dữ liệu yêu cầu xác nhận bổ sung.
+- Inventory phân cấp theo nhóm có thể thu gọn/mở rộng. Bridge Port hiển thị riêng hai trường
+  `Interface` và `Bridge`; MAC được lấy từ `/interface/print` kết hợp `/interface/ethernet/print`.
+- Alert đang tồn tại được cập nhật theo cặp `thiết bị + rule`, không tạo bản ghi trùng. Trạng thái
+  **Đang kích hoạt** nghĩa là chưa xác nhận, **Đã xác nhận** nghĩa là quản trị viên đã tiếp nhận,
+  và **Đã xử lý** nghĩa là sự cố đã được đóng.

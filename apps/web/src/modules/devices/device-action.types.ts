@@ -15,4 +15,10 @@ export interface DevicePingInput {
 
 export interface DeviceFileActionInput {
   name?: string;
+  confirm?: boolean;
+}
+
+export interface DeviceTerminalInput {
+  command: string;
+  confirm?: boolean;
 }

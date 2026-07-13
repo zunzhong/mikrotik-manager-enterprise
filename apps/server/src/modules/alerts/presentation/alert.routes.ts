@@ -49,4 +49,9 @@ export async function alertRoutes(app: FastifyInstance): Promise<void> {
       data: await alertService.acknowledge(params.id),
     };
   });
+
+  app.patch('/api/v1/alerts/:id/resolve', async (request) => {
+    const params = request.params as { id: string };
+    return { success: true, data: await alertService.resolve(params.id) };
+  });
 }

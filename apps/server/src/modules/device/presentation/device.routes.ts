@@ -25,6 +25,12 @@ const pingActionSchema = z.object({
 
 const fileActionSchema = z.object({
   name: z.string().min(1).optional(),
+  confirm: z.boolean().optional().default(false),
+});
+
+const terminalActionSchema = z.object({
+  command: z.string().trim().min(2).max(4096),
+  confirm: z.boolean().optional().default(false),
 });
 
 const rebootActionSchema = z.object({
@@ -289,7 +295,7 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.post(
-    '/api/v1/devices/:id/actions/ping',
+    '/api/v1/devices/:id/actions/ping-to-device',
     {
       preHandler: deviceSafeActionPreHandler,
     },
@@ -299,7 +305,20 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
 
       return {
         success: true,
-        data: await routerOsDeviceActionService.ping(params.id, input),
+        data: await routerOsDeviceActionService.pingToDevice(params.id, input.count),
+      };
+    },
+  );
+
+  app.post(
+    '/api/v1/devices/:id/actions/ping-from-device',
+    { preHandler: deviceSafeActionPreHandler },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      const input = pingActionSchema.parse(request.body ?? {});
+      return {
+        success: true,
+        data: await routerOsDeviceActionService.pingFromDevice(params.id, input),
       };
     },
   );
@@ -349,6 +368,16 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
         success: true,
         data: await routerOsDeviceActionService.reboot(params.id, input),
       };
+    },
+  );
+
+  app.post(
+    '/api/v1/devices/:id/actions/terminal',
+    { preHandler: deviceManagePreHandler },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      const input = terminalActionSchema.parse(request.body ?? {});
+      return { success: true, data: await routerOsDeviceActionService.terminal(params.id, input) };
     },
   );
 }

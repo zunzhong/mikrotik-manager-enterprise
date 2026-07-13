@@ -51,8 +51,23 @@ export function AlertCenter() {
     }
   }
 
-  const openCount = (alerts.data ?? []).filter((item) => item.status === 'open').length;
-  const criticalCount = (alerts.data ?? []).filter(
+  async function resolve(alert: AlertRecord) {
+    setMessage(`Đang đóng cảnh báo ${alert.title}...`);
+    try {
+      await alertApi.resolve(alert.id);
+      setMessage('Cảnh báo đã được xử lý và đóng.');
+      alerts.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể đóng cảnh báo.');
+    }
+  }
+
+  const visibleAlerts = (alerts.data ?? []).filter(
+    (item) => !activeDeviceId || item.deviceId === activeDeviceId,
+  );
+
+  const openCount = visibleAlerts.filter((item) => item.status === 'open').length;
+  const criticalCount = visibleAlerts.filter(
     (item) => item.severity === 'critical' && item.status === 'open',
   ).length;
 
@@ -61,7 +76,10 @@ export function AlertCenter() {
       <div className="alert-toolbar">
         <div>
           <h3>Alert Center</h3>
-          <p>Evaluate alert rules, review alerts and acknowledge incidents.</p>
+          <p>
+            Cảnh báo được gom theo thiết bị và rule; một rule đang hoạt động không tạo bản ghi trùng
+            lặp.
+          </p>
         </div>
 
         <div className="toolbar-actions">
@@ -91,9 +109,9 @@ export function AlertCenter() {
 
       <div className="alert-summary">
         <div className="summary-card">
-          <span>Open Alerts</span>
+          <span>Đang kích hoạt</span>
           <strong>{openCount}</strong>
-          <small>active incidents</small>
+          <small>chưa được xác nhận</small>
         </div>
         <div className="summary-card">
           <span>Critical</span>
@@ -129,25 +147,36 @@ export function AlertCenter() {
         <section className="alert-panel">
           <h3>Alerts</h3>
           <div className="alert-list">
-            {(alerts.data ?? []).map((alert) => (
+            {visibleAlerts.map((alert) => (
               <article className="alert-card" key={alert.id}>
                 <div className="alert-card-header">
                   <div>
                     <h4>{alert.title}</h4>
                     <p>{alert.message}</p>
                     <small>
-                      {alert.source} • {new Date(alert.createdAt).toLocaleString()}
+                      {alert.device?.name ?? 'Hệ thống'} · {alert.source} ·{' '}
+                      {new Date(alert.createdAt).toLocaleString()}
                     </small>
+                    <AlertMetadata metadata={alert.metadata} />
                   </div>
                   <div className="alert-badges">
-                    <span className={`alert-severity sev-${alert.severity}`}>{alert.severity}</span>
-                    <span className={`alert-status status-${alert.status}`}>{alert.status}</span>
+                    <span className={`alert-severity sev-${alert.severity}`}>
+                      {severityLabel(alert.severity)}
+                    </span>
+                    <span className={`alert-status status-${alert.status}`}>
+                      {statusLabel(alert.status)}
+                    </span>
                   </div>
                 </div>
 
                 {alert.status === 'open' ? (
                   <button className="small-button" onClick={() => acknowledge(alert)}>
-                    Acknowledge
+                    Xác nhận cảnh báo
+                  </button>
+                ) : null}
+                {alert.status !== 'resolved' ? (
+                  <button className="small-button" onClick={() => void resolve(alert)}>
+                    Đánh dấu đã xử lý
                   </button>
                 ) : null}
               </article>
@@ -166,5 +195,38 @@ export function AlertCenter() {
         </section>
       </div>
     </div>
+  );
+}
+
+function statusLabel(status: string): string {
+  if (status === 'open') return 'Đang kích hoạt';
+  if (status === 'acknowledged') return 'Đã xác nhận';
+  if (status === 'resolved') return 'Đã xử lý';
+  return status;
+}
+
+function severityLabel(severity: string): string {
+  if (severity === 'critical') return 'Nghiêm trọng';
+  if (severity === 'warning') return 'Cảnh báo';
+  if (severity === 'info') return 'Thông tin';
+  return severity;
+}
+
+function AlertMetadata({ metadata }: { metadata?: unknown }) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const record = metadata as Record<string, unknown>;
+  const fields = ['value', 'threshold', 'unit', 'ageHours', 'recommendation']
+    .filter((key) => record[key] !== undefined)
+    .map((key) => [key, String(record[key])]);
+  if (fields.length === 0) return null;
+  return (
+    <dl className="alert-metadata">
+      {fields.map(([key, value]) => (
+        <div key={key}>
+          <dt>{key}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

@@ -22,10 +22,35 @@ export class AuthRepository {
     });
   }
 
+  public async hasPassword(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    return Boolean(user?.passwordHash);
+  }
+
   public updatePassword(userId: string, passwordHash: string) {
     return prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
+    });
+  }
+
+  public updateProfile(userId: string, data: { email?: string; name?: string | null }) {
+    return prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 

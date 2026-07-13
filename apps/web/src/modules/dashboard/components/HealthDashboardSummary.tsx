@@ -71,6 +71,22 @@ function recentHealthEvents(events: AppEvent[]): AppEvent[] {
   return events.filter((event) => healthEventTypes.has(event.type)).slice(0, 8);
 }
 
+function metricText(event: AppEvent): string | null {
+  const value = event.metadata?.value;
+  const threshold = event.metadata?.threshold;
+  const unit = typeof event.metadata?.unit === 'string' ? event.metadata.unit : '';
+  if (value === undefined) return event.message || null;
+  return `Thực tế ${String(value)}${unit} · Ngưỡng ${threshold === undefined ? 'N/A' : String(threshold)}${unit}`;
+}
+
+function resourceValue(resource: Record<string, unknown> | undefined, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = resource?.[key];
+    if (value !== undefined && value !== null) return String(value);
+  }
+  return 'N/A';
+}
+
 export function HealthDashboardSummary({
   overview,
   events = [],
@@ -129,9 +145,14 @@ export function HealthDashboardSummary({
                   key={device.deviceId}
                 >
                   <div>
-                    <strong>{device.deviceId}</strong>
+                    <strong>{device.deviceName ?? device.deviceId}</strong>
                     <small>
                       {healthStatusLabel(status)} · {device.online ? 'Online' : 'Offline'}
+                    </small>
+                    <small className="health-dashboard-summary__metrics">
+                      CPU {resourceValue(device.resource, 'cpuLoad', 'cpu-load')}% · RAM trống{' '}
+                      {resourceValue(device.resource, 'freeMemory', 'free-memory')} · Disk trống{' '}
+                      {resourceValue(device.resource, 'freeHddSpace', 'free-hdd-space')}
                     </small>
                   </div>
 
@@ -160,6 +181,9 @@ export function HealthDashboardSummary({
               >
                 <div>
                   <strong>{event.title}</strong>
+                  <small className="health-dashboard-summary__event-message">
+                    {metricText(event)}
+                  </small>
                   <small>
                     {event.deviceName ?? event.deviceId ?? 'System'} ·{' '}
                     {new Date(event.createdAt).toLocaleString()}

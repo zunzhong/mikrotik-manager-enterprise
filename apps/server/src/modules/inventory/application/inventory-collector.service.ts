@@ -37,6 +37,8 @@ export class InventoryCollectorService {
 
     const collectedSections = [];
     const failedCollectors = [];
+    const collectedByKey: Record<string, Record<string, string> | undefined> = {};
+    const collectedRowsByKey: Record<string, Array<Record<string, string>>> = {};
 
     try {
       await client.connect();
@@ -58,7 +60,27 @@ export class InventoryCollectorService {
         });
 
         collectedSections.push(created);
+        collectedByKey[result.key] = result.rows[0];
+        collectedRowsByKey[result.key] = result.rows;
       }
+
+      const summary = {
+        collectorsPlanned: collectors.length,
+        sectionsCollected: collectedSections.length,
+        failedCollectors,
+        identity: collectedByKey['system.identity'] ?? {},
+        resource: collectedByKey['system.resource'] ?? {},
+        routerboard: collectedByKey['system.routerboard'] ?? {},
+        health: collectedRowsByKey['system.health'] ?? [],
+      };
+
+      await inventoryRepository.updateSnapshot(snapshot.id, {
+        status: failedCollectors.length === 0 ? 'completed' : 'partial',
+        summary,
+      });
+      await deviceRepository.update(deviceId, {
+        status: 'online',
+      });
 
       await client.close();
 
@@ -71,6 +93,17 @@ export class InventoryCollectorService {
       };
     } catch (error) {
       await client.close().catch(() => undefined);
+
+      await inventoryRepository.updateSnapshot(snapshot.id, {
+        status: 'failed',
+        summary: {
+          collectorsPlanned: collectors.length,
+          sectionsCollected: collectedSections.length,
+          failedCollectors,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
+      await deviceRepository.update(deviceId, { status: 'offline' });
 
       return {
         snapshotId: snapshot.id,

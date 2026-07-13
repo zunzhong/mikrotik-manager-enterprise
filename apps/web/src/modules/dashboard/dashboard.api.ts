@@ -5,6 +5,7 @@ export interface DashboardSummary {
     total: number;
     online: number;
     offline: number;
+    degraded: number;
     unknown: number;
   };
   alerts: {

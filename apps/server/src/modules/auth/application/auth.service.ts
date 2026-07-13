@@ -12,6 +12,30 @@ function hashResetToken(token: string): string {
 }
 
 export class AuthService {
+  public async profile(userId: string) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      throw new HttpError(404, 'USER_NOT_FOUND', 'User not found');
+    }
+
+    return { ...user, passwordConfigured: await authRepository.hasPassword(userId) };
+  }
+
+  public async updateProfile(userId: string, input: { email?: string; name?: string | null }) {
+    const email = input.email?.trim().toLowerCase();
+    if (email) {
+      const existing = await authRepository.findUserByEmail(email);
+      if (existing && existing.id !== userId) {
+        throw new HttpError(409, 'EMAIL_ALREADY_EXISTS', 'Email is already in use');
+      }
+    }
+
+    return authRepository.updateProfile(userId, {
+      email,
+      name: input.name === undefined ? undefined : input.name?.trim() || null,
+    });
+  }
+
   public async login(input: {
     email: string;
     password: string;

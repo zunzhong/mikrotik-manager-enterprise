@@ -19,6 +19,15 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(1),
 });
 
+const updateProfileSchema = z
+  .object({
+    email: z.string().email().optional(),
+    name: z.string().max(120).nullable().optional(),
+  })
+  .refine((value) => value.email !== undefined || value.name !== undefined, {
+    message: 'At least one profile field is required',
+  });
+
 const resetRequestSchema = z.object({
   email: z.string().email(),
 });
@@ -55,7 +64,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/v1/auth/me', { preHandler: authGuardService.requireAuth() }, async (request) => ({
     success: true,
-    data: request.user,
+    data: await authService.profile(request.user!.id),
+  }));
+
+  app.patch('/api/v1/auth/me', { preHandler: authGuardService.requireAuth() }, async (request) => ({
+    success: true,
+    data: await authService.updateProfile(
+      request.user!.id,
+      updateProfileSchema.parse(request.body ?? {}),
+    ),
   }));
 
   app.get(

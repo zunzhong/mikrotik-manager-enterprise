@@ -106,3 +106,13 @@
     grid-template-columns: 1fr;
   }
 }
+.health-dashboard-summary__metrics,
+.health-dashboard-summary__event-message {
+  display: block;
+  margin-top: 4px;
+  color: #cbd5e1 !important;
+}
+[data-theme='light'] .health-dashboard-summary__metrics,
+[data-theme='light'] .health-dashboard-summary__event-message {
+  color: #334155 !important;
+}

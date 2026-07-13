@@ -27,6 +27,10 @@ export class AlertService {
     return alertRepository.acknowledge(id);
   }
 
+  public resolve(id: string) {
+    return alertRepository.resolve(id);
+  }
+
   public async evaluate(input: EvaluateAlertsInput = {}) {
     const context = {
       deviceId: input.deviceId,
@@ -49,7 +53,7 @@ export class AlertService {
 
     if (input.createAlerts ?? true) {
       for (const item of triggered) {
-        const alert = await alertRepository.create({
+        const alert = await alertRepository.createOrRefresh({
           deviceId: item.deviceId,
           ruleKey: item.rule.key,
           severity: item.rule.severity,

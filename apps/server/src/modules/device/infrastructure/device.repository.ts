@@ -34,6 +34,9 @@ export interface DeviceUpdateRecord {
   loginMode?: string;
   groupId?: string | null;
   tags?: string[];
+  status?: string;
+  lastSeenAt?: Date | null;
+  lastError?: string | null;
 }
 
 export class DeviceRepository {
