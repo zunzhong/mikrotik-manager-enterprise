@@ -68,7 +68,14 @@ jobs:
           pnpm --filter @mme/routeros-core build
           pnpm --filter @mme/routeros-sdk build
           pnpm --filter @mme/server build
-          pnpm --filter @mme/server deploy --legacy --prod artifacts/payload
+          pnpm --filter @mme/server deploy --legacy artifacts/payload
+
+          $prismaCli = Get-ChildItem 'artifacts/payload/node_modules/.pnpm' -Recurse -Filter index.js |
+            Where-Object { $_.FullName -match 'prisma@.*node_modules[\\/]prisma[\\/]build[\\/]index.js$' } |
+            Select-Object -First 1
+          if (-not $prismaCli) { throw 'Không tìm thấy Prisma CLI để sinh native client trong payload.' }
+          & node $prismaCli.FullName generate --schema artifacts/payload/prisma/schema.sqlite.prisma
+          if ($LASTEXITCODE -ne 0) { throw 'Không thể sinh Prisma SQLite client trong payload.' }
 
           $sqliteEngine = Get-ChildItem 'artifacts/payload/node_modules' -Recurse -Filter 'query_engine-windows*.dll.node' |
             Select-Object -First 1
