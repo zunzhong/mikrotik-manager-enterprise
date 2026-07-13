@@ -61,7 +61,7 @@ Kết quả mong đợi: Service có trạng thái `Running`, API trả về `st
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.0-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.1-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -93,3 +93,24 @@ Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
 Nếu cổng `3000` đang bị ứng dụng khác chiếm dụng, hãy dừng ứng dụng đó rồi dùng shortcut
 **Start MME**. Không đăng công khai file `mme.env`, database hoặc thông tin đăng nhập vì chúng chứa
 dữ liệu nhạy cảm.
+
+Để mở nhanh thư mục dữ liệu, dùng shortcut **Open Data Folder** trong Start Menu hoặc chạy:
+
+```powershell
+explorer.exe "$env:ProgramData\MikroTik Manager Enterprise"
+```
+
+Nếu RouterOS Live Probe báo timeout, kiểm tra từ chính máy Windows đang cài MME:
+
+```powershell
+Test-NetConnection 10.0.0.2 -Port 1890
+```
+
+Trên MikroTik, xác nhận dịch vụ API, port và dải địa chỉ được phép:
+
+```routeros
+/ip/service/print detail where name=api
+/ip/service/print detail where name=api-ssl
+```
+
+Chỉ bật **Use API-SSL** khi kết nối tới dịch vụ `api-ssl`; dịch vụ `api` thông thường phải bỏ chọn.

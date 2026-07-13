@@ -65,6 +65,16 @@ function value(...items: unknown[]): string | undefined {
   return undefined;
 }
 
+function probeErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : 'RouterOS probe failed';
+
+  if (message.includes('read timeout')) {
+    return `${message}. TCP đã kết nối nhưng RouterOS không trả lời đúng giao thức API; hãy kiểm tra port api/api-ssl và lựa chọn API-SSL.`;
+  }
+
+  return message;
+}
+
 export class RouterOsSdkAdapter {
   public async probe(input: RouterOsProbeInput): Promise<RouterOsProbeResult> {
     const normalized = normalizeInput(input);
@@ -72,11 +82,11 @@ export class RouterOsSdkAdapter {
     const client = new RouterOsClient(normalized);
     try {
       await client.connect();
-      const [identity, resource, routerboard] = await Promise.all([
-        client.system.identity(),
-        client.system.resource(),
-        client.system.routerboard(),
-      ]);
+      // RouterOS API is a sentence stream. Run probe commands sequentially so
+      // replies cannot be consumed by another in-flight reader on the same socket.
+      const identity = await client.system.identity();
+      const resource = await client.system.resource();
+      const routerboard = await client.system.routerboard();
       return {
         online: true,
         latencyMs: Date.now() - startedAt,
@@ -92,7 +102,7 @@ export class RouterOsSdkAdapter {
       return {
         online: false,
         latencyMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : 'RouterOS probe failed',
+        error: probeErrorMessage(error),
       };
     } finally {
       client.close();
@@ -133,13 +143,11 @@ export class RouterOsSdkAdapter {
     const client = new RouterOsClient(normalizeInput(input));
     try {
       await client.connect();
-      const [identity, resource, routerboard, health, services] = await Promise.all([
-        client.system.identity(),
-        client.system.resource(),
-        client.system.routerboard(),
-        client.print('/system/health/print').catch(() => []),
-        client.print('/ip/service/print').catch(() => []),
-      ]);
+      const identity = await client.system.identity();
+      const resource = await client.system.resource();
+      const routerboard = await client.system.routerboard();
+      const health = await client.print('/system/health/print').catch(() => []);
+      const services = await client.print('/ip/service/print').catch(() => []);
       return {
         collectedAt: new Date().toISOString(),
         identity: { ...identity },

@@ -24,11 +24,9 @@ export async function probeRouterOs(options: RouterOsClientOptions): Promise<Rou
 
   try {
     await client.connect();
-    const [identity, resource, routerboard] = await Promise.all([
-      client.system.identity(),
-      client.system.resource(),
-      client.system.routerboard(),
-    ]);
+    const identity = await client.system.identity();
+    const resource = await client.system.resource();
+    const routerboard = await client.system.routerboard();
 
     return {
       online: true,
