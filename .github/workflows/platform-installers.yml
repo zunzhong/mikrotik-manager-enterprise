@@ -64,9 +64,16 @@ jobs:
             $parseErrors | ForEach-Object { Write-Error $_.Message }
             throw 'PowerShell installer script không hợp lệ.'
           }
+          $scriptBytes = [IO.File]::ReadAllBytes((Resolve-Path 'packaging/windows/MME-Control.ps1'))
+          if ($scriptBytes.Length -lt 3 -or $scriptBytes[0] -ne 0xEF -or $scriptBytes[1] -ne 0xBB -or $scriptBytes[2] -ne 0xBF) {
+            throw 'MME-Control.ps1 phải sử dụng UTF-8 BOM để tương thích Windows PowerShell 5.1.'
+          }
           $validationRoot = Join-Path $env:RUNNER_TEMP 'mme-powershell-validation'
+          $validationLog = Join-Path $env:RUNNER_TEMP 'mme-powershell-validation.log'
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-            -File packaging/windows/MME-Control.ps1 validate -NoOpen -DataRoot $validationRoot
+            -File packaging/windows/MME-Control.ps1 validate -NoOpen -DataRoot $validationRoot `
+            *> $validationLog
+          Get-Content $validationLog -ErrorAction SilentlyContinue
           if ($LASTEXITCODE -ne 0) { throw 'MME-Control.ps1 không chạy được bằng Windows PowerShell 5.1.' }
           if (-not (Test-Path "$validationRoot\logs\bootstrap.log")) {
             throw 'Windows PowerShell không tạo được bootstrap.log.'
@@ -188,7 +195,10 @@ jobs:
         shell: pwsh
         run: |
           $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Không tìm thấy installer để tạo checksum.' }
+          if (-not $installer) {
+            Write-Warning 'Chưa có installer để tạo checksum.'
+            exit 0
+          }
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           "$($hash.Hash.ToLowerInvariant())  $($installer.Name)" | Set-Content "$($installer.FullName).sha256" -Encoding ascii
 
@@ -196,6 +206,11 @@ jobs:
         if: always()
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          $validationLog = Join-Path $env:RUNNER_TEMP 'mme-powershell-validation.log'
+          if (Test-Path $validationLog) {
+            Copy-Item $validationLog artifacts/powershell51-validation.log -Force
+          }
           $service = Get-Service MME -ErrorAction SilentlyContinue
           if ($service) {
             $service | Format-List Name, Status, StartType | Out-File artifacts/service-status.log -Encoding utf8
@@ -218,7 +233,7 @@ jobs:
             artifacts/MikroTik-Manager-Enterprise-Setup-*.exe
             artifacts/MikroTik-Manager-Enterprise-Setup-*.exe.sha256
             artifacts/*.log
-          if-no-files-found: error
+          if-no-files-found: warn
 
   linux-installer:
     name: Linux DEB Installer

@@ -1,4 +1,4 @@
-param(
+﻿param(
   [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'backup', 'uninstall', 'validate')]
   [string]$Action = 'start',
   [switch]$NoOpen,
