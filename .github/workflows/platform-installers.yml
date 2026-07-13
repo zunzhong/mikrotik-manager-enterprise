@@ -71,11 +71,9 @@ jobs:
           pnpm --filter @mme/server build
           pnpm --config.node-linker=hoisted --filter @mme/server deploy --legacy --prod artifacts/payload
 
-          $prismaCli = Get-ChildItem 'artifacts/payload/node_modules' -Recurse -Filter index.js |
-            Where-Object { $_.FullName -match 'prisma@.*node_modules[\\/]prisma[\\/]build[\\/]index.js$' } |
-            Select-Object -First 1
-          if (-not $prismaCli) { throw 'Không tìm thấy Prisma CLI trong production payload.' }
-          & node $prismaCli.FullName generate --schema artifacts/payload/prisma/schema.sqlite.prisma
+          $prismaCli = 'artifacts/payload/node_modules/prisma/build/index.js'
+          if (-not (Test-Path $prismaCli)) { throw 'Không tìm thấy Prisma CLI trong production payload hoisted.' }
+          & node $prismaCli generate --schema artifacts/payload/prisma/schema.sqlite.prisma
 
           $sqliteEngine = Get-ChildItem 'artifacts/payload/node_modules' -Recurse -Filter 'query_engine-windows*.dll.node' |
             Where-Object { $_.FullName -match '[\\/]\.prisma[\\/]client[\\/]' } |
