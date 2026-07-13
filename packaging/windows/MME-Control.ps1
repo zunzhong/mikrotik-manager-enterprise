@@ -14,7 +14,13 @@ $Database = Join-Path $DataDir 'data\mme.db'
 $BackupDir = Join-Path $DataDir 'backups'
 $LogDir = Join-Path $DataDir 'logs'
 $ConfigFile = Join-Path $DataDir 'config\mme.env'
+$BootstrapLog = Join-Path $LogDir 'bootstrap.log'
 $Port = 3000
+
+function Write-BootstrapLog([string]$Message) {
+  New-Item -ItemType Directory -Force $LogDir | Out-Null
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff') $Message" | Add-Content $BootstrapLog -Encoding UTF8
+}
 
 function Assert-Administrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -32,7 +38,10 @@ function Assert-Prerequisites {
   }
   if (-not (Test-Path $Runtime)) { throw 'Thiếu Node.js runtime đi kèm bộ cài.' }
   if (-not (Test-Path $ServiceExe)) { throw 'Thiếu Windows Service wrapper đi kèm bộ cài.' }
-  $drive = Get-PSDrive -Name ([IO.Path]::GetPathRoot($DataDir).TrimEnd(':\'))
+  $driveRoot = [IO.Path]::GetPathRoot($DataDir)
+  if ([string]::IsNullOrWhiteSpace($driveRoot)) { throw 'Không xác định được ổ đĩa lưu dữ liệu.' }
+  $driveName = $driveRoot.Substring(0, 1)
+  $drive = Get-PSDrive -Name $driveName
   if ($drive.Free -lt 2GB) { throw 'Cần tối thiểu 2 GB dung lượng trống.' }
 }
 
@@ -75,7 +84,11 @@ SQLITE_SCHEMA_SQL=$((Join-Path $AppDir 'prisma\schema.sqlite.sql').Replace('\','
 LOG_LEVEL=info
 "@
   [IO.File]::WriteAllText($ConfigFile, $content, (New-Object Text.UTF8Encoding($false)))
-  $credentials = Join-Path ([Environment]::GetFolderPath('Desktop')) 'MME-Thong-Tin-Dang-Nhap.txt'
+  $credentialsDirectory = [Environment]::GetFolderPath('Desktop')
+  if ([string]::IsNullOrWhiteSpace($credentialsDirectory) -or -not (Test-Path $credentialsDirectory)) {
+    $credentialsDirectory = Split-Path $ConfigFile
+  }
+  $credentials = Join-Path $credentialsDirectory 'MME-Thong-Tin-Dang-Nhap.txt'
   [IO.File]::WriteAllText($credentials, "URL: http://localhost:$Port`r`nEmail: admin@example.com`r`nMat khau: $adminPassword`r`n`r`nHay doi mat khau ngay sau lan dang nhap dau tien.", (New-Object Text.UTF8Encoding($false)))
 }
 
@@ -150,24 +163,32 @@ function Wait-MMEHealthy([int]$TimeoutSeconds = 60) {
 }
 
 function Install-MME {
+  Write-BootstrapLog 'Bắt đầu preflight.'
   Assert-Prerequisites
+  Write-BootstrapLog 'Preflight đạt.'
   Initialize-Environment
+  Write-BootstrapLog 'Đã khởi tạo cấu hình và thư mục dữ liệu.'
   $backup = Backup-Data
   Set-ProcessEnvironment
   try {
-    & $Runtime (Join-Path $AppDir 'dist\scripts\setup-native.js')
+    Write-BootstrapLog 'Bắt đầu khởi tạo SQLite.'
+    $setupOutput = & $Runtime (Join-Path $AppDir 'dist\scripts\setup-native.js') 2>&1
+    if ($setupOutput) { $setupOutput | Out-String | Add-Content $BootstrapLog -Encoding UTF8 }
     if ($LASTEXITCODE -ne 0) { throw 'Khởi tạo SQLite hoặc tài khoản quản trị thất bại.' }
+    Write-BootstrapLog 'Khởi tạo SQLite đạt.'
   } catch {
     Restore-Data $backup
     throw "Nâng cấp thất bại; dữ liệu đã được rollback. $($_.Exception.Message)"
   }
   Write-ServiceConfiguration
+  Write-BootstrapLog 'Đã tạo cấu hình Windows Service.'
   & $ServiceExe stop *> $null
   & $ServiceExe uninstall *> $null
   & $ServiceExe install
   if ($LASTEXITCODE -ne 0) { throw 'Không thể đăng ký Windows Service MME.' }
   & $ServiceExe start
   if ($LASTEXITCODE -ne 0) { throw 'Không thể khởi động Windows Service MME.' }
+  Write-BootstrapLog 'Windows Service đã nhận lệnh khởi động.'
   try {
     Wait-MMEHealthy
   } catch {
@@ -176,10 +197,12 @@ function Install-MME {
     Restore-Data $backup
     throw
   }
+  Write-BootstrapLog 'Cài đặt MME hoàn tất và API đã sẵn sàng.'
   if (-not $NoOpen) { Start-Process "http://localhost:$Port/setup" }
 }
 
 try {
+  Write-BootstrapLog "Thực thi tác vụ: $Action"
   switch ($Action) {
     'install' { Install-MME }
     'start' { Assert-Administrator; & $ServiceExe start; Start-Process "http://localhost:$Port" }
@@ -191,7 +214,12 @@ try {
     'uninstall' { Assert-Administrator; & $ServiceExe stop; & $ServiceExe uninstall }
   }
 } catch {
-  Add-Type -AssemblyName PresentationFramework
-  [System.Windows.MessageBox]::Show($_.Exception.Message, 'MikroTik Manager Enterprise', 'OK', 'Error') | Out-Null
+  try { Write-BootstrapLog "LỖI: $($_ | Out-String)" } catch { }
+  if (-not $NoOpen) {
+    Add-Type -AssemblyName PresentationFramework
+    [System.Windows.MessageBox]::Show($_.Exception.Message, 'MikroTik Manager Enterprise', 'OK', 'Error') | Out-Null
+  } else {
+    Write-Error $_.Exception.Message
+  }
   exit 1
 }

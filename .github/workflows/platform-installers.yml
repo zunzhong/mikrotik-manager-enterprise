@@ -53,6 +53,17 @@ jobs:
         shell: pwsh
         run: |
           pnpm install --frozen-lockfile
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'packaging/windows/MME-Control.ps1'),
+            [ref]$tokens,
+            [ref]$parseErrors
+          ) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            throw 'PowerShell installer script không hợp lệ.'
+          }
           pnpm --filter @mme/server prisma:generate
           pnpm lint
           pnpm typecheck
@@ -87,6 +98,20 @@ jobs:
           Invoke-WebRequest `
             'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET461.exe' `
             -OutFile artifacts/payload/service/MME.Service.exe
+
+          $generatedSchema = Get-Content 'artifacts/payload/node_modules/.prisma/client/schema.prisma' -Raw
+          if ($generatedSchema -notmatch 'provider\s*=\s*"sqlite"') {
+            throw 'Prisma Client trong Windows payload không sử dụng SQLite.'
+          }
+          $payloadSmokeDb = (Join-Path (Resolve-Path 'artifacts').Path 'payload-smoke.db').Replace('\', '/')
+          $env:DATABASE_URL = "file:$payloadSmokeDb"
+          $env:NODE_ENV = 'production'
+          $env:DEFAULT_ADMIN_EMAIL = 'smoke-test@example.com'
+          $env:DEFAULT_ADMIN_PASSWORD = 'MME-Smoke-Test-Password-2026'
+          $env:SQLITE_SCHEMA_SQL = (Resolve-Path 'artifacts/payload/prisma/schema.sqlite.sql').Path
+          & node artifacts/payload/dist/scripts/setup-native.js
+          if ($LASTEXITCODE -ne 0) { throw 'Windows payload không thể khởi tạo SQLite.' }
+          Remove-Item $payloadSmokeDb -Force -ErrorAction SilentlyContinue
 
           if (-not (Test-Path artifacts/payload/dist/server.js)) { throw 'Thiếu server build.' }
           if (-not (Test-Path artifacts/payload/web/index.html)) { throw 'Thiếu web build.' }
