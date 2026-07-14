@@ -52,6 +52,28 @@
   padding: 14px;
 }
 .rule-card {
+  border-left: 4px solid #38bdf8;
+  background: linear-gradient(100deg, rgba(14, 165, 233, 0.08), transparent 55%);
+}
+.alert-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(120deg, rgba(59, 130, 246, 0.06), transparent 60%);
+}
+.alert-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #38bdf8;
+}
+.alert-card:has(.sev-critical)::before {
+  background: #ef4444;
+}
+.alert-card:has(.sev-warning)::before {
+  background: #f59e0b;
+}
+.rule-card {
   display: flex;
   justify-content: space-between;
   gap: 14px;
@@ -115,6 +137,24 @@
 .sev-critical {
   color: #fecaca;
   background: rgba(239, 68, 68, 0.16);
+}
+[data-theme='light'] .sev-critical,
+[data-theme='light'] .status-open {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+[data-theme='light'] .sev-warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+[data-theme='light'] .sev-info,
+[data-theme='light'] .status-acknowledged {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+[data-theme='light'] .status-resolved {
+  color: #166534;
+  background: #dcfce7;
 }
 .sev-warning {
   color: #fde68a;

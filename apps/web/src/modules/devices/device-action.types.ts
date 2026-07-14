@@ -21,4 +21,9 @@ export interface DeviceFileActionInput {
 export interface DeviceTerminalInput {
   command: string;
   confirm?: boolean;
+  transport?: 'api' | 'rest' | 'script' | 'rest-crud';
+  restTls?: boolean;
+  restPort?: number;
+  restMethod?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  restBody?: Record<string, unknown>;
 }

@@ -14,40 +14,40 @@ export function AlertCenter() {
   const activeDeviceId = selectedDeviceId || devices.data?.[0]?.id || '';
 
   async function evaluateAll() {
-    setMessage('Evaluating all alert rules...');
+    setMessage('Đang đánh giá tất cả quy tắc cảnh báo...');
     try {
       const result = await alertApi.evaluateAll();
-      setMessage(`Evaluation completed: ${result.triggered} alerts triggered.`);
+      setMessage(`Đánh giá hoàn tất: ${result.triggered} cảnh báo được kích hoạt.`);
       alerts.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Evaluation failed');
+      setMessage(error instanceof Error ? error.message : 'Đánh giá thất bại');
     }
   }
 
   async function evaluateDevice() {
     if (!activeDeviceId) {
-      setMessage('No device selected.');
+      setMessage('Chưa chọn thiết bị.');
       return;
     }
 
-    setMessage('Evaluating selected device...');
+    setMessage('Đang đánh giá thiết bị đã chọn...');
     try {
       const result = await alertApi.evaluateDevice(activeDeviceId);
-      setMessage(`Device evaluation completed: ${result.triggered} alerts triggered.`);
+      setMessage(`Đã đánh giá: ${result.triggered} cảnh báo được kích hoạt.`);
       alerts.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Device evaluation failed');
+      setMessage(error instanceof Error ? error.message : 'Đánh giá thiết bị thất bại');
     }
   }
 
   async function acknowledge(alert: AlertRecord) {
-    setMessage(`Acknowledging ${alert.title}...`);
+    setMessage(`Đang xác nhận ${alert.title}...`);
     try {
       await alertApi.acknowledge(alert.id);
-      setMessage('Alert acknowledged.');
+      setMessage('Đã xác nhận cảnh báo.');
       alerts.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Acknowledge failed');
+      setMessage(error instanceof Error ? error.message : 'Xác nhận cảnh báo thất bại');
     }
   }
 
@@ -75,7 +75,7 @@ export function AlertCenter() {
     <div className="alert-center">
       <div className="alert-toolbar">
         <div>
-          <h3>Alert Center</h3>
+          <h3>Trung tâm cảnh báo</h3>
           <p>
             Cảnh báo được gom theo thiết bị và rule; một rule đang hoạt động không tạo bản ghi trùng
             lặp.
@@ -92,13 +92,13 @@ export function AlertCenter() {
                 {device.name} — {device.host}
               </option>
             ))}
-            {(devices.data ?? []).length === 0 ? <option value="">No devices</option> : null}
+            {(devices.data ?? []).length === 0 ? <option value="">Chưa có thiết bị</option> : null}
           </select>
           <button className="small-button" onClick={evaluateDevice}>
-            Evaluate Device
+            Đánh giá thiết bị
           </button>
           <button className="small-button" onClick={evaluateAll}>
-            Evaluate All
+            Đánh giá tất cả
           </button>
         </div>
       </div>
@@ -114,20 +114,20 @@ export function AlertCenter() {
           <small>chưa được xác nhận</small>
         </div>
         <div className="summary-card">
-          <span>Critical</span>
+          <span>Nghiêm trọng</span>
           <strong>{criticalCount}</strong>
-          <small>requires attention</small>
+          <small>cần xử lý ngay</small>
         </div>
         <div className="summary-card">
-          <span>Rules</span>
+          <span>Quy tắc</span>
           <strong>{rules.data?.length ?? 0}</strong>
-          <small>alert rule registry</small>
+          <small>bộ quy tắc duy nhất</small>
         </div>
       </div>
 
       <div className="alert-grid">
         <section className="alert-panel">
-          <h3>Alert Rules</h3>
+          <h3>Quy tắc cảnh báo</h3>
           <div className="rule-list">
             {(rules.data ?? []).map((rule) => (
               <article className="rule-card" key={rule.key}>
@@ -145,7 +145,7 @@ export function AlertCenter() {
         </section>
 
         <section className="alert-panel">
-          <h3>Alerts</h3>
+          <h3>Danh sách cảnh báo</h3>
           <div className="alert-list">
             {visibleAlerts.map((alert) => (
               <article className="alert-card" key={alert.id}>
@@ -184,11 +184,8 @@ export function AlertCenter() {
 
             {!alerts.loading && (alerts.data?.length ?? 0) === 0 ? (
               <div className="empty-state">
-                <strong>No alerts yet</strong>
-                <p>
-                  Run evaluation to generate alerts from current inventory, compliance and backup
-                  data.
-                </p>
+                <strong>Chưa có cảnh báo</strong>
+                <p>Bấm đánh giá để phân tích Inventory, Compliance và dữ liệu sao lưu hiện tại.</p>
               </div>
             ) : null}
           </div>

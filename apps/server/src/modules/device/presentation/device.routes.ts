@@ -31,6 +31,11 @@ const fileActionSchema = z.object({
 const terminalActionSchema = z.object({
   command: z.string().trim().min(2).max(4096),
   confirm: z.boolean().optional().default(false),
+  transport: z.enum(['api', 'rest', 'script', 'rest-crud']).optional().default('api'),
+  restTls: z.boolean().optional().default(true),
+  restPort: z.coerce.number().int().positive().max(65535).optional(),
+  restMethod: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional(),
+  restBody: z.record(z.unknown()).optional(),
 });
 
 const rebootActionSchema = z.object({

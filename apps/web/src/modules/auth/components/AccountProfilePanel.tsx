@@ -27,6 +27,7 @@ export function AccountProfilePanel() {
     try {
       const updated = await authApi.updateProfile({ name, email });
       setProfile(updated);
+      window.dispatchEvent(new CustomEvent('mme-profile-updated', { detail: updated }));
       setMessage('Đã cập nhật thông tin tài khoản. Email mới được dùng ở lần đăng nhập tiếp theo.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Cập nhật tài khoản thất bại.');

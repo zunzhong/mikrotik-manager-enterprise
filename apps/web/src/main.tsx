@@ -8,6 +8,9 @@ import { BackupCenterPage } from './pages/BackupCenterPage';
 import { CompliancePage } from './pages/CompliancePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DevicesPage } from './pages/DevicesPage';
+import { DeviceAddRemovePage } from './pages/DeviceAddRemovePage';
+import { DeviceDetailPage } from './pages/DeviceDetailPage';
+import { DeviceListPage } from './pages/DeviceListPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -46,6 +49,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/devices/add-remove" element={<DeviceAddRemovePage />} />
+          <Route path="/devices/list" element={<DeviceListPage />} />
+          <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/compliance" element={<CompliancePage />} />
           <Route path="/alerts" element={<AlertsPage />} />

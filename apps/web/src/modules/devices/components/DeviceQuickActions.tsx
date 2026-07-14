@@ -54,14 +54,14 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
   function pingFromDevice() {
     const address = window.prompt('Nhập IP hoặc DDNS mà router sẽ ping tới:', '8.8.8.8')?.trim();
     if (!address) return;
-    void runAction('Device Ping To', () =>
+    void runAction('Router ping tới đích', () =>
       deviceApi.pingFromDevice(device.id, { address, count: 4 }),
     );
   }
 
   function createBackup() {
     if (!window.confirm(`Tạo file backup mới trên ${device.name}?`)) return;
-    void runAction('Create Backup', async () => {
+    void runAction('Tạo bản sao lưu', async () => {
       const startedAt = new Date().toISOString();
       const backup = await backupApi.create(device.id, 'binary');
       const finishedAt = backup.completedAt ?? new Date().toISOString();
@@ -83,19 +83,19 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
   function createSupout() {
     if (!window.confirm(`Tạo file supout trên ${device.name}? Quá trình có thể mất một lúc.`))
       return;
-    void runAction('Create Supout', () => deviceApi.generateSupout(device.id, { confirm: true }));
+    void runAction('Tạo Supout', () => deviceApi.generateSupout(device.id, { confirm: true }));
   }
 
   function reboot() {
     if (!window.confirm(`Khởi động lại ${device.name}? Kết nối sẽ bị gián đoạn.`)) return;
-    void runAction('Reboot', () => deviceApi.rebootDevice(device.id, true));
+    void runAction('Khởi động lại', () => deviceApi.rebootDevice(device.id, true));
   }
 
   return (
     <section className="device-quick-actions">
       <div className="device-quick-actions__header">
         <div>
-          <h3>Quick Actions</h3>
+          <h3>Thao tác nhanh</h3>
           <p>Thao tác trực tiếp trên {device.name}; mọi kết quả đều kèm thời gian hoàn tất.</p>
         </div>
       </div>
@@ -105,23 +105,25 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
           onClick={() => void collectInventory()}
           disabled={Boolean(busyAction)}
         >
-          {busyAction === 'Inventory' ? 'Đang thu thập...' : 'Collect Inventory'}
+          {busyAction === 'Inventory' ? 'Đang thu thập...' : 'Thu thập Inventory'}
         </button>
         <button
           type="button"
-          onClick={() => void runAction('Ping to Device', () => deviceApi.pingToDevice(device.id))}
+          onClick={() =>
+            void runAction('Ping tới thiết bị', () => deviceApi.pingToDevice(device.id))
+          }
           disabled={Boolean(busyAction)}
         >
-          {busyAction === 'Ping to Device' ? 'Đang ping...' : 'Ping to Device'}
+          {busyAction === 'Ping tới thiết bị' ? 'Đang ping...' : 'Ping tới thiết bị'}
         </button>
         <button type="button" onClick={pingFromDevice} disabled={Boolean(busyAction)}>
-          {busyAction === 'Device Ping To' ? 'Đang ping...' : 'Device Ping To'}
+          {busyAction === 'Router ping tới đích' ? 'Đang ping...' : 'Router ping tới IP/DDNS'}
         </button>
         <button type="button" onClick={createBackup} disabled={Boolean(busyAction)}>
-          {busyAction === 'Create Backup' ? 'Đang tạo...' : 'Create Backup'}
+          {busyAction === 'Tạo bản sao lưu' ? 'Đang tạo...' : 'Tạo bản sao lưu'}
         </button>
         <button type="button" onClick={createSupout} disabled={Boolean(busyAction)}>
-          {busyAction === 'Create Supout' ? 'Đang tạo...' : 'Create Supout'}
+          {busyAction === 'Tạo Supout' ? 'Đang tạo...' : 'Tạo file Supout'}
         </button>
         <button
           className="danger-action"
@@ -129,7 +131,7 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
           onClick={reboot}
           disabled={Boolean(busyAction)}
         >
-          {busyAction === 'Reboot' ? 'Đang gửi lệnh...' : 'Reboot'}
+          {busyAction === 'Khởi động lại' ? 'Đang gửi lệnh...' : 'Khởi động lại router'}
         </button>
       </div>
       {message ? (

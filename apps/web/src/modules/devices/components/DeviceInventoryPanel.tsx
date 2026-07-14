@@ -176,19 +176,49 @@ function InventoryObjectFields({
   bridgePort: boolean;
 }) {
   const entries = Object.entries(raw).filter(([key]) => key !== '.id');
+  const basicKeys = new Set([
+    'name',
+    'interface',
+    'bridge',
+    'type',
+    'address',
+    'mac-address',
+    'macAddress',
+    'running',
+    'disabled',
+    'status',
+    'comment',
+  ]);
+  const basicEntries = entries.filter(([key]) => basicKeys.has(key)).slice(0, 8);
+  const detailEntries = entries.filter(([key]) => !basicEntries.some(([basic]) => basic === key));
   const label = (key: string) => {
     if (bridgePort && key === 'interface') return 'Interface';
     if (bridgePort && key === 'bridge') return 'Bridge';
     return key.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
   };
   return (
-    <dl className="inventory-field-grid">
-      {entries.map(([key, value]) => (
-        <div key={key}>
-          <dt>{label(key)}</dt>
-          <dd>{String(value ?? '—')}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <dl className="inventory-field-grid basic-fields">
+        {(basicEntries.length > 0 ? basicEntries : entries.slice(0, 5)).map(([key, value]) => (
+          <div key={key}>
+            <dt>{label(key)}</dt>
+            <dd>{String(value ?? '—')}</dd>
+          </div>
+        ))}
+      </dl>
+      {detailEntries.length > 0 ? (
+        <details className="inventory-field-details">
+          <summary>Chi tiết ({detailEntries.length} thuộc tính)</summary>
+          <dl className="inventory-field-grid">
+            {detailEntries.map(([key, value]) => (
+              <div key={key}>
+                <dt>{label(key)}</dt>
+                <dd>{String(value ?? '—')}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
+    </>
   );
 }

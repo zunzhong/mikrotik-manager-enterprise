@@ -93,20 +93,22 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
           label="Free Disk"
           value={`${formatBytes(info.freeDisk)} / ${formatBytes(info.totalDisk)}`}
         />
-        <MetricCard label="CPU" value={formatMaybe(info.cpu)} />
-        <MetricCard label="CPU Cores" value={formatMaybe(info.cpuCount)} />
-        <MetricCard
-          label="CPU Frequency"
-          value={info.cpuFrequency ? `${info.cpuFrequency} MHz` : 'N/A'}
-        />
-        <MetricCard label="Platform" value={formatMaybe(info.platform)} />
-        <MetricCard label="Build Time" value={formatMaybe(info.buildTime)} />
-        <MetricCard label="Current Firmware" value={formatMaybe(info.currentFirmware)} />
-        <MetricCard label="Upgrade Firmware" value={formatMaybe(info.upgradeFirmware)} />
       </div>
 
-      <div className="device-dashboard__card">
-        <h3>System Details</h3>
+      <details className="device-dashboard__card device-dashboard__details">
+        <summary>Xem chi tiết hệ thống và firmware</summary>
+        <div className="device-dashboard__grid detail-metrics">
+          <MetricCard label="CPU" value={formatMaybe(info.cpu)} />
+          <MetricCard label="CPU Cores" value={formatMaybe(info.cpuCount)} />
+          <MetricCard
+            label="CPU Frequency"
+            value={info.cpuFrequency ? `${info.cpuFrequency} MHz` : 'N/A'}
+          />
+          <MetricCard label="Platform" value={formatMaybe(info.platform)} />
+          <MetricCard label="Build Time" value={formatMaybe(info.buildTime)} />
+          <MetricCard label="Current Firmware" value={formatMaybe(info.currentFirmware)} />
+          <MetricCard label="Upgrade Firmware" value={formatMaybe(info.upgradeFirmware)} />
+        </div>
         <div className="system-detail-groups">
           {systemGroups.map((group) => (
             <section key={group.name}>
@@ -122,10 +124,10 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
             </section>
           ))}
         </div>
-      </div>
+      </details>
 
-      <div className="device-dashboard__card">
-        <h3>Inventory Sections</h3>
+      <details className="device-dashboard__card device-dashboard__details">
+        <summary>Xem danh sách section Inventory</summary>
         {snapshot?.sections?.length ? (
           <table className="device-dashboard__table">
             <thead>
@@ -152,7 +154,7 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
             No inventory snapshot yet. Click Sync Now to collect data.
           </p>
         )}
-      </div>
+      </details>
     </section>
   );
 }

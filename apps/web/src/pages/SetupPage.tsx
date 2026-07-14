@@ -41,7 +41,7 @@ export function SetupPage() {
     <main className="setup-page">
       <section className="setup-card">
         <div className="brand">
-          <div className="brand-mark">MME</div>
+          <img className="brand-logo" src="/brand/mme-logo-192.png" alt="MME" />
           <div>
             <strong>MikroTik Manager</strong>
             <span>Enterprise Setup Wizard</span>

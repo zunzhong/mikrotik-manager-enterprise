@@ -25,20 +25,20 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="brand">
-          <div className="brand-mark">MME</div>
+          <img className="brand-logo" src="/brand/mme-logo-192.png" alt="MME" />
           <div>
             <strong>MikroTik Manager</strong>
             <span>Enterprise</span>
           </div>
         </div>
 
-        <h1>Sign in</h1>
-        <p>Access the enterprise management console.</p>
+        <h1>Đăng nhập</h1>
+        <p>Truy cập bảng điều khiển quản trị MME.</p>
 
-        <label>Email</label>
+        <label>Email / tài khoản</label>
         <input value={email} onChange={(event) => setEmail(event.target.value)} />
 
-        <label>Password</label>
+        <label>Mật khẩu</label>
         <input
           type="password"
           value={password}
@@ -49,7 +49,7 @@ export function LoginPage() {
         />
 
         <button className="theme-toggle" onClick={login}>
-          Sign in
+          Đăng nhập
         </button>
 
         {message ? <div className="info-banner">{message}</div> : null}

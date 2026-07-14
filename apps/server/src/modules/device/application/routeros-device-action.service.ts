@@ -1,5 +1,7 @@
 import { RouterOsClient } from '@mme/routeros-sdk';
 import { spawn } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { platform } from 'node:os';
 import { HttpError } from '../../../errors/http-error.js';
 import { encryptionService } from '../../../security/encryption.service.js';
@@ -37,6 +39,11 @@ export interface DeviceRebootInput {
 export interface DeviceTerminalInput {
   command: string;
   confirm?: boolean;
+  transport?: 'api' | 'rest' | 'script' | 'rest-crud';
+  restTls?: boolean;
+  restPort?: number;
+  restMethod?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  restBody?: Record<string, unknown>;
 }
 
 function now(): string {
@@ -176,9 +183,7 @@ export class RouterOsDeviceActionService {
   }
 
   public async terminal(deviceId: string, input: DeviceTerminalInput): Promise<DeviceActionResult> {
-    const words = tokenizeCommand(input.command);
-    const path = words.shift();
-    if (!path?.startsWith('/')) {
+    if (!input.command.trim().startsWith('/')) {
       throw new HttpError(
         400,
         'INVALID_TERMINAL_COMMAND',
@@ -187,8 +192,8 @@ export class RouterOsDeviceActionService {
     }
 
     const destructive =
-      /\/(remove|reset-configuration|reboot|shutdown|format-drive|sup-output)$/i.test(path) ||
-      path.startsWith('/system/backup/');
+      isDestructiveCommand(input.command) ||
+      (input.transport === 'rest-crud' && input.restMethod !== 'GET');
     if (destructive && !input.confirm) {
       throw new HttpError(
         400,
@@ -197,18 +202,86 @@ export class RouterOsDeviceActionService {
       );
     }
 
-    const params: Record<string, string | boolean> = {};
-    for (const word of words) {
-      const normalized = word.replace(/^=/, '');
-      const separator = normalized.indexOf('=');
-      if (separator < 0) params[normalized] = true;
-      else params[normalized.slice(0, separator)] = normalized.slice(separator + 1);
+    if (input.transport === 'script') {
+      return this.withRest(deviceId, 'terminal-rest-script', input, '/execute', {
+        script: input.command,
+      });
+    }
+
+    if (input.transport === 'rest-crud') {
+      return this.withRest(
+        deviceId,
+        'terminal-rest-crud',
+        input,
+        input.command,
+        input.restBody ?? {},
+        input.restMethod ?? 'GET',
+      );
+    }
+
+    const parsed = parseRouterOsApiCommand(input.command);
+
+    if (input.transport === 'rest') {
+      return this.withRest(
+        deviceId,
+        'terminal-rest',
+        input,
+        parsed.path,
+        restCommandBody(parsed.params),
+      );
     }
 
     return this.withClient(deviceId, 'terminal', async (client) => ({
       message: `Đã thực thi: ${input.command}`,
-      data: await client.command(path, params, { timeoutMs: 60000 }),
+      data: await client.command(parsed.path, parsed.params, { timeoutMs: 60000 }),
     }));
+  }
+
+  private async withRest(
+    deviceId: string,
+    action: string,
+    input: DeviceTerminalInput,
+    path: string,
+    body: Record<string, unknown>,
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'POST',
+  ): Promise<DeviceActionResult> {
+    const device = await deviceRepository.findById(deviceId);
+    if (!device) throw new HttpError(404, 'DEVICE_NOT_FOUND', 'Device not found');
+    const startedAt = now();
+    try {
+      const tls = input.restTls ?? true;
+      const port = input.restPort ?? (tls ? 443 : 80);
+      const data = await routerOsRestRequest({
+        host: device.host,
+        port,
+        tls,
+        username: device.username,
+        password: encryptionService.decrypt(device.passwordEncrypted),
+        path: `/rest${path}`.replace(/\/+/g, '/'),
+        body,
+        method,
+      });
+      const finishedAt = now();
+      return {
+        action,
+        success: true,
+        startedAt,
+        finishedAt,
+        durationMs: duration(startedAt, finishedAt),
+        message: `REST API đã thực thi: ${input.command}`,
+        data,
+      };
+    } catch (error) {
+      const finishedAt = now();
+      return {
+        action,
+        success: false,
+        startedAt,
+        finishedAt,
+        durationMs: duration(startedAt, finishedAt),
+        message: error instanceof Error ? error.message : 'RouterOS REST API failed',
+      };
+    }
   }
 
   private async withClient(
@@ -265,9 +338,179 @@ export class RouterOsDeviceActionService {
 }
 
 function tokenizeCommand(command: string): string[] {
-  return [...command.trim().matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(
-    (match) => match[1] ?? match[2] ?? match[3],
+  const result: string[] = [];
+  let token = '';
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  for (const char of command.trim()) {
+    if (escaped) {
+      token += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) quote = null;
+      else token += char;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (/\s/.test(char)) {
+      if (token) {
+        result.push(token);
+        token = '';
+      }
+    } else token += char;
+  }
+  if (token) result.push(token);
+  return result;
+}
+
+const COMMAND_WORDS = new Set([
+  'print',
+  'get',
+  'add',
+  'set',
+  'remove',
+  'enable',
+  'disable',
+  'move',
+  'find',
+  'run',
+  'monitor',
+  'monitor-traffic',
+  'export',
+  'import',
+  'execute',
+  'reboot',
+  'shutdown',
+  'reset-configuration',
+  'save',
+  'load',
+  'start',
+  'stop',
+  'scan',
+  'ping',
+  'torch',
+]);
+
+export function parseRouterOsApiCommand(command: string): {
+  path: string;
+  params: Record<string, string | boolean>;
+} {
+  const words = tokenizeCommand(command);
+  let path = words.shift();
+  if (!path?.startsWith('/')) throw new Error('RouterOS command must start with /');
+
+  const pathParts: string[] = [];
+  while (words.length > 0 && !words[0].includes('=')) {
+    const word = words[0].replace(/^=/, '');
+    if (word.startsWith('.') || word.startsWith('?')) break;
+    if (COMMAND_WORDS.has(word.toLowerCase())) {
+      pathParts.push(words.shift() as string);
+      break;
+    }
+    if (pathParts.length > 0 || path.split('/').filter(Boolean).length < 2) {
+      pathParts.push(words.shift() as string);
+    } else break;
+  }
+  if (pathParts.length > 0) path = `${path}/${pathParts.join('/')}`;
+
+  const params: Record<string, string | boolean> = {};
+  for (const word of words) {
+    const normalized = word.replace(/^=/, '');
+    const separator = normalized.indexOf('=');
+    if (separator < 0) params[normalized] = true;
+    else params[normalized.slice(0, separator)] = normalized.slice(separator + 1);
+  }
+  return { path: normalizeApiPath(path), params };
+}
+
+function normalizeApiPath(path: string): string {
+  const finalWord = path.split('/').filter(Boolean).at(-1)?.toLowerCase() ?? '';
+  return COMMAND_WORDS.has(finalWord) ? path : `${path}/print`;
+}
+
+function isDestructiveCommand(command: string): boolean {
+  return /(\/remove\b|\bremove\b|reset-configuration|\/system\/reboot|\/system\/shutdown|format-drive|sup-output|\/system\/backup\/save|\/file\/remove)/i.test(
+    command,
   );
+}
+
+function restCommandBody(
+  params: Record<string, string | boolean>,
+): Record<string, string | boolean | string[]> {
+  return Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [
+      key,
+      key === '.query' && typeof value === 'string'
+        ? value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : value,
+    ]),
+  );
+}
+
+function routerOsRestRequest(input: {
+  host: string;
+  port: number;
+  tls: boolean;
+  username: string;
+  password: string;
+  path: string;
+  body: Record<string, unknown>;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+}): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const sendsBody = input.method !== 'GET' && input.method !== 'DELETE';
+    const payload = sendsBody ? JSON.stringify(input.body) : '';
+    const request = (input.tls ? httpsRequest : httpRequest)(
+      {
+        hostname: input.host,
+        port: input.port,
+        path: input.path,
+        method: input.method,
+        rejectUnauthorized: false,
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${input.username}:${input.password}`).toString('base64')}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+        timeout: 60000,
+      },
+      (response) => {
+        let raw = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          if (raw.length < 2_000_000) raw += chunk;
+        });
+        response.on('end', () => {
+          const status = response.statusCode ?? 500;
+          let data: unknown = raw;
+          try {
+            data = raw ? JSON.parse(raw) : [];
+          } catch {
+            // RouterOS may return plain text for a small subset of commands.
+          }
+          if (status >= 400) {
+            reject(new Error(`RouterOS REST API HTTP ${status}: ${raw || response.statusMessage}`));
+          } else resolve(data);
+        });
+      },
+    );
+    request.on('timeout', () => request.destroy(new Error('RouterOS REST API timeout after 60s')));
+    request.on('error', reject);
+    if (payload) request.write(payload);
+    request.end();
+  });
 }
 
 export const routerOsDeviceActionService = new RouterOsDeviceActionService();

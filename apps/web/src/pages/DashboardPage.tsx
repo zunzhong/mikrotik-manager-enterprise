@@ -14,6 +14,7 @@ import { eventApi } from '../modules/events/event.api';
 import { DashboardRefreshBar } from '../modules/dashboard/components/DashboardRefreshBar';
 import { SummaryCard } from '../modules/dashboard/components/SummaryCard';
 import { WidgetCard } from '../modules/dashboard/components/WidgetCard';
+import { DashboardCharts } from '../modules/dashboard/components/DashboardCharts';
 
 export function DashboardPage() {
   const loadSummary = useCallback(() => dashboardApi.summary(), []);
@@ -154,6 +155,8 @@ export function DashboardPage() {
           hint="inventory records"
         />
       </div>
+
+      <DashboardCharts summary={data} realtime={realtimeOverview.data} />
 
       <HealthDashboardSummary
         overview={realtimeOverview.data}

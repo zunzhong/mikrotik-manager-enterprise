@@ -61,7 +61,7 @@ Kết quả mong đợi: Service có trạng thái `Running`, API trả về `st
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.2-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.3-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -128,23 +128,47 @@ Nút **Add Device** chỉ được bật cho đúng bộ thông tin vừa test t
 bằng AES-256-GCM trước khi ghi vào database. API-SSL chấp nhận chứng thư tự ký của MikroTik trong mạng
 quản trị; nên dùng chứng thư tin cậy khi triển khai qua mạng không tin cậy.
 
-## 10. Sử dụng giao diện quản trị 4.1.2
+## 10. Sử dụng giao diện quản trị 4.1.3
 
 - **Settings → Thông tin tài khoản** hiển thị tên, email đăng nhập, vai trò và trạng thái mật khẩu.
   Mật khẩu hiện tại không thể hiển thị thành chữ vì MME chỉ lưu bản băm bảo mật; dùng mục
   **Password Security** để thay đổi.
 - Dashboard tự đồng bộ trạng thái RouterOS mỗi 30 giây. Thiết bị vượt ngưỡng CPU, RAM, ổ đĩa hoặc
   nhiệt độ được đánh dấu `Warning/Degraded`; sự kiện ghi cả giá trị thực tế và ngưỡng cảnh báo.
-- Tại **Devices**, chọn thiết bị rồi dùng thanh menu ngang cố định để mở Overview, Realtime,
-  Interfaces, Inventory, Backups, Alerts hoặc Terminal.
+- **Thiết bị → Thêm / Xóa thiết bị** dùng để test API/API-SSL, thêm router hoặc xóa
+  router. **Thiết bị → Danh sách thiết bị** chỉ hiển thị danh sách; chọn router để mở
+  trang chi tiết. Trang chi tiết không lặp lại form thêm hay danh sách router.
 - **Ping to Device** chạy ping từ máy Windows cài MME tới địa chỉ quản lý của router.
 - **Device Ping To** yêu cầu một IP/DDNS và chạy `/ping` từ chính MikroTik tới đích đó.
 - **Create Backup**, **Create Supout** và **Reboot** đều yêu cầu xác nhận; kết quả hiển thị trạng thái,
   thời điểm hoàn tất và thời gian thực hiện.
-- **New Terminal** nhận câu lệnh dạng API RouterOS, ví dụ `/system/resource/print` hoặc
-  `/ping address=8.8.8.8 count=4`. Lệnh có khả năng phá hủy dữ liệu yêu cầu xác nhận bổ sung.
+- **Terminal** có ba chế độ: RouterOS API/API-SSL, REST API JSON và REST Script. API tự
+  chuyển menu `/log` thành lệnh print và hỗ trợ tham số có dấu ngoặc kép. REST Script gửi
+  nguyên cú pháp CLI, ví dụ `/log print where message~"error"`. Lệnh có khả năng thay
+  đổi/xóa dữ liệu vẫn yêu cầu xác nhận.
 - Inventory phân cấp theo nhóm có thể thu gọn/mở rộng. Bridge Port hiển thị riêng hai trường
   `Interface` và `Bridge`; MAC được lấy từ `/interface/print` kết hợp `/interface/ethernet/print`.
 - Alert đang tồn tại được cập nhật theo cặp `thiết bị + rule`, không tạo bản ghi trùng. Trạng thái
   **Đang kích hoạt** nghĩa là chưa xác nhận, **Đã xác nhận** nghĩa là quản trị viên đã tiếp nhận,
   và **Đã xử lý** nghĩa là sự cố đã được đóng.
+
+## 11. Bật REST API an toàn trên RouterOS
+
+MME khuyến nghị REST qua HTTPS. Trên RouterOS, bật `www-ssl`, gán certificate phù hợp và
+giới hạn địa chỉ được phép truy cập trong `/ip service`. Tài khoản router dùng bởi MME cần
+policy `rest-api` và các policy chức năng tương ứng (`read`, `write`, `test`, `reboot`...).
+
+Không khuyến nghị bật `www` HTTP vì Basic Auth có thể bị nghe lén. Chỉ dùng HTTP trong
+mạng lab cô lập hoặc bên trong tunnel được mã hóa.
+
+MME hỗ trợ các khả năng REST sau ngay trong Terminal:
+
+- Đọc và lọc tài nguyên với `print`, `.proplist` và `.query`.
+- Dùng REST CRUD Workbench với GET, POST, PUT, PATCH và DELETE; PUT/PATCH/DELETE/POST yêu cầu
+  xác nhận trước khi gửi tới router.
+- Gọi lệnh tùy ý qua POST, gồm ping có giới hạn count, monitor `once`, export và OID.
+- Chạy cú pháp CLI nguyên bản qua `/rest/execute`.
+- Hiển thị JSON trả về, trạng thái thành công/thất bại, thời điểm và thời gian thực thi.
+- Chặn bước xác nhận đối với remove, reboot, shutdown, reset, backup, supout và xóa file.
+
+Tài liệu tham chiếu chính thức: <https://manual.mikrotik.com/docs/developer-guides/rest-api/>.
