@@ -61,7 +61,7 @@ Kết quả mong đợi: Service có trạng thái `Running`, API trả về `st
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.3-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.4-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -128,7 +128,7 @@ Nút **Add Device** chỉ được bật cho đúng bộ thông tin vừa test t
 bằng AES-256-GCM trước khi ghi vào database. API-SSL chấp nhận chứng thư tự ký của MikroTik trong mạng
 quản trị; nên dùng chứng thư tin cậy khi triển khai qua mạng không tin cậy.
 
-## 10. Sử dụng giao diện quản trị 4.1.3
+## 10. Sử dụng giao diện quản trị 4.1.4
 
 - **Settings → Thông tin tài khoản** hiển thị tên, email đăng nhập, vai trò và trạng thái mật khẩu.
   Mật khẩu hiện tại không thể hiển thị thành chữ vì MME chỉ lưu bản băm bảo mật; dùng mục
@@ -172,3 +172,19 @@ MME hỗ trợ các khả năng REST sau ngay trong Terminal:
 - Chặn bước xác nhận đối với remove, reboot, shutdown, reset, backup, supout và xóa file.
 
 Tài liệu tham chiếu chính thức: <https://manual.mikrotik.com/docs/developer-guides/rest-api/>.
+
+## 12. Traffic Monitor, ngôn ngữ và kênh cảnh báo
+
+- Trong trang chi tiết thiết bị, mở tab **Traffic Monitor**. MME thu thập counter RX/TX của
+  toàn bộ Interface theo lịch realtime, tính phần chênh lệch và lưu vào SQLite.
+- Có thể lọc một Interface hoặc tất cả, chọn ngày tham chiếu và tổng hợp theo
+  **giờ / ngày / tháng / năm**. Biểu đồ và bảng dùng dữ liệu database, không mất khi
+  đóng trình duyệt.
+- **Snapshot History** đã được gỡ khỏi giao diện. Backend vẫn giữ snapshot Inventory cần
+  thiết cho đồng bộ và phát hiện thay đổi; người dùng không còn phải thao tác với lịch sử này.
+- Vào **Cài đặt → Ngôn ngữ hệ thống** để chọn Tiếng Việt hoặc English. Lựa chọn
+  được lưu trên trình duyệt.
+- Vào **Cảnh báo → Kênh gửi cảnh báo** để tạo Email SMTP, Telegram Bot,
+  Slack hoặc Webhook. Sau khi lưu, bấm **Gửi kiểm thử** để xác nhận thông tin kết nối.
+- Dark Mode và Light Mode dùng hai palette tách biệt; bảng, form, menu, Alerts và thẻ dữ liệu
+  kế thừa surface hiện tại, tránh nền trắng xuất hiện trong giao diện tối.

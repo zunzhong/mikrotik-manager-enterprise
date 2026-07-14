@@ -40,3 +40,34 @@
   width: 100%;
   margin-top: 18px;
 }
+.login-page[data-theme='light'] {
+  background: #eef2f7;
+  color: #172033;
+}
+.login-page[data-theme='light'] .login-card {
+  background: #f9fbfd;
+  border-color: #cbd6e3;
+  box-shadow: 0 20px 55px rgba(31, 50, 75, 0.12);
+}
+.login-page[data-theme='light'] .login-card input {
+  background: #edf2f7;
+  color: #172033;
+  border-color: #cbd6e3;
+}
+.login-preferences {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-bottom: -38px;
+  position: relative;
+  z-index: 2;
+}
+.login-preferences button {
+  width: auto;
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 9px;
+}
+.login-card .brand-logo {
+  background: transparent;
+}

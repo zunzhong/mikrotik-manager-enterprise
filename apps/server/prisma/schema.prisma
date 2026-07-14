@@ -115,6 +115,7 @@ model Device {
   complianceReports  ComplianceReport[]
   alerts             Alert[]
   backups            BackupRecord[]
+  trafficSamples     TrafficSample[]
 
   @@index([host])
   @@index([status])
@@ -373,4 +374,23 @@ model DeviceSnapshot {
 
   @@index([deviceId])
   @@index([collectedAt])
+}
+
+model TrafficSample {
+  id             String   @id @default(cuid())
+  deviceId       String
+  interfaceName  String
+  collectedAt    DateTime @default(now())
+  rxBytes        BigInt
+  txBytes        BigInt
+  rxDeltaBytes   BigInt   @default(0)
+  txDeltaBytes   BigInt   @default(0)
+  rxBps          Float    @default(0)
+  txBps          Float    @default(0)
+  running        Boolean  @default(false)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, collectedAt])
+  @@index([deviceId, interfaceName, collectedAt])
 }

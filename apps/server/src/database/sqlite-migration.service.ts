@@ -1,13 +1,35 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 1;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 2;
 
 interface Migration {
   version: number;
   statements: string[];
 }
 
-const migrations: Migration[] = [];
+const migrations: Migration[] = [
+  {
+    version: 2,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "TrafficSample" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "deviceId" TEXT NOT NULL,
+        "interfaceName" TEXT NOT NULL,
+        "collectedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "rxBytes" BIGINT NOT NULL,
+        "txBytes" BIGINT NOT NULL,
+        "rxDeltaBytes" BIGINT NOT NULL DEFAULT 0,
+        "txDeltaBytes" BIGINT NOT NULL DEFAULT 0,
+        "rxBps" REAL NOT NULL DEFAULT 0,
+        "txBps" REAL NOT NULL DEFAULT 0,
+        "running" BOOLEAN NOT NULL DEFAULT false,
+        CONSTRAINT "TrafficSample_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`,
+      'CREATE INDEX IF NOT EXISTS "TrafficSample_deviceId_collectedAt_idx" ON "TrafficSample"("deviceId", "collectedAt")',
+      'CREATE INDEX IF NOT EXISTS "TrafficSample_deviceId_interfaceName_collectedAt_idx" ON "TrafficSample"("deviceId", "interfaceName", "collectedAt")',
+    ],
+  },
+];
 
 export function ensureSqliteSchemaVersion(databasePath: string): number {
   const database = new DatabaseSync(databasePath);

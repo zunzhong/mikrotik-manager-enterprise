@@ -10,6 +10,7 @@ import {
   type RouterOsResourceLike,
 } from '../health/index.js';
 import { deviceRepository } from '../infrastructure/device.repository.js';
+import { deviceTrafficMonitorService } from './device-traffic-monitor.service.js';
 
 export interface DeviceRealtimeSnapshot {
   deviceId: string;
@@ -171,6 +172,14 @@ export class DeviceRealtimeService {
         interfaces,
         healthReport,
       };
+
+      // Việc lưu lịch sử traffic là tác vụ phụ. Lỗi ghi database không được phép
+      // biến một router đang online thành offline hoặc che mất dữ liệu realtime.
+      try {
+        await deviceTrafficMonitorService.record(deviceId, interfaces, snapshot.collectedAt);
+      } catch {
+        // Giữ snapshot realtime và để lần polling kế tiếp thử ghi lại.
+      }
 
       await deviceRepository.update(deviceId, {
         status: healthReport.status === 'healthy' ? 'online' : 'degraded',

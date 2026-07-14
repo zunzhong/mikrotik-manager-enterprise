@@ -23,6 +23,12 @@ describe('SQLite migration service', () => {
 
     expect(ensureSqliteSchemaVersion(databasePath)).toBe(CURRENT_SQLITE_SCHEMA_VERSION);
     expect(ensureSqliteSchemaVersion(databasePath)).toBe(CURRENT_SQLITE_SCHEMA_VERSION);
+    const database = new DatabaseSync(databasePath);
+    const trafficTable = database
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'TrafficSample'`)
+      .get() as { name: string } | undefined;
+    database.close();
+    expect(trafficTable?.name).toBe('TrafficSample');
   });
 
   it('rejects a database created by a newer application', () => {

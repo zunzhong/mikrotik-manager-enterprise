@@ -580,7 +580,7 @@ body {
   }
 }
 
-/* MME application frame v4.1.3 */
+/* MME application frame v4.1.4 */
 .app-shell {
   --surface: rgba(15, 23, 42, 0.78);
   --surface-solid: #0f1b2d;
@@ -1112,5 +1112,211 @@ body {
   .device-list-title {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+/* MME visual system v4.1.4: one coherent, accessible light/dark palette */
+.app-shell {
+  --app-bg: #091321;
+  --header-bg: #0b1626;
+  --sidebar-bg: #0d1829;
+  --surface: #111e31;
+  --surface-solid: #111e31;
+  --surface-soft: #17263b;
+  --surface-hover: #1b2d46;
+  --border: #2a3c55;
+  --text: #e8eef7;
+  --muted: #9bacc1;
+  --accent: #36c7e8;
+  --accent-strong: #4f8df7;
+  --focus-ring: rgba(54, 199, 232, 0.28);
+  --shadow: 0 14px 38px rgba(0, 0, 0, 0.22);
+  background: var(--app-bg);
+  color: var(--text);
+  color-scheme: dark;
+}
+.app-shell[data-theme='light'] {
+  --app-bg: #eef2f7;
+  --header-bg: #f7f9fc;
+  --sidebar-bg: #f8fafc;
+  --surface: #f9fbfd;
+  --surface-solid: #f9fbfd;
+  --surface-soft: #edf2f7;
+  --surface-hover: #e4ebf4;
+  --border: #cbd6e3;
+  --text: #172033;
+  --muted: #607086;
+  --accent: #087ca7;
+  --accent-strong: #315fc5;
+  --focus-ring: rgba(49, 95, 197, 0.2);
+  --shadow: 0 12px 32px rgba(31, 50, 75, 0.08);
+  background: var(--app-bg);
+  color: var(--text);
+  color-scheme: light;
+}
+.app-shell .main,
+.app-shell .content {
+  background: var(--app-bg);
+  color: var(--text);
+}
+.app-shell .sidebar {
+  padding: 0 14px 16px;
+  background: var(--sidebar-bg);
+  border-color: var(--border);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.app-shell .brand,
+.app-shell .topbar {
+  min-height: 74px;
+  height: 74px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: none;
+}
+.app-shell .brand {
+  margin: 0 -14px 18px;
+  padding: 0 18px;
+}
+.app-shell .topbar {
+  padding: 0 22px;
+}
+.app-shell .brand-logo {
+  background: transparent !important;
+  border: 0;
+  border-radius: 0;
+  filter: drop-shadow(0 5px 8px rgba(30, 136, 229, 0.18));
+}
+.app-shell .nav {
+  gap: 5px;
+}
+.app-shell .nav-item,
+.app-shell .nav-child {
+  color: var(--muted);
+}
+.app-shell .nav-parent {
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.app-shell .nav-item:hover,
+.app-shell .nav-item.active,
+.app-shell .nav-child:hover,
+.app-shell .nav-child.active {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.app-shell .nav-entry.expanded .nav-flyout-arrow {
+  transform: rotate(180deg);
+}
+.app-shell .nav-children {
+  animation: mme-nav-open 0.16s ease-out;
+}
+@keyframes mme-nav-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.app-shell .sidebar-footer {
+  text-align: center;
+  justify-items: center;
+  padding: 16px 8px 2px;
+}
+.app-shell .sidebar-footer strong {
+  font-style: italic;
+  font-weight: 650;
+  color: var(--text);
+}
+.app-shell :is(.theme-toggle, .logout-button, .small-button, button, input, textarea, select) {
+  font-family: inherit;
+}
+.app-shell :is(.theme-toggle, .logout-button, .small-button) {
+  color: var(--text);
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+.app-shell :is(input, textarea, select) {
+  color: var(--text) !important;
+  background: var(--surface-soft) !important;
+  border: 1px solid var(--border) !important;
+}
+.app-shell :is(input, textarea, select, button):focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.app-shell
+  :is(
+    .explorer-list,
+    .explorer-detail,
+    .detail-card,
+    .placeholder-panel,
+    .summary-card,
+    .widget-card,
+    .card,
+    .settings-panel,
+    .settings-toolbar,
+    .alert-panel,
+    .alert-toolbar,
+    .device-interface-explorer__card,
+    .device-dashboard__card,
+    .device-subpanel,
+    .device-terminal,
+    .notification-panel,
+    .audit-log-panel,
+    .dashboard-chart-card,
+    .interface-traffic-charts,
+    .traffic-monitor,
+    .device-management-card
+  ) {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+.app-shell :is(.page-header p, .muted, small, .settings-toolbar p, .widget-header p) {
+  color: var(--muted);
+}
+.app-shell table,
+.app-shell thead,
+.app-shell tbody,
+.app-shell tr,
+.app-shell th,
+.app-shell td,
+.app-shell .device-interface-explorer table,
+.app-shell .device-interface-explorer th,
+.app-shell .device-interface-explorer td {
+  color: var(--text) !important;
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+.app-shell thead,
+.app-shell .device-interface-explorer thead {
+  background: var(--surface-soft) !important;
+}
+.app-shell tbody tr:hover {
+  background: var(--surface-hover) !important;
+}
+.app-shell[data-theme='light'] :is(.status-online, .account-state) {
+  color: #13733c;
+  background: #dcf4e5;
+}
+.app-shell[data-theme='light'] :is(.error-banner, .status-offline, .status-error) {
+  color: #9f2727;
+  background: #fbe5e5;
+}
+@media (max-width: 900px) {
+  .app-shell .brand {
+    margin-inline: -14px;
+  }
+  .app-shell .topbar {
+    height: auto;
+    min-height: 68px;
   }
 }

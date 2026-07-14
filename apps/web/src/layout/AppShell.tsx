@@ -1,17 +1,22 @@
-import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { navigationItems } from './navigation';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { createNavigationItems } from './navigation';
 import { useTheme } from '../theme/useTheme';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { authApi, type AuthUser } from '../modules/auth/auth.api';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export function AppShell() {
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigationItems = useMemo(() => createNavigationItems(t), [t]);
   const hasToken = Boolean(window.localStorage.getItem('mme-token'));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => window.localStorage.getItem('mme-sidebar-collapsed') === 'true',
   );
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [devicesExpanded, setDevicesExpanded] = useState(false);
 
   useEffect(() => {
     if (!hasToken) return undefined;
@@ -26,6 +31,10 @@ export function AppShell() {
     window.addEventListener('mme-profile-updated', onProfileUpdated);
     return () => window.removeEventListener('mme-profile-updated', onProfileUpdated);
   }, [hasToken]);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith('/devices')) setDevicesExpanded(false);
+  }, [location.pathname]);
 
   async function logout() {
     await authApi.logout().catch(() => undefined);
@@ -60,29 +69,46 @@ export function AppShell() {
             setSidebarCollapsed(next);
             window.localStorage.setItem('mme-sidebar-collapsed', String(next));
           }}
-          aria-label={sidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
-          title={sidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+          aria-label={sidebarCollapsed ? t('expandMenu') : t('collapseMenu')}
+          title={sidebarCollapsed ? t('expandMenu') : t('collapseMenu')}
         >
           {sidebarCollapsed ? '›' : '‹'}
         </button>
 
         <nav className="nav">
           {navigationItems.map((item) => (
-            <div className={`nav-entry ${item.children ? 'has-children' : ''}`} key={item.path}>
-              <NavLink
-                to={item.path}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{item.label}</span>
-                {item.children ? <span className="nav-flyout-arrow">⌄</span> : null}
-              </NavLink>
+            <div
+              className={`nav-entry ${item.children ? 'has-children' : ''} ${item.children && devicesExpanded ? 'expanded' : ''}`}
+              key={item.path}
+            >
               {item.children ? (
+                <button
+                  type="button"
+                  className={`nav-item nav-parent ${location.pathname.startsWith('/devices') ? 'active' : ''}`}
+                  aria-expanded={devicesExpanded}
+                  onClick={() => setDevicesExpanded((current) => !current)}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-label">{item.label}</span>
+                  <span className="nav-flyout-arrow">⌄</span>
+                </button>
+              ) : (
+                <NavLink
+                  to={item.path}
+                  onClick={() => setDevicesExpanded(false)}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              )}
+              {item.children && devicesExpanded ? (
                 <div className="nav-children">
                   {item.children.map((child) => (
                     <NavLink
                       key={child.path}
                       to={child.path}
+                      onClick={() => setDevicesExpanded(false)}
                       className={({ isActive }) => `nav-child ${isActive ? 'active' : ''}`}
                     >
                       <span>{child.icon}</span>
@@ -106,14 +132,14 @@ export function AppShell() {
           <div className="topbar-spacer" />
           <div className="topbar-account">
             <button className="theme-toggle" type="button" onClick={toggleTheme}>
-              {theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}
+              {theme === 'dark' ? t('lightMode') : t('darkMode')}
             </button>
             <div className="account-identity">
-              <span>Tài khoản quản trị</span>
-              <strong>{user?.name || user?.email || 'Đang đăng nhập'}</strong>
+              <span>{t('adminAccount')}</span>
+              <strong>{user?.name || user?.email || t('signedIn')}</strong>
             </div>
             <button className="logout-button" type="button" onClick={() => void logout()}>
-              Đăng xuất
+              {t('logout')}
             </button>
           </div>
         </header>

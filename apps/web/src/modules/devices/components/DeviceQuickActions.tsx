@@ -41,7 +41,7 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
       onInventoryCollected?.();
       setSuccess(true);
       setMessage(
-        `Đã đồng bộ Inventory lúc ${new Date().toLocaleString()} — snapshot ${result.snapshotId}.`,
+        `Đã đồng bộ Inventory lúc ${new Date().toLocaleString()} — mã lần thu thập ${result.snapshotId}.`,
       );
     } catch (error) {
       setSuccess(false);

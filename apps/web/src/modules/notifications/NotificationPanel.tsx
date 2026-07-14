@@ -98,26 +98,26 @@ export function NotificationPanel({
   async function seedDefaults() {
     await runAction(async () => {
       await notificationApi.seedDefaults();
-    }, 'Cannot seed notification defaults');
+    }, 'Không thể tạo cấu hình thông báo mặc định.');
   }
 
   async function sendTest() {
     await runAction(async () => {
       await notificationApi.test();
       await notificationApi.processPending();
-    }, 'Cannot send notification test');
+    }, 'Không thể gửi thông báo kiểm thử.');
   }
 
   async function processPending() {
     await runAction(async () => {
       await notificationApi.processPending();
-    }, 'Cannot process pending deliveries');
+    }, 'Không thể xử lý hàng đợi thông báo.');
   }
 
   async function retryFailed() {
     await runAction(async () => {
       await notificationApi.retryFailed();
-    }, 'Cannot retry failed deliveries');
+    }, 'Không thể gửi lại các thông báo lỗi.');
   }
 
   async function toggleChannel(channel: NotificationChannel) {
@@ -135,7 +135,7 @@ export function NotificationPanel({
   }
 
   async function deleteChannel(channel: NotificationChannel) {
-    if (!window.confirm(`Delete notification channel "${channel.name}"?`)) {
+    if (!window.confirm(`Xóa kênh thông báo "${channel.name}"?`)) {
       return;
     }
 
@@ -167,7 +167,7 @@ export function NotificationPanel({
   }
 
   async function deleteRule(rule: NotificationRule) {
-    if (!window.confirm(`Delete notification rule "${rule.name}"?`)) {
+    if (!window.confirm(`Xóa quy tắc thông báo "${rule.name}"?`)) {
       return;
     }
 
@@ -250,27 +250,27 @@ export function NotificationPanel({
     <section className="notification-panel">
       <div className="notification-panel__header">
         <div>
-          <p className="notification-panel__eyebrow">Notification Engine</p>
-          <h3>Channels / Rules / Deliveries</h3>
-          <p>Event Bus notifications are matched against rules and queued as delivery records.</p>
+          <p className="notification-panel__eyebrow">HỆ THỐNG GỬI CẢNH BÁO</p>
+          <h3>Kênh gửi / Quy tắc / Lịch sử gửi</h3>
+          <p>Sự kiện MME được đối chiếu với rule rồi gửi tới các kênh đã cấu hình.</p>
         </div>
 
         <div className="notification-panel__header-actions">
           <button type="button" disabled={busy} onClick={() => void seedDefaults()}>
-            Seed Defaults
+            Tạo mặc định
           </button>
           <button type="button" disabled={busy} onClick={() => void sendTest()}>
-            Send Test
+            Gửi kiểm thử
           </button>
           <button type="button" disabled={busy} onClick={() => void processPending()}>
-            Process Pending
+            Gửi hàng đợi
           </button>
           <button
             type="button"
             disabled={busy || retryableCount === 0}
             onClick={() => void retryFailed()}
           >
-            Retry Failed
+            Gửi lại lỗi
           </button>
         </div>
       </div>
@@ -347,8 +347,8 @@ export function NotificationPanel({
 
       <div className="notification-panel__grid">
         <WidgetCard
-          title="Notification Channels"
-          description="Enable, disable, or delete notification targets"
+          title="Kênh nhận cảnh báo"
+          description="Bật, tắt hoặc xóa địa chỉ nhận thông báo"
         >
           <div className="notification-panel__list">
             {channels.slice(0, 10).map((channel) => (
@@ -365,36 +365,36 @@ export function NotificationPanel({
                 </div>
 
                 <div className="notification-panel__entity-actions">
-                  <span>{channel.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <span>{channel.enabled ? 'Đang bật' : 'Đã tắt'}</span>
                   <button
                     type="button"
                     disabled={busyEntityId === channel.id}
                     onClick={() => void toggleChannel(channel)}
                   >
-                    {channel.enabled ? 'Disable' : 'Enable'}
+                    {channel.enabled ? 'Tắt' : 'Bật'}
                   </button>
                   <button
                     type="button"
                     disabled={busyEntityId === channel.id}
                     onClick={() => void deleteChannel(channel)}
                   >
-                    Delete
+                    Xóa
                   </button>
                 </div>
               </article>
             ))}
 
             {!loading && channels.length === 0 ? (
-              <p className="muted">No notification channels yet.</p>
+              <p className="muted">Chưa có kênh nhận cảnh báo.</p>
             ) : null}
 
-            {loading ? <p className="muted">Loading notification channels...</p> : null}
+            {loading ? <p className="muted">Đang tải kênh cảnh báo...</p> : null}
           </div>
         </WidgetCard>
 
         <WidgetCard
-          title="Notification Rules"
-          description="Enable, disable, or delete event-to-channel rules"
+          title="Quy tắc gửi cảnh báo"
+          description="Chọn sự kiện và mức độ được gửi tới từng kênh"
         >
           <div className="notification-panel__list">
             {rules.slice(0, 10).map((rule) => (
@@ -412,39 +412,37 @@ export function NotificationPanel({
                 </div>
 
                 <div className="notification-panel__entity-actions">
-                  <span>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <span>{rule.enabled ? 'Đang bật' : 'Đã tắt'}</span>
                   <button
                     type="button"
                     disabled={busyEntityId === rule.id}
                     onClick={() => void toggleRule(rule)}
                   >
-                    {rule.enabled ? 'Disable' : 'Enable'}
+                    {rule.enabled ? 'Tắt' : 'Bật'}
                   </button>
                   <button
                     type="button"
                     disabled={busyEntityId === rule.id}
                     onClick={() => void deleteRule(rule)}
                   >
-                    Delete
+                    Xóa
                   </button>
                 </div>
               </article>
             ))}
 
             {!loading && rules.length === 0 ? (
-              <p className="muted">
-                No notification rules yet. Click Seed Defaults to create the first rule.
-              </p>
+              <p className="muted">Chưa có quy tắc. Bấm “Tạo mặc định” để tạo quy tắc đầu tiên.</p>
             ) : null}
 
-            {loading ? <p className="muted">Loading notification rules...</p> : null}
+            {loading ? <p className="muted">Đang tải quy tắc...</p> : null}
           </div>
         </WidgetCard>
       </div>
 
       <WidgetCard
-        title="Recent Deliveries"
-        description={`Latest delivery: ${latestDeliveryAt(deliveries)}`}
+        title="Lịch sử gửi gần đây"
+        description={`Lần gửi mới nhất: ${latestDeliveryAt(deliveries)}`}
       >
         <div className="notification-panel__list">
           {deliveries.slice(0, 8).map((delivery) => (
@@ -460,7 +458,7 @@ export function NotificationPanel({
                   {resolveChannelName(channels, delivery.channelId)}
                 </small>
                 <small>
-                  Attempts: {delivery.attempts} · {deliveryTimestamp(delivery)}
+                  Số lần thử: {delivery.attempts} · {deliveryTimestamp(delivery)}
                 </small>
                 {delivery.error ? <small>{delivery.error}</small> : null}
               </div>
@@ -473,7 +471,7 @@ export function NotificationPanel({
                     disabled={busyDeliveryId === delivery.id}
                     onClick={() => void retryDelivery(delivery)}
                   >
-                    {busyDeliveryId === delivery.id ? 'Retrying...' : 'Retry'}
+                    {busyDeliveryId === delivery.id ? 'Đang gửi lại...' : 'Gửi lại'}
                   </button>
                 ) : null}
               </div>
@@ -481,10 +479,10 @@ export function NotificationPanel({
           ))}
 
           {!loading && deliveries.length === 0 ? (
-            <p className="muted">No notification deliveries yet.</p>
+            <p className="muted">Chưa có lịch sử gửi cảnh báo.</p>
           ) : null}
 
-          {loading ? <p className="muted">Loading notification deliveries...</p> : null}
+          {loading ? <p className="muted">Đang tải lịch sử gửi...</p> : null}
         </div>
       </WidgetCard>
     </section>

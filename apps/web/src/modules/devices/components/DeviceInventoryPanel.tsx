@@ -47,7 +47,7 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
       <div className="inventory-action-row">
         <div>
           <h3>Inventory Overview</h3>
-          <p>Snapshot, tree and RouterOS inventory sections for this device.</p>
+          <p>Dữ liệu RouterOS mới nhất, phân nhóm rõ ràng theo từng khu vực.</p>
         </div>
         <div className="toolbar-actions">
           <button className="small-button" onClick={collectInventory}>
@@ -64,7 +64,7 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
 
       <div className="inventory-summary compact">
         <div className="summary-card">
-          <span>Snapshot</span>
+          <span>Dữ liệu Inventory</span>
           <strong>{overview.data?.hasSnapshot ? 'Yes' : 'No'}</strong>
           <small>
             {overview.data?.snapshot?.collectedAt
@@ -75,7 +75,7 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
         <div className="summary-card">
           <span>Sections</span>
           <strong>{overview.data?.totals.sections ?? 0}</strong>
-          <small>latest snapshot</small>
+          <small>lần thu thập gần nhất</small>
         </div>
         <div className="summary-card">
           <span>Items</span>

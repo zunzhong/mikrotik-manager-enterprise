@@ -8,6 +8,7 @@ import { deviceRealtimeService } from '../application/device-realtime.service.js
 import { deviceService } from '../application/device.service.js';
 import { deviceTestService } from '../application/device-test.service.js';
 import { routerOsDeviceActionService } from '../application/routeros-device-action.service.js';
+import { deviceTrafficMonitorService } from '../application/device-traffic-monitor.service.js';
 import {
   createDeviceSchema,
   testDeviceConnectionSchema,
@@ -45,6 +46,15 @@ const rebootActionSchema = z.object({
 const schedulerStartSchema = z.object({
   intervalMs: z.coerce.number().int().min(3000).max(300000).optional(),
   ttlMs: z.coerce.number().int().min(1000).max(600000).optional(),
+});
+
+const trafficHistoryQuerySchema = z.object({
+  period: z.enum(['hour', 'day', 'month', 'year']).optional().default('hour'),
+  interface: z.string().min(1).optional().default('all'),
+  anchor: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 const deviceManagePreHandler = [attachAuthContextPreHandler, rbacGuard('device:manage')];
@@ -281,6 +291,20 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
     return {
       success: true,
       data: await deviceRealtimeService.getSnapshot(params.id),
+    };
+  });
+
+  app.get('/api/v1/devices/:id/traffic', async (request) => {
+    const params = deviceIdParamsSchema.parse(request.params);
+    const query = trafficHistoryQuerySchema.parse(request.query ?? {});
+    return {
+      success: true,
+      data: await deviceTrafficMonitorService.history({
+        deviceId: params.id,
+        period: query.period,
+        interfaceName: query.interface,
+        anchor: query.anchor,
+      }),
     };
   });
 

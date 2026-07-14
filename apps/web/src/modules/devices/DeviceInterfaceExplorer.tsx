@@ -89,7 +89,7 @@ export function DeviceInterfaceExplorer({ deviceId }: DeviceInterfaceExplorerPro
           <p className="device-interface-explorer__eyebrow">Interface Explorer</p>
           <h2>Interfaces</h2>
           <p className="device-interface-explorer__muted">
-            Snapshot: {snapshot?.collectedAt ?? 'No snapshot'} · Interface sections:{' '}
+            Lần đồng bộ: {snapshot?.collectedAt ?? 'Chưa có dữ liệu'} · Nhóm Interface:{' '}
             {interfaceSectionCount(snapshot)}
           </p>
         </div>

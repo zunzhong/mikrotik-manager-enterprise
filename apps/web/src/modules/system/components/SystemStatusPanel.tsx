@@ -45,11 +45,6 @@ export function SystemStatusPanel() {
           <strong>{status.data?.metrics.openAlerts ?? 0}</strong>
           <small>active alerts</small>
         </div>
-        <div className="summary-card">
-          <span>Snapshots</span>
-          <strong>{status.data?.metrics.inventorySnapshots ?? 0}</strong>
-          <small>inventory snapshots</small>
-        </div>
       </div>
 
       <div className="settings-panel">

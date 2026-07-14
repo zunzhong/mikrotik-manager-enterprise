@@ -24,6 +24,7 @@ import type {
   RouterOsProbeInput,
   RouterOsProbeResult,
 } from './device.types';
+import type { DeviceTrafficHistory, TrafficPeriod } from './device-traffic.types';
 
 const explicitApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
@@ -71,6 +72,18 @@ export const deviceApi = {
 
   refreshRealtimeSnapshot: (id: string) =>
     apiPost<DeviceRealtimeSnapshot>(`/api/v1/realtime/devices/${id}/refresh`),
+
+  trafficHistory: (
+    id: string,
+    input: { period: TrafficPeriod; interfaceName?: string; anchor?: string },
+  ) => {
+    const query = new URLSearchParams({
+      period: input.period,
+      interface: input.interfaceName ?? 'all',
+      ...(input.anchor ? { anchor: input.anchor } : {}),
+    });
+    return apiGet<DeviceTrafficHistory>(`/api/v1/devices/${id}/traffic?${query.toString()}`);
+  },
 
   realtimeStreamUrl: (id: string) => buildApiUrl(`/api/v1/realtime/devices/${id}/stream`),
 

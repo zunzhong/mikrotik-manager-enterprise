@@ -5,21 +5,24 @@ export interface NavigationItem {
   children?: Array<{ label: string; path: string; icon: string }>;
 }
 
-export const navigationItems: NavigationItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: '▦' },
-  {
-    label: 'Thiết bị',
-    path: '/devices',
-    icon: '●',
-    children: [
-      { label: 'Thêm / Xóa thiết bị', path: '/devices/add-remove', icon: '+' },
-      { label: 'Danh sách thiết bị', path: '/devices/list', icon: '≡' },
-    ],
-  },
-  { label: 'Inventory', path: '/inventory', icon: '▤' },
-  { label: 'Compliance', path: '/compliance', icon: '✓' },
-  { label: 'Cảnh báo', path: '/alerts', icon: '!' },
-  { label: 'Backup Center', path: '/backup-center', icon: '↥' },
-  { label: 'Topology', path: '/topology', icon: '⌘' },
-  { label: 'Cài đặt', path: '/settings', icon: '⚙' },
-];
+export function createNavigationItems(t: (key: TranslationKey) => string): NavigationItem[] {
+  return [
+    { label: t('dashboard'), path: '/dashboard', icon: '▦' },
+    {
+      label: t('devices'),
+      path: '/devices',
+      icon: '●',
+      children: [
+        { label: t('addRemoveDevice'), path: '/devices/add-remove', icon: '+' },
+        { label: t('deviceList'), path: '/devices/list', icon: '≡' },
+      ],
+    },
+    { label: t('inventory'), path: '/inventory', icon: '▤' },
+    { label: t('compliance'), path: '/compliance', icon: '✓' },
+    { label: t('alerts'), path: '/alerts', icon: '!' },
+    { label: t('backupCenter'), path: '/backup-center', icon: '↥' },
+    { label: t('topology'), path: '/topology', icon: '⌘' },
+    { label: t('settings'), path: '/settings', icon: '⚙' },
+  ];
+}
+import type { TranslationKey } from '../i18n/LanguageContext';

@@ -156,6 +156,88 @@
   color: #166534;
   background: #dcfce7;
 }
+
+.alert-center {
+  display: grid;
+  gap: 18px;
+}
+.alert-toolbar {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(14, 116, 144, 0.2), rgba(59, 130, 246, 0.08)), var(--surface) !important;
+}
+.alert-toolbar::after {
+  content: '!';
+  position: absolute;
+  right: 26px;
+  bottom: -44px;
+  color: rgba(56, 189, 248, 0.08);
+  font-size: 180px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+.alert-toolbar > * {
+  position: relative;
+  z-index: 1;
+}
+.alert-summary {
+  gap: 14px;
+}
+.alert-summary .summary-card {
+  border-left: 4px solid var(--accent);
+  box-shadow: var(--shadow);
+}
+.alert-grid {
+  align-items: start;
+}
+.alert-panel {
+  overflow: hidden;
+}
+.rule-card,
+.alert-card {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease;
+}
+.rule-card:hover,
+.alert-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.alert-card {
+  border-left: 4px solid var(--accent);
+}
+.alert-badges span {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.alert-notification-section {
+  margin-top: 28px;
+  display: grid;
+  gap: 14px;
+}
+.section-heading {
+  padding: 0 4px;
+}
+.section-heading > span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+.section-heading h2 {
+  margin: 5px 0;
+}
+.section-heading p {
+  color: var(--muted);
+  margin: 0;
+}
 .sev-warning {
   color: #fde68a;
   background: rgba(245, 158, 11, 0.16);

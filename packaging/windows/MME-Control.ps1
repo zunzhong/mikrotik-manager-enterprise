@@ -74,9 +74,9 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=4.1.3')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=4.1.4')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=4.1.3`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=4.1.4`r`n"
     }
     [IO.File]::WriteAllText($ConfigFile, $existingConfig, (New-Object Text.UTF8Encoding($false)))
     return
@@ -85,7 +85,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=4.1.3
+APP_VERSION=4.1.4
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$Port
 DATABASE_URL=file:$($Database.Replace('\','/'))

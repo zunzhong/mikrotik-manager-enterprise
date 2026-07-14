@@ -16,6 +16,7 @@ import { LoginPage } from './pages/LoginPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SetupPage } from './pages/SetupPage';
 import { TopologyPage } from './pages/TopologyPage';
+import { LanguageProvider } from './i18n/LanguageContext';
 import './styles.css';
 import './inventory.css';
 import './compliance.css';
@@ -23,7 +24,6 @@ import './device-inventory.css';
 import './modules/devices/device-dashboard.css';
 import './modules/devices/device-detail.css';
 import './modules/devices/device-interface-explorer.css';
-import './modules/devices/device-inventory-timeline.css';
 import './modules/devices/device-metric-charts.css';
 import './modules/devices/device-realtime-monitor.css';
 import './backup.css';
@@ -41,26 +41,28 @@ import './setup.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/setup" element={<SetupPage />} />
-        <Route element={<AppShell />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/devices" element={<DevicesPage />} />
-          <Route path="/devices/add-remove" element={<DeviceAddRemovePage />} />
-          <Route path="/devices/list" element={<DeviceListPage />} />
-          <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/compliance" element={<CompliancePage />} />
-          <Route path="/alerts" element={<AlertsPage />} />
-          <Route path="/backup-center" element={<BackupCenterPage />} />
-          <Route path="/topology" element={<TopologyPage />} />
-          <Route path="/administration" element={<AdministrationPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/setup" element={<SetupPage />} />
+          <Route element={<AppShell />}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/devices" element={<DevicesPage />} />
+            <Route path="/devices/add-remove" element={<DeviceAddRemovePage />} />
+            <Route path="/devices/list" element={<DeviceListPage />} />
+            <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/compliance" element={<CompliancePage />} />
+            <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/backup-center" element={<BackupCenterPage />} />
+            <Route path="/topology" element={<TopologyPage />} />
+            <Route path="/administration" element={<AdministrationPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </LanguageProvider>
   </React.StrictMode>,
 );

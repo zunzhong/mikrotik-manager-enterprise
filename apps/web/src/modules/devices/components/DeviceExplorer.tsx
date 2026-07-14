@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { DeviceDashboard } from '../DeviceDashboard';
 import { DeviceInterfaceExplorer } from '../DeviceInterfaceExplorer';
-import { DeviceInterfaceTrafficCharts } from '../DeviceInterfaceTrafficCharts';
-import { DeviceInventoryTimeline } from '../DeviceInventoryTimeline';
+import { DeviceTrafficMonitor } from '../DeviceTrafficMonitor';
 import { DeviceMetricCharts } from '../DeviceMetricCharts';
 import { DeviceRealtimeMonitor } from '../DeviceRealtimeMonitor';
 import { deviceApi, type Device } from '../device.api';
@@ -15,31 +14,42 @@ import { DeviceTerminal } from './DeviceTerminal';
 import { DeviceAlertsPanel } from './DeviceAlertsPanel';
 import { DeviceBackupsPanel } from './DeviceBackupsPanel';
 import { StatusBadge } from './StatusBadge';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
-const tabs = [
-  'Overview',
-  'Realtime',
-  'Interfaces',
-  'Inventory',
-  'Backups',
-  'Compliance',
-  'Alerts',
-  'Terminal',
-];
+type TabId =
+  | 'overview'
+  | 'realtime'
+  | 'traffic'
+  | 'inventory'
+  | 'backups'
+  | 'compliance'
+  | 'alerts'
+  | 'terminal';
 
 export function DeviceExplorer({ detailOnlyId }: { detailOnlyId?: string } = {}) {
+  const { t } = useLanguage();
+  const tabs: Array<{ id: TabId; label: string }> = [
+    { id: 'overview', label: t('overview') },
+    { id: 'realtime', label: t('realtime') },
+    { id: 'traffic', label: t('trafficMonitor') },
+    { id: 'inventory', label: t('inventory') },
+    { id: 'backups', label: t('backups') },
+    { id: 'compliance', label: t('compliance') },
+    { id: 'alerts', label: t('alerts') },
+    { id: 'terminal', label: t('terminal') },
+  ];
   const loadDevices = useCallback(() => deviceApi.list(), []);
   const { data, loading, error, refresh } = useAsyncData(loadDevices);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => detailOnlyId ?? searchParams.get('device') ?? undefined,
   );
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
 
   useEffect(() => {
     const requested = detailOnlyId ?? searchParams.get('device') ?? undefined;
     setSelectedId(requested);
-    setActiveTab('Overview');
+    setActiveTab('overview');
   }, [detailOnlyId, searchParams]);
 
   const devices = data ?? [];
@@ -52,7 +62,7 @@ export function DeviceExplorer({ detailOnlyId }: { detailOnlyId?: string } = {})
   function selectDevice(deviceId: string) {
     setSelectedId(deviceId);
     setSearchParams({ device: deviceId }, { replace: true });
-    setActiveTab('Overview');
+    setActiveTab('overview');
   }
 
   return (
@@ -115,18 +125,18 @@ export function DeviceExplorer({ detailOnlyId }: { detailOnlyId?: string } = {})
               <nav className="device-detail-nav" aria-label="Device detail tabs">
                 {tabs.map((tab) => (
                   <button
-                    className={activeTab === tab ? 'active' : ''}
-                    key={tab}
+                    className={activeTab === tab.id ? 'active' : ''}
+                    key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => setActiveTab(tab.id)}
                   >
-                    {tab}
+                    {tab.label}
                   </button>
                 ))}
               </nav>
 
               <main className="device-detail-content">
-                {activeTab === 'Overview' ? (
+                {activeTab === 'overview' ? (
                   <div className="device-explorer-section">
                     <DeviceQuickActions device={selected} />
                     <DeviceMetricCharts deviceId={selected.id} />
@@ -134,34 +144,33 @@ export function DeviceExplorer({ detailOnlyId }: { detailOnlyId?: string } = {})
                   </div>
                 ) : null}
 
-                {activeTab === 'Realtime' ? <DeviceRealtimeMonitor deviceId={selected.id} /> : null}
+                {activeTab === 'realtime' ? <DeviceRealtimeMonitor deviceId={selected.id} /> : null}
 
-                {activeTab === 'Inventory' ? (
+                {activeTab === 'inventory' ? (
                   <div className="device-explorer-section">
-                    <DeviceInventoryTimeline deviceId={selected.id} />
                     <DeviceInventoryPanel deviceId={selected.id} />
                   </div>
                 ) : null}
 
-                {activeTab === 'Interfaces' ? (
+                {activeTab === 'traffic' ? (
                   <div className="device-explorer-section">
-                    <DeviceInterfaceTrafficCharts deviceId={selected.id} />
+                    <DeviceTrafficMonitor deviceId={selected.id} />
                     <DeviceInterfaceExplorer deviceId={selected.id} />
                   </div>
                 ) : null}
 
-                {activeTab === 'Backups' ? <DeviceBackupsPanel deviceId={selected.id} /> : null}
+                {activeTab === 'backups' ? <DeviceBackupsPanel deviceId={selected.id} /> : null}
 
-                {activeTab === 'Compliance' ? (
+                {activeTab === 'compliance' ? (
                   <ComingSoonPanel
                     title="Compliance"
                     description="Security baseline, risky services and remediation actions will be connected in the Compliance epic."
                   />
                 ) : null}
 
-                {activeTab === 'Alerts' ? <DeviceAlertsPanel deviceId={selected.id} /> : null}
+                {activeTab === 'alerts' ? <DeviceAlertsPanel deviceId={selected.id} /> : null}
 
-                {activeTab === 'Terminal' ? (
+                {activeTab === 'terminal' ? (
                   <DeviceTerminal deviceId={selected.id} deviceName={selected.name} />
                 ) : null}
               </main>
