@@ -1,5 +1,5 @@
 HƯỚNG DẪN CẤU HÌNH KÊNH THÔNG BÁO MME
-Phiên bản: 4.1.5
+Phiên bản: 4.1.6
 Tác giả hệ thống: Bùi Quang Chính
 
 1. EMAIL / SMTP
@@ -47,4 +47,3 @@ Tác giả hệ thống: Bùi Quang Chính
 - Dùng tài khoản/bot riêng cho MME.
 - Đổi secret định kỳ và giới hạn quyền tối thiểu.
 - Luôn kiểm thử kênh trước khi bật cảnh báo production.
-

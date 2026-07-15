@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 4.1.5
+        default: 4.1.6
       platform:
         description: Nền tảng cần build
         required: true
@@ -148,7 +148,7 @@ jobs:
           choco install innosetup --no-progress -y
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DMyAppVersion=${{ steps.version.outputs.value }}" packaging/windows/mme-installer.iss
 
-      - name: Smoke test cài đặt, nâng cấp và gỡ cài đặt
+      - name: Smoke test cài đặt, nâng cấp không restart và gỡ cài đặt
         shell: pwsh
         run: |
           $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
@@ -189,9 +189,13 @@ jobs:
           $upgradeInstall = Start-Process -FilePath $installer.FullName `
             -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-upgrade.log") `
             -Wait -PassThru
-          if ($upgradeInstall.ExitCode -ne 0) { throw "Nâng cấp tại chỗ thất bại: exit code $($upgradeInstall.ExitCode)" }
+          if ($upgradeInstall.ExitCode -ne 0) {
+            Write-MMEDiagnostics
+            throw "Nâng cấp tại chỗ không restart thất bại: exit code $($upgradeInstall.ExitCode)"
+          }
           $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 10
           if ($ready.status -ne 'ready') { throw 'API không ready sau khi nâng cấp.' }
+          if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy sau khi nâng cấp.' }
 
           $installDir = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise'
           $uninstaller = Get-ChildItem "$installDir\unins*.exe" | Select-Object -First 1

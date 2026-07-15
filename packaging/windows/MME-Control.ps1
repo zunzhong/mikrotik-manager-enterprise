@@ -74,9 +74,9 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=4.1.5')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=4.1.6')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=4.1.5`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=4.1.6`r`n"
     }
     [IO.File]::WriteAllText($ConfigFile, $existingConfig, (New-Object Text.UTF8Encoding($false)))
     return
@@ -85,7 +85,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=4.1.5
+APP_VERSION=4.1.6
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$Port
 DATABASE_URL=file:$($Database.Replace('\','/'))
@@ -159,6 +159,50 @@ $($environmentLines -join "`r`n")
   [IO.File]::WriteAllText($ServiceXml, $xml, (New-Object Text.UTF8Encoding($false)))
 }
 
+function Get-MMERuntimeProcesses {
+  return @(Get-CimInstance Win32_Process | Where-Object {
+    ($_.Name -ieq 'node.exe' -or $_.Name -ieq 'MME.Service.exe') -and
+    (
+      ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($AppDir, [StringComparison]::OrdinalIgnoreCase)) -or
+      ($_.CommandLine -and $_.CommandLine.IndexOf($AppDir, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    )
+  })
+}
+
+function Stop-MMERuntime([int]$TimeoutSeconds = 30) {
+  $service = Get-Service -Name MME -ErrorAction SilentlyContinue
+  if ($service -and $service.Status -ne 'Stopped') {
+    Stop-Service -Name MME -Force -ErrorAction SilentlyContinue
+    try {
+      $service.WaitForStatus(
+        [ServiceProcess.ServiceControllerStatus]::Stopped,
+        [TimeSpan]::FromSeconds([Math]::Min($TimeoutSeconds, 20))
+      )
+    } catch {
+      Write-BootstrapLog 'Windows Service chưa dừng đúng hạn; sẽ giải phóng tiến trình runtime.'
+    }
+  }
+
+  if (Test-Path $ServiceExe) {
+    try { & $ServiceExe stop 2>$null | Out-Null } catch { }
+  }
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    $processes = @(Get-MMERuntimeProcesses)
+    if ($processes.Count -eq 0) { return }
+    foreach ($process in $processes) {
+      Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 300
+  } while ((Get-Date) -lt $deadline)
+
+  $remaining = @(Get-MMERuntimeProcesses)
+  if ($remaining.Count -gt 0) {
+    throw "Không thể giải phóng tiến trình MME: $($remaining.ProcessId -join ', ')."
+  }
+}
+
 function Wait-MMEHealthy([int]$TimeoutSeconds = 60) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $healthUrl = "http://127.0.0.1:$Port/ready"
@@ -181,6 +225,8 @@ function Install-MME {
   Write-BootstrapLog 'Bắt đầu preflight.'
   Assert-Prerequisites
   Write-BootstrapLog 'Preflight đạt.'
+  Stop-MMERuntime
+  Write-BootstrapLog 'Đã dừng hoàn toàn runtime MME cũ.'
   Initialize-Environment
   Write-BootstrapLog 'Đã khởi tạo cấu hình và thư mục dữ liệu.'
   $backup = Backup-Data
@@ -208,7 +254,6 @@ function Install-MME {
   }
   Write-ServiceConfiguration
   Write-BootstrapLog 'Đã tạo cấu hình Windows Service.'
-  & $ServiceExe stop *> $null
   & $ServiceExe uninstall *> $null
   & $ServiceExe install
   if ($LASTEXITCODE -ne 0) { throw 'Không thể đăng ký Windows Service MME.' }
@@ -232,12 +277,12 @@ try {
   switch ($Action) {
     'install' { Install-MME }
     'start' { Assert-Administrator; & $ServiceExe start; Start-Process "http://localhost:$Port" }
-    'stop' { Assert-Administrator; & $ServiceExe stop }
-    'restart' { Assert-Administrator; & $ServiceExe restart }
+    'stop' { Assert-Administrator; Stop-MMERuntime }
+    'restart' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe start }
     'open' { Start-Process "http://localhost:$Port" }
     'status' { Get-Service -Name MME -ErrorAction SilentlyContinue | Format-List; Read-Host 'Nhấn Enter để đóng' }
     'backup' { Assert-Administrator; Backup-Data }
-    'uninstall' { Assert-Administrator; & $ServiceExe stop; & $ServiceExe uninstall }
+    'uninstall' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe uninstall }
     'validate' { Write-BootstrapLog 'Windows PowerShell validation đạt.' }
   }
 } catch {
