@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 4.1.7
+        default: 4.1.8
       platform:
         description: Nền tảng cần build
         required: true
@@ -208,7 +208,7 @@ jobs:
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'Dữ liệu người dùng bị xóa ngoài ý muốn khi gỡ cài đặt.' }
 
       - name: Tạo checksum SHA-256
-        if: always()
+        if: success()
         shell: pwsh
         run: |
           $installer = Get-ChildItem 'artifacts/MikroTik-Manager-Enterprise-Setup-*.exe' | Select-Object -First 1
@@ -244,7 +244,7 @@ jobs:
           }
 
       - name: Upload Windows installer
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: mme-windows-installer-${{ steps.version.outputs.value }}
@@ -254,6 +254,16 @@ jobs:
             artifacts/SHA256SUMS.txt
             artifacts/HUONG-DAN-CAI-DAT-WINDOWS.md
             artifacts/*.log
+          if-no-files-found: error
+
+      - name: Upload Windows diagnostics when installer fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mme-windows-diagnostics-${{ steps.version.outputs.value }}
+          path: |
+            artifacts/*.log
+            artifacts/SHA256SUMS.txt
           if-no-files-found: warn
 
   linux-installer:

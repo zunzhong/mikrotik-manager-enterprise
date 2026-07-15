@@ -18,7 +18,7 @@ initialize_env() {
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=4.1.7
+APP_VERSION=4.1.8
 SERVER_HOST=127.0.0.1
 SERVER_PORT=3000
 DATABASE_URL=file:$DATA_DIR/data/mme.db

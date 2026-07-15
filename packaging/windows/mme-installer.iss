@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "4.1.7"
+  #define MyAppVersion "4.1.8"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -56,6 +56,13 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPo
 Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" uninstall -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
 
 [Code]
+function PowerShellSingleQuoted(Value: String): String;
+begin
+  Result := Value;
+  StringChangeEx(Result, '''', '''''', True);
+  Result := '''' + Result + '''';
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
@@ -63,12 +70,13 @@ var
 begin
   Result := '';
   NeedsRestart := False;
+  ResultCode := -1;
 
   { Không gọi MME-Control.ps1 cũ ở đây: bản cũ có thể trả về trước khi }
   { node.exe thực sự thoát, làm query_engine-windows.dll.node còn bị khóa. }
   StopCommand :=
     '$ErrorActionPreference=''Stop''; ' +
-    '$app=''' + StringChangeEx(ExpandConstant('{app}'), '''', '''''', True) + '''; ' +
+    '$app=' + PowerShellSingleQuoted(ExpandConstant('{app}')) + '; ' +
     '$service=Get-Service -Name MME -ErrorAction SilentlyContinue; ' +
     'if($service -and $service.Status -ne ''Stopped''){ ' +
       'Stop-Service -Name MME -Force -ErrorAction SilentlyContinue; ' +
@@ -86,12 +94,21 @@ begin
       '($_.Name -ieq ''node.exe'' -or $_.Name -ieq ''MME.Service.exe'') -and ' +
       '(($_.ExecutablePath -and $_.ExecutablePath.StartsWith($app,[StringComparison]::OrdinalIgnoreCase)) -or ' +
       '($_.CommandLine -and $_.CommandLine.IndexOf($app,[StringComparison]::OrdinalIgnoreCase) -ge 0)) }); ' +
-    'if($remaining.Count -gt 0){ exit 32 }';
+    'if($remaining.Count -gt 0){ exit 32 }; ' +
+    '$locked=@(); ' +
+    'if(Test-Path $app){ ' +
+      '$engines=@(Get-ChildItem -Path $app -Recurse -Filter ''query_engine-windows*.dll.node'' -ErrorAction SilentlyContinue); ' +
+      'foreach($engine in $engines){ try { ' +
+        '$stream=[IO.File]::Open($engine.FullName,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None); ' +
+        '$stream.Dispose() ' +
+      '} catch { $locked += $engine.FullName } } }; ' +
+    'if($locked.Count -gt 0){ exit 33 }';
 
   if (not Exec('powershell.exe',
     '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + StopCommand + '"',
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
-    Result := 'Không thể giải phóng tiến trình MME đang sử dụng tệp chương trình. ' +
+    Result := 'Không thể giải phóng tiến trình MME đang sử dụng tệp chương trình (mã ' +
+      IntToStr(ResultCode) + '). ' +
       'Hãy đóng cửa sổ MME rồi chạy lại bộ cài bằng quyền Administrator. ' +
       'Không chọn bỏ qua tệp DLL.';
 end;
