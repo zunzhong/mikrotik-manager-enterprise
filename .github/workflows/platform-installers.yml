@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 4.1.9
+        default: 4.1.10
       platform:
         description: Nền tảng cần build
         required: true
@@ -268,7 +268,7 @@ jobs:
 
   linux-installer:
     name: Linux DEB Installer
-    if: startsWith(github.ref, 'refs/tags/') || inputs.platform == 'linux' || inputs.platform == 'all'
+    if: github.event_name == 'push' || inputs.platform == 'linux' || inputs.platform == 'all'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -286,7 +286,15 @@ jobs:
         id: version
         shell: bash
         run: |
-          if [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then version='${{ inputs.version }}'; else version='${{ github.ref_name }}'; version="${version#v}"; fi
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
+            version='${{ inputs.version }}'
+          elif [[ '${{ github.ref_type }}' == 'tag' ]]; then
+            version='${{ github.ref_name }}'
+            version="${version#v}"
+          else
+            version="$package_version"
+          fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build Debian package
@@ -334,13 +342,85 @@ jobs:
           systemctl enable mme.service
           echo 'Chạy lệnh: sudo mme-control install'
           EOF
-          chmod 0755 "$root/DEBIAN/postinst"
+          cat > "$root/DEBIAN/prerm" <<'EOF'
+          #!/bin/sh
+          set -e
+          if [ "$1" = remove ]; then
+            systemctl disable --now mme.service 2>/dev/null || true
+          fi
+          EOF
+          cat > "$root/DEBIAN/postrm" <<'EOF'
+          #!/bin/sh
+          set -e
+          systemctl daemon-reload 2>/dev/null || true
+          EOF
+          chmod 0755 "$root/DEBIAN/postinst" "$root/DEBIAN/prerm" "$root/DEBIAN/postrm"
           dpkg-deb --build --root-owner-group "$root" "artifacts/mikrotik-manager-enterprise_${version}_amd64.deb"
           dpkg-deb --info "artifacts/mikrotik-manager-enterprise_${version}_amd64.deb"
 
+      - name: Smoke test cài mới, nâng cấp và gỡ cài đặt DEB
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(find artifacts -maxdepth 1 -name 'mikrotik-manager-enterprise_*.deb' -print -quit)"
+          test -n "$package"
+          sudo dpkg -i "$package" | tee artifacts/install-deb-fresh.log
+          sudo mme-control install | tee artifacts/setup-deb-fresh.log
+
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:3000/ready | grep -q 'ready'; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-fresh.json
+          systemctl is-enabled mme.service | tee artifacts/service-enabled.log
+          systemctl is-active mme.service | tee artifacts/service-active.log
+          test -f /var/lib/mikrotik-manager-enterprise/data/mme.db
+          test -f /etc/mikrotik-manager-enterprise/mme.env
+
+          sudo dpkg -i "$package" | tee artifacts/install-deb-upgrade.log
+          sudo mme-control install | tee artifacts/setup-deb-upgrade.log
+          curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-upgrade.json
+          systemctl is-active --quiet mme.service
+
+          sudo dpkg -r mikrotik-manager-enterprise | tee artifacts/uninstall-deb.log
+          if systemctl is-active --quiet mme.service; then
+            echo 'MME service vẫn chạy sau khi gỡ DEB.' >&2
+            exit 1
+          fi
+          test -f /var/lib/mikrotik-manager-enterprise/data/mme.db
+
+      - name: Tạo checksum và tài liệu Linux
+        if: success()
+        shell: bash
+        run: |
+          package="$(find artifacts -maxdepth 1 -name 'mikrotik-manager-enterprise_*.deb' -print -quit)"
+          sha256sum "$package" | tee artifacts/SHA256SUMS-LINUX.txt
+          cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md artifacts/HUONG-DAN-CAI-DAT-LINUX.md
+
+      - name: Thu thập chẩn đoán Linux
+        if: always()
+        shell: bash
+        run: |
+          systemctl status mme.service --no-pager > artifacts/service-status-linux.log 2>&1 || true
+          journalctl -u mme.service --no-pager -n 300 > artifacts/service-journal-linux.log 2>&1 || true
+
       - name: Upload Linux installer
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: mme-linux-installer-${{ steps.version.outputs.value }}
-          path: artifacts/*.deb
+          path: |
+            artifacts/*.deb
+            artifacts/SHA256SUMS-LINUX.txt
+            artifacts/HUONG-DAN-CAI-DAT-LINUX.md
+            artifacts/*.log
+            artifacts/ready-deb-*.json
           if-no-files-found: error
+
+      - name: Upload Linux diagnostics when installer fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mme-linux-diagnostics-${{ steps.version.outputs.value }}
+          path: artifacts/*.log
+          if-no-files-found: warn

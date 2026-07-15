@@ -12,13 +12,20 @@ secret() { openssl rand -hex "${1:-32}"; }
 
 initialize_env() {
   mkdir -p "$(dirname "$ENV_FILE")" "$DATA_DIR/data" "$DATA_DIR/backups" "$DATA_DIR/logs"
-  [[ -f "$ENV_FILE" ]] && return
+  if [[ -f "$ENV_FILE" ]]; then
+    if grep -q '^APP_VERSION=' "$ENV_FILE"; then
+      sed -i 's/^APP_VERSION=.*/APP_VERSION=4.1.10/' "$ENV_FILE"
+    else
+      printf '\nAPP_VERSION=4.1.10\n' >> "$ENV_FILE"
+    fi
+    return
+  fi
   local admin_password
   admin_password="$(secret 12)"
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=4.1.9
+APP_VERSION=4.1.10
 SERVER_HOST=127.0.0.1
 SERVER_PORT=3000
 DATABASE_URL=file:$DATA_DIR/data/mme.db
@@ -67,7 +74,8 @@ case "$ACTION" in
       exit 1
     fi
     systemctl daemon-reload
-    systemctl enable --now mme.service
+    systemctl enable mme.service
+    systemctl restart mme.service
     echo 'MME đã cài xong. Thông tin đăng nhập: /root/mme-thong-tin-dang-nhap.txt'
     ;;
   start) require_root; systemctl start mme.service ;;
