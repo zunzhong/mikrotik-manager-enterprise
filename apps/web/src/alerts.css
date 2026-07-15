@@ -220,6 +220,22 @@
 .alert-panel {
   overflow: hidden;
 }
+.alert-panel__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.alert-panel__heading small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
+.alert-panel__heading .danger-button:disabled,
+.alert-card .danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
 .rule-card,
 .alert-card {
   background: var(--surface-soft);

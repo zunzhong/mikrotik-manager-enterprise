@@ -51,6 +51,12 @@ export const alertApi = {
   list: () => apiGet<AlertRecord[]>('/api/v1/alerts'),
   acknowledge: (alertId: string) => apiPatch<AlertRecord>(`/api/v1/alerts/${alertId}/ack`, {}),
   resolve: (alertId: string) => apiPatch<AlertRecord>(`/api/v1/alerts/${alertId}/resolve`, {}),
+  delete: (alertId: string) =>
+    apiDelete<{ deleted: boolean; id: string }>(`/api/v1/alerts/${alertId}`),
+  deleteAll: (deviceId?: string) =>
+    apiDelete<{ deleted: number; deviceId: string | null }>(
+      `/api/v1/alerts${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`,
+    ),
   evaluateAll: () => apiPost<AlertEvaluationResult>('/api/v1/alerts/evaluate', {}),
   evaluateDevice: (deviceId: string) =>
     apiPost<AlertEvaluationResult>(`/api/v1/devices/${deviceId}/alerts/evaluate`, {}),

@@ -72,18 +72,38 @@ describe('NotificationDeliveryWorker', () => {
   });
 
   it('records Telegram Bot API descriptions when a test fails', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: false, description: 'Bad Request: chat not found' }), {
-        status: 400,
-      }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: false, description: 'Bad Request: chat not found' }), {
+          status: 400,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: [
+              {
+                update_id: 350501967,
+                message: {
+                  chat: { id: 8750544864, type: 'private', first_name: 'Quang' },
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
     vi.stubGlobal('fetch', fetchMock);
-    createDelivery('telegram', { botToken: '123456:ABC', chatId: '-100404' });
+    createDelivery('telegram', { botToken: '123456:ABC', chatId: '350501967' });
 
     const result = await new NotificationDeliveryWorker().processPending();
 
     expect(result.failed).toBe(1);
     expect(result.deliveries[0]?.error).toContain('chat not found');
+    expect(result.deliveries[0]?.error).toContain('update_id');
+    expect(result.deliveries[0]?.error).toContain('8750544864');
     expect(result.deliveries[0]?.error).toContain('/start');
   });
 

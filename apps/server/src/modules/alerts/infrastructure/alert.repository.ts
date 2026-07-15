@@ -102,6 +102,18 @@ export class AlertRepository {
       data: { status: 'resolved', resolvedAt: new Date() },
     });
   }
+
+  public async delete(id: string) {
+    const result = await prisma.alert.deleteMany({ where: { id } });
+    return result.count;
+  }
+
+  public async deleteAll(deviceId?: string) {
+    const result = await prisma.alert.deleteMany({
+      where: deviceId ? { deviceId } : undefined,
+    });
+    return result.count;
+  }
 }
 
 export const alertRepository = new AlertRepository();

@@ -1,5 +1,5 @@
 HƯỚNG DẪN CẤU HÌNH KÊNH THÔNG BÁO MME
-Phiên bản: 4.1.10
+Phiên bản: 4.1.11
 Tác giả hệ thống: Bùi Quang Chính
 
 1. EMAIL / SMTP
@@ -14,6 +14,7 @@ Tác giả hệ thống: Bùi Quang Chính
 - Mở Telegram, chat với @BotFather, chạy /newbot và lấy Bot Token.
 - Gửi một tin nhắn cho bot vừa tạo.
 - Truy cập https://api.telegram.org/bot<TOKEN>/getUpdates để lấy chat_id.
+- Dùng giá trị result[].message.chat.id; không dùng update_id ở đầu mỗi bản cập nhật.
 - Trong MME chọn Telegram, nhập Bot Token và Chat ID, lưu rồi bấm “Kiểm thử”.
 - Nếu dùng chat riêng, bắt buộc mở bot và gửi /start trước khi kiểm thử.
 - Có thể nhập token thuần hoặc URL Bot API đầy đủ; MME sẽ tự chuẩn hóa token.
@@ -46,6 +47,7 @@ Tác giả hệ thống: Bùi Quang Chính
 - Một đích nhận không thể được tạo trùng; hãy dùng Chỉnh sửa để đổi credential hoặc địa chỉ nhận.
 - Slack/Webhook: xác minh URL còn hiệu lực và endpoint trả 2xx.
 - Không ghi token, mật khẩu SMTP hay webhook secret vào ảnh/log hỗ trợ.
+- Nếu Bot Token xuất hiện trong ảnh hoặc URL đã chia sẻ, thu hồi token trong @BotFather và tạo token mới.
 
 7. KHUYẾN NGHỊ BẢO MẬT
 - Dùng tài khoản/bot riêng cho MME.

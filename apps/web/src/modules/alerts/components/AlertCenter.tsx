@@ -14,6 +14,8 @@ export function AlertCenter() {
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [message, setMessage] = useState('');
   const [deviceRules, setDeviceRules] = useState<AlertRule[]>([]);
+  const [deletingAlertId, setDeletingAlertId] = useState('');
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const activeDeviceId = selectedDeviceId || devices.data?.[0]?.id || '';
 
@@ -100,6 +102,64 @@ export function AlertCenter() {
       alerts.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Không thể đóng cảnh báo.');
+    }
+  }
+
+  async function deleteAlert(alert: AlertRecord) {
+    if (
+      !window.confirm(
+        tr(
+          `Xóa vĩnh viễn cảnh báo "${alert.title}"? Thao tác này không thể hoàn tác.`,
+          `Permanently delete alert "${alert.title}"? This action cannot be undone.`,
+        ),
+      )
+    ) {
+      return;
+    }
+
+    setDeletingAlertId(alert.id);
+    try {
+      await alertApi.delete(alert.id);
+      setMessage(tr('Đã xóa cảnh báo.', 'Alert deleted.'));
+      alerts.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : tr('Không thể xóa cảnh báo.', 'Unable to delete alert.'),
+      );
+    } finally {
+      setDeletingAlertId('');
+    }
+  }
+
+  async function deleteAllAlerts() {
+    if (visibleAlerts.length === 0) return;
+    const deviceName = devices.data?.find((device) => device.id === activeDeviceId)?.name;
+    if (
+      !window.confirm(
+        tr(
+          `Xóa vĩnh viễn toàn bộ ${visibleAlerts.length} cảnh báo${deviceName ? ` của ${deviceName}` : ''}? Thao tác này không thể hoàn tác.`,
+          `Permanently delete all ${visibleAlerts.length} alerts${deviceName ? ` for ${deviceName}` : ''}? This action cannot be undone.`,
+        ),
+      )
+    ) {
+      return;
+    }
+
+    setDeletingAll(true);
+    try {
+      const result = await alertApi.deleteAll(activeDeviceId || undefined);
+      setMessage(tr(`Đã xóa ${result.deleted} cảnh báo.`, `Deleted ${result.deleted} alerts.`));
+      alerts.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : tr('Không thể xóa danh sách cảnh báo.', 'Unable to clear alert list.'),
+      );
+    } finally {
+      setDeletingAll(false);
     }
   }
 
@@ -206,7 +266,25 @@ export function AlertCenter() {
         </section>
 
         <section className="alert-panel">
-          <h3>{tr('Danh sách cảnh báo', 'Alert list')}</h3>
+          <div className="alert-panel__heading">
+            <div>
+              <h3>{tr('Danh sách cảnh báo', 'Alert list')}</h3>
+              <small>
+                {tr(
+                  `${visibleAlerts.length} cảnh báo của thiết bị đang chọn`,
+                  `${visibleAlerts.length} alerts for the selected device`,
+                )}
+              </small>
+            </div>
+            <button
+              type="button"
+              className="danger-button"
+              disabled={deletingAll || visibleAlerts.length === 0}
+              onClick={() => void deleteAllAlerts()}
+            >
+              {deletingAll ? tr('Đang xóa...', 'Deleting...') : tr('Xóa toàn bộ', 'Delete all')}
+            </button>
+          </div>
           <div className="alert-list">
             {visibleAlerts.map((alert) => (
               <article className="alert-card" key={alert.id}>
@@ -240,13 +318,28 @@ export function AlertCenter() {
                     {tr('Đánh dấu đã xử lý', 'Mark resolved')}
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className="small-button danger-button"
+                  disabled={deletingAll || deletingAlertId === alert.id}
+                  onClick={() => void deleteAlert(alert)}
+                >
+                  {deletingAlertId === alert.id
+                    ? tr('Đang xóa...', 'Deleting...')
+                    : tr('Xóa cảnh báo', 'Delete alert')}
+                </button>
               </article>
             ))}
 
-            {!alerts.loading && (alerts.data?.length ?? 0) === 0 ? (
+            {!alerts.loading && visibleAlerts.length === 0 ? (
               <div className="empty-state">
-                <strong>Chưa có cảnh báo</strong>
-                <p>Bấm đánh giá để phân tích Inventory, Compliance và dữ liệu sao lưu hiện tại.</p>
+                <strong>{tr('Chưa có cảnh báo', 'No alerts')}</strong>
+                <p>
+                  {tr(
+                    'Bấm đánh giá để phân tích Inventory, Compliance và dữ liệu sao lưu hiện tại.',
+                    'Run an evaluation to analyze current Inventory, Compliance and backup data.',
+                  )}
+                </p>
               </div>
             ) : null}
           </div>

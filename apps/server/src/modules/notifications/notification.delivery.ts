@@ -14,6 +14,13 @@ interface WebhookConfig {
   timeoutMs: number;
 }
 
+interface TelegramChatCandidate {
+  id: string;
+  type?: string;
+  name?: string;
+  updateId?: string;
+}
+
 function getConfigBoolean(
   config: Record<string, unknown>,
   key: string,
@@ -38,6 +45,65 @@ function telegramBotToken(config: Record<string, unknown>): string | undefined {
   if (!raw) return undefined;
   const fromUrl = raw.match(/\/bot([^/]+)(?:\/|$)/i)?.[1];
   return (fromUrl ?? raw).replace(/^bot/i, '').trim() || undefined;
+}
+
+function telegramChatCandidates(body: unknown): TelegramChatCandidate[] {
+  if (!body || typeof body !== 'object') return [];
+  const result = (body as { result?: unknown }).result;
+  if (!Array.isArray(result)) return [];
+  const candidates = new Map<string, TelegramChatCandidate>();
+
+  for (const item of result) {
+    if (!item || typeof item !== 'object') continue;
+    const update = item as Record<string, unknown>;
+    const message = (update.message ?? update.channel_post ?? update.edited_message) as
+      Record<string, unknown> | undefined;
+    const chat = message?.chat as Record<string, unknown> | undefined;
+    if (!chat || (typeof chat.id !== 'number' && typeof chat.id !== 'string')) continue;
+    const id = String(chat.id);
+    const firstName = typeof chat.first_name === 'string' ? chat.first_name : '';
+    const lastName = typeof chat.last_name === 'string' ? chat.last_name : '';
+    const title = typeof chat.title === 'string' ? chat.title : '';
+    candidates.set(id, {
+      id,
+      type: typeof chat.type === 'string' ? chat.type : undefined,
+      name: title || `${firstName} ${lastName}`.trim() || undefined,
+      updateId:
+        typeof update.update_id === 'number' || typeof update.update_id === 'string'
+          ? String(update.update_id)
+          : undefined,
+    });
+  }
+
+  return [...candidates.values()];
+}
+
+async function telegramChatHint(botToken: string, configuredChatId: string): Promise<string> {
+  try {
+    const response = await fetchWithTimeout(
+      `https://api.telegram.org/bot${botToken}/getUpdates?limit=20&timeout=0`,
+      { method: 'GET' },
+      10000,
+    );
+    if (!response.ok) return '';
+    const candidates = telegramChatCandidates(await response.json().catch(() => null));
+    if (candidates.length === 0) {
+      return ' Không tìm thấy cuộc trò chuyện gần đây; hãy nhắn /start cho bot rồi kiểm thử lại.';
+    }
+    const confusedUpdate = candidates.find((candidate) => candidate.updateId === configuredChatId);
+    if (confusedUpdate) {
+      return ` Giá trị ${configuredChatId} là update_id, không phải Chat ID. Chat ID đúng được Bot API tìm thấy là ${confusedUpdate.id}.`;
+    }
+    const summary = candidates
+      .slice(0, 5)
+      .map((candidate) =>
+        [candidate.id, candidate.type, candidate.name].filter(Boolean).join(' · '),
+      )
+      .join('; ');
+    return ` Chat ID gần đây Bot API tìm thấy: ${summary}. Hãy dùng trường result[].message.chat.id.`;
+  } catch {
+    return '';
+  }
 }
 
 function externalRequestError(channel: NotificationChannel, error: unknown): Error {
@@ -367,8 +433,12 @@ export class NotificationDeliveryWorker {
       result?: { message_id?: number };
     } | null;
     if (!response.ok || body?.ok !== true || !body.result?.message_id) {
+      const discoveryHint =
+        body?.description?.toLocaleLowerCase().includes('chat not found') && chatId
+          ? await telegramChatHint(botToken, chatId)
+          : '';
       throw new Error(
-        `Telegram không gửi được (HTTP ${response.status}): ${body?.description ?? 'phản hồi không hợp lệ từ Bot API'}. Kiểm tra Bot Token, Chat ID và hãy nhắn /start cho bot trước khi kiểm thử.`,
+        `Telegram không gửi được (HTTP ${response.status}): ${body?.description ?? 'phản hồi không hợp lệ từ Bot API'}.${discoveryHint} Kiểm tra Bot Token, Chat ID và hãy nhắn /start cho bot trước khi kiểm thử.`,
       );
     }
 

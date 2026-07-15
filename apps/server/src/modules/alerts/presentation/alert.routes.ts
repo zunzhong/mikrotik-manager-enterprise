@@ -9,6 +9,8 @@ const evaluateAlertsSchema = z.object({
 });
 const deviceRuleParamsSchema = z.object({ id: z.string().min(1), ruleKey: z.string().min(1) });
 const deviceRuleSchema = z.object({ enabled: z.boolean() });
+const alertParamsSchema = z.object({ id: z.string().min(1) });
+const deleteAlertsQuerySchema = z.object({ deviceId: z.string().min(1).optional() });
 
 export async function alertRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/v1/alerts/rules', async () => ({
@@ -36,6 +38,11 @@ export async function alertRoutes(app: FastifyInstance): Promise<void> {
     success: true,
     data: await alertService.list(),
   }));
+
+  app.delete('/api/v1/alerts', async (request) => {
+    const { deviceId } = deleteAlertsQuerySchema.parse(request.query ?? {});
+    return { success: true, data: await alertService.deleteAll(deviceId) };
+  });
 
   app.post('/api/v1/alerts/evaluate', async (request, reply) => {
     const body = evaluateAlertsSchema.parse(request.body ?? {});
@@ -71,5 +78,10 @@ export async function alertRoutes(app: FastifyInstance): Promise<void> {
   app.patch('/api/v1/alerts/:id/resolve', async (request) => {
     const params = request.params as { id: string };
     return { success: true, data: await alertService.resolve(params.id) };
+  });
+
+  app.delete('/api/v1/alerts/:id', async (request) => {
+    const { id } = alertParamsSchema.parse(request.params);
+    return { success: true, data: await alertService.delete(id) };
   });
 }

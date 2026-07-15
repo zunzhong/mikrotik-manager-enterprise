@@ -60,6 +60,19 @@ export class AlertService {
     return alertRepository.resolve(id);
   }
 
+  public async delete(id: string) {
+    const deleted = await alertRepository.delete(id);
+    if (deleted === 0) {
+      throw new HttpError(404, 'ALERT_NOT_FOUND', 'Alert not found');
+    }
+    return { deleted: true, id };
+  }
+
+  public async deleteAll(deviceId?: string) {
+    const deleted = await alertRepository.deleteAll(deviceId);
+    return { deleted, deviceId: deviceId ?? null };
+  }
+
   public async evaluate(input: EvaluateAlertsInput = {}) {
     const context = {
       deviceId: input.deviceId,

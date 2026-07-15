@@ -14,9 +14,9 @@ initialize_env() {
   mkdir -p "$(dirname "$ENV_FILE")" "$DATA_DIR/data" "$DATA_DIR/backups" "$DATA_DIR/logs"
   if [[ -f "$ENV_FILE" ]]; then
     if grep -q '^APP_VERSION=' "$ENV_FILE"; then
-      sed -i 's/^APP_VERSION=.*/APP_VERSION=4.1.10/' "$ENV_FILE"
+      sed -i 's/^APP_VERSION=.*/APP_VERSION=4.1.11/' "$ENV_FILE"
     else
-      printf '\nAPP_VERSION=4.1.10\n' >> "$ENV_FILE"
+      printf '\nAPP_VERSION=4.1.11\n' >> "$ENV_FILE"
     fi
     return
   fi
@@ -25,7 +25,7 @@ initialize_env() {
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=4.1.10
+APP_VERSION=4.1.11
 SERVER_HOST=127.0.0.1
 SERVER_PORT=3000
 DATABASE_URL=file:$DATA_DIR/data/mme.db
