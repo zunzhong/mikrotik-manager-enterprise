@@ -57,6 +57,60 @@ function deliveryTimestamp(
   return `created ${formatDateTime(delivery.createdAt)}`;
 }
 
+type EditableChannelType = Exclude<NotificationChannelType, 'in_app'>;
+type ChannelFields = Record<string, string | number | boolean>;
+
+function channelTemplate(type: EditableChannelType): ChannelFields {
+  if (type === 'telegram') return { botToken: '', chatId: '', timeoutMs: 15000 };
+  if (type === 'slack') return { webhookUrl: '', timeoutMs: 10000 };
+  if (type === 'webhook') {
+    return { url: '', method: 'POST', timeoutMs: 10000, headersJson: '' };
+  }
+  return {
+    host: '',
+    port: 587,
+    secure: false,
+    user: '',
+    password: '',
+    from: '',
+    to: '',
+    tlsRejectUnauthorized: true,
+  };
+}
+
+function editableFields(channel: NotificationChannel): ChannelFields {
+  const template = channelTemplate(channel.type as EditableChannelType);
+  return Object.fromEntries(
+    Object.entries(template).map(([key, fallback]) => {
+      const value = channel.config[key];
+      return [
+        key,
+        value === '••••••••' || value === undefined ? fallback : (value as typeof fallback),
+      ];
+    }),
+  );
+}
+
+function channelConfigForSave(
+  type: EditableChannelType,
+  fields: ChannelFields,
+): Record<string, unknown> {
+  const config: Record<string, unknown> = { ...fields };
+  delete config.headersJson;
+  if (type !== 'webhook') return config;
+
+  const rawHeaders = String(fields.headersJson ?? '').trim();
+  if (!rawHeaders) return config;
+  const parsed = JSON.parse(rawHeaders) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Headers webhook phải là một JSON object hợp lệ.');
+  }
+  config.headers = Object.fromEntries(
+    Object.entries(parsed).map(([key, value]) => [key, String(value)]),
+  );
+  return config;
+}
+
 export function NotificationPanel({
   channels = [],
   rules = [],
@@ -70,12 +124,13 @@ export function NotificationPanel({
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
   const [busyEntityId, setBusyEntityId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [channelName, setChannelName] = useState('Kênh thông báo MME');
-  const [channelType, setChannelType] =
-    useState<Exclude<NotificationChannelType, 'in_app'>>('telegram');
-  const [channelConfig, setChannelConfig] = useState(
-    JSON.stringify({ botToken: '', chatId: '' }, null, 2),
+  const [channelType, setChannelType] = useState<EditableChannelType>('telegram');
+  const [channelFields, setChannelFields] = useState<ChannelFields>(() =>
+    channelTemplate('telegram'),
   );
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [createRule, setCreateRule] = useState(true);
 
   const webhookChannels = useMemo(
@@ -88,12 +143,18 @@ export function NotificationPanel({
     [deliveries],
   );
 
-  async function runAction(action: () => Promise<void>, fallbackMessage: string) {
+  async function runAction(
+    action: () => Promise<void>,
+    fallbackMessage: string,
+    successMessage?: string,
+  ) {
     setBusy(true);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
       await action();
+      if (successMessage) setActionSuccess(successMessage);
       onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : fallbackMessage);
@@ -109,10 +170,19 @@ export function NotificationPanel({
   }
 
   async function sendTest() {
-    await runAction(async () => {
-      await notificationApi.test();
-      await notificationApi.processPending();
-    }, 'Không thể gửi thông báo kiểm thử.');
+    await runAction(
+      async () => {
+        const result = await notificationApi.testAllChannels();
+        onChanged?.();
+        if (result.failed > 0 || result.skipped > 0) {
+          throw new Error(
+            `${result.failed + result.skipped}/${result.processed} kênh kiểm thử chưa thành công. Xem lỗi ở từng kênh bên dưới.`,
+          );
+        }
+      },
+      'Không thể kiểm thử các kênh.',
+      'Tất cả kênh đã nhận thông báo kiểm thử thành công.',
+    );
   }
 
   async function processPending() {
@@ -130,9 +200,11 @@ export function NotificationPanel({
   async function toggleChannel(channel: NotificationChannel) {
     setBusyEntityId(channel.id);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
       await notificationApi.updateChannel(channel.id, { enabled: !channel.enabled });
+      setActionSuccess(channel.enabled ? 'Đã tắt kênh.' : 'Đã bật kênh.');
       onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Cannot update channel');
@@ -144,11 +216,14 @@ export function NotificationPanel({
   async function testChannel(channel: NotificationChannel) {
     setBusyEntityId(channel.id);
     setActionError(null);
+    setActionSuccess(null);
     try {
       const result = await notificationApi.testChannel(channel.id);
+      onChanged?.();
       if (result.failed > 0 || result.skipped > 0) {
         throw new Error(result.deliveries[0]?.error ?? 'Kênh không gửi được thông báo kiểm thử.');
       }
+      setActionSuccess(`Kênh “${channel.name}” đã nhận thông báo kiểm thử.`);
       onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Không thể kiểm thử kênh.');
@@ -164,9 +239,13 @@ export function NotificationPanel({
 
     setBusyEntityId(channel.id);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
-      await notificationApi.deleteChannel(channel.id);
+      const result = await notificationApi.deleteChannel(channel.id);
+      if (!result.deleted) throw new Error('Kênh không tồn tại hoặc đã được xóa trước đó.');
+      if (editingChannelId === channel.id) cancelChannelEdit();
+      setActionSuccess(`Đã xóa kênh “${channel.name}” và dọn các rule không còn kênh nhận.`);
       onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Cannot delete channel');
@@ -221,52 +300,65 @@ export function NotificationPanel({
     }
   }
 
-  function selectChannelType(type: Exclude<NotificationChannelType, 'in_app'>) {
+  function selectChannelType(type: EditableChannelType) {
     setChannelType(type);
-    const templates: Record<typeof type, Record<string, unknown>> = {
-      telegram: { botToken: '', chatId: '' },
-      slack: { webhookUrl: '' },
-      webhook: { url: '', method: 'POST', timeoutMs: 10000 },
-      email: {
-        host: '',
-        port: 587,
-        secure: false,
-        user: '',
-        password: '',
-        from: '',
-        to: '',
-      },
-    };
-    setChannelConfig(JSON.stringify(templates[type], null, 2));
+    setChannelFields(channelTemplate(type));
   }
 
-  async function createNotificationChannel() {
-    let config: Record<string, unknown>;
-    try {
-      config = JSON.parse(channelConfig) as Record<string, unknown>;
-    } catch {
-      setActionError('Cấu hình JSON không hợp lệ.');
-      return;
-    }
+  function updateField(key: string, value: string | number | boolean) {
+    setChannelFields((current) => ({ ...current, [key]: value }));
+  }
 
-    await runAction(async () => {
-      const channel = await notificationApi.createChannel({
-        name: channelName.trim() || `MME ${channelType}`,
-        type: channelType,
-        enabled: true,
-        config,
-      });
+  function editChannel(channel: NotificationChannel) {
+    if (channel.type === 'in_app') return;
+    setEditingChannelId(channel.id);
+    setChannelName(channel.name);
+    setChannelType(channel.type);
+    setChannelFields(editableFields(channel));
+    setActionError(null);
+    setActionSuccess(null);
+  }
 
-      if (createRule) {
-        await notificationApi.createRule({
-          name: `${channel.name} Critical Alerts`,
+  function cancelChannelEdit() {
+    setEditingChannelId(null);
+    setChannelName('Kênh thông báo MME');
+    setChannelType('telegram');
+    setChannelFields(channelTemplate('telegram'));
+  }
+
+  async function saveNotificationChannel() {
+    await runAction(
+      async () => {
+        const config = channelConfigForSave(channelType, channelFields);
+        if (editingChannelId) {
+          await notificationApi.updateChannel(editingChannelId, {
+            name: channelName.trim(),
+            config,
+          });
+          cancelChannelEdit();
+          return;
+        }
+        const channel = await notificationApi.createChannel({
+          name: channelName.trim() || `MME ${channelType}`,
+          type: channelType,
           enabled: true,
-          eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
-          severities: ['critical', 'warning'],
-          channelIds: [channel.id],
+          config,
         });
-      }
-    }, 'Không thể tạo kênh thông báo.');
+
+        if (createRule) {
+          await notificationApi.createRule({
+            name: `${channel.name} Critical Alerts`,
+            enabled: true,
+            eventTypes: ['ALERT_OPENED', 'DEVICE_OFFLINE', 'DEVICE_CRITICAL'],
+            severities: ['critical', 'warning'],
+            channelIds: [channel.id],
+          });
+        }
+        cancelChannelEdit();
+      },
+      'Không thể lưu kênh thông báo.',
+      editingChannelId ? 'Đã cập nhật kênh.' : 'Đã tạo kênh mới.',
+    );
   }
 
   return (
@@ -275,7 +367,7 @@ export function NotificationPanel({
         <div>
           <p className="notification-panel__eyebrow">HỆ THỐNG GỬI CẢNH BÁO</p>
           <h3>Kênh gửi / Quy tắc / Lịch sử gửi</h3>
-          <p>Sự kiện MME được đối chiếu với rule rồi gửi tới các kênh đã cấu hình.</p>
+          <p>Mỗi sự kiện khớp rule chỉ được gửi một lần tới từng kênh duy nhất.</p>
         </div>
 
         <div className="notification-panel__header-actions">
@@ -283,7 +375,7 @@ export function NotificationPanel({
             Tạo mặc định
           </button>
           <button type="button" disabled={busy} onClick={() => void sendTest()}>
-            Gửi kiểm thử
+            Kiểm thử tất cả kênh
           </button>
           <button type="button" disabled={busy} onClick={() => void processPending()}>
             Gửi hàng đợi
@@ -300,6 +392,33 @@ export function NotificationPanel({
 
       {error ? <div className="error-banner">{error}</div> : null}
       {actionError ? <div className="error-banner">{actionError}</div> : null}
+      {actionSuccess ? <div className="notification-success">{actionSuccess}</div> : null}
+
+      <div className="notification-workflow" aria-label="Quy trình hoạt động cảnh báo">
+        <div>
+          <span>1</span>
+          <strong>Cấu hình kênh</strong>
+          <small>Nhập địa chỉ và credential</small>
+        </div>
+        <b>→</b>
+        <div>
+          <span>2</span>
+          <strong>Kiểm thử</strong>
+          <small>Xác nhận gửi thật thành công</small>
+        </div>
+        <b>→</b>
+        <div>
+          <span>3</span>
+          <strong>Gắn quy tắc</strong>
+          <small>Chọn sự kiện và mức cảnh báo</small>
+        </div>
+        <b>→</b>
+        <div>
+          <span>4</span>
+          <strong>Theo dõi</strong>
+          <small>Xem trạng thái và lỗi gửi</small>
+        </div>
+      </div>
 
       <div className="notification-panel__cards">
         <SummaryCard
@@ -316,7 +435,10 @@ export function NotificationPanel({
         <SummaryCard label="Retryable" value={retryableCount} hint="failed or skipped" />
       </div>
 
-      <WidgetCard title="Tạo kênh thông báo" description="Hỗ trợ Email, Telegram, Slack và Webhook">
+      <WidgetCard
+        title={editingChannelId ? 'Chỉnh sửa kênh thông báo' : 'Thêm kênh thông báo'}
+        description="Hỗ trợ Email SMTP, Telegram Bot, Slack và Webhook"
+      >
         <div className="notification-panel__form">
           <label>
             Tên kênh
@@ -332,9 +454,8 @@ export function NotificationPanel({
             Loại kênh
             <select
               value={channelType}
-              onChange={(event) =>
-                selectChannelType(event.target.value as Exclude<NotificationChannelType, 'in_app'>)
-              }
+              disabled={editingChannelId !== null}
+              onChange={(event) => selectChannelType(event.target.value as EditableChannelType)}
             >
               <option value="telegram">Telegram</option>
               <option value="email">Email SMTP</option>
@@ -343,28 +464,187 @@ export function NotificationPanel({
             </select>
           </label>
 
-          <label>
-            Cấu hình JSON
-            <textarea
-              rows={9}
-              value={channelConfig}
-              onChange={(event) => setChannelConfig(event.target.value)}
-              spellCheck={false}
-            />
-          </label>
+          {channelType === 'telegram' ? (
+            <div className="notification-fields-grid">
+              <label>
+                Bot Token
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={String(channelFields.botToken ?? '')}
+                  onChange={(event) => updateField('botToken', event.target.value)}
+                  placeholder={editingChannelId ? 'Để trống nếu không đổi token' : '123456:ABC...'}
+                />
+              </label>
+              <label>
+                Chat ID / @channel
+                <input
+                  type="text"
+                  value={String(channelFields.chatId ?? '')}
+                  onChange={(event) => updateField('chatId', event.target.value)}
+                  placeholder="-1001234567890"
+                />
+              </label>
+              <p className="notification-field-help">
+                Người dùng phải nhắn <code>/start</code> cho bot trước. Với group/channel, thêm bot
+                và cấp quyền gửi tin nhắn.
+              </p>
+            </div>
+          ) : null}
+
+          {channelType === 'email' ? (
+            <div className="notification-fields-grid notification-fields-grid--email">
+              <label>
+                SMTP Host
+                <input
+                  type="text"
+                  value={String(channelFields.host ?? '')}
+                  onChange={(event) => updateField('host', event.target.value)}
+                  placeholder="smtp.gmail.com"
+                />
+              </label>
+              <label>
+                Port
+                <input
+                  type="number"
+                  value={Number(channelFields.port ?? 587)}
+                  onChange={(event) => updateField('port', Number(event.target.value))}
+                />
+              </label>
+              <label>
+                Tài khoản SMTP
+                <input
+                  type="text"
+                  value={String(channelFields.user ?? '')}
+                  onChange={(event) => updateField('user', event.target.value)}
+                />
+              </label>
+              <label>
+                Mật khẩu / App Password
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={String(channelFields.password ?? '')}
+                  onChange={(event) => updateField('password', event.target.value)}
+                  placeholder={editingChannelId ? 'Để trống nếu không đổi' : ''}
+                />
+              </label>
+              <label>
+                Địa chỉ gửi
+                <input
+                  type="email"
+                  value={String(channelFields.from ?? '')}
+                  onChange={(event) => updateField('from', event.target.value)}
+                />
+              </label>
+              <label>
+                Địa chỉ nhận
+                <input
+                  type="email"
+                  value={String(channelFields.to ?? '')}
+                  onChange={(event) => updateField('to', event.target.value)}
+                />
+              </label>
+              <label className="notification-panel__checkbox">
+                <input
+                  type="checkbox"
+                  checked={Boolean(channelFields.secure)}
+                  onChange={(event) => updateField('secure', event.target.checked)}
+                />{' '}
+                TLS trực tiếp (thường dùng port 465)
+              </label>
+              <label className="notification-panel__checkbox">
+                <input
+                  type="checkbox"
+                  checked={Boolean(channelFields.tlsRejectUnauthorized)}
+                  onChange={(event) => updateField('tlsRejectUnauthorized', event.target.checked)}
+                />{' '}
+                Xác minh chứng chỉ TLS
+              </label>
+            </div>
+          ) : null}
+
+          {channelType === 'slack' ? (
+            <div className="notification-fields-grid">
+              <label>
+                Slack Incoming Webhook URL
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={String(channelFields.webhookUrl ?? '')}
+                  onChange={(event) => updateField('webhookUrl', event.target.value)}
+                  placeholder={
+                    editingChannelId
+                      ? 'Để trống nếu không đổi URL'
+                      : 'https://hooks.slack.com/services/...'
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {channelType === 'webhook' ? (
+            <div className="notification-fields-grid">
+              <label>
+                Endpoint URL
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={String(channelFields.url ?? '')}
+                  onChange={(event) => updateField('url', event.target.value)}
+                  placeholder={
+                    editingChannelId
+                      ? 'Để trống nếu không đổi URL'
+                      : 'https://example.com/mme-alerts'
+                  }
+                />
+              </label>
+              <label>
+                Phương thức
+                <select
+                  value={String(channelFields.method ?? 'POST')}
+                  onChange={(event) => updateField('method', event.target.value)}
+                >
+                  <option>POST</option>
+                  <option>PUT</option>
+                  <option>PATCH</option>
+                </select>
+              </label>
+              <label className="notification-fields-grid__wide">
+                Headers JSON (tùy chọn)
+                <textarea
+                  value={String(channelFields.headersJson ?? '')}
+                  onChange={(event) => updateField('headersJson', event.target.value)}
+                  placeholder={
+                    editingChannelId
+                      ? 'Để trống nếu không đổi headers hiện tại'
+                      : '{"Authorization":"Bearer ..."}'
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
 
           <label className="notification-panel__checkbox">
             <input
               type="checkbox"
               checked={createRule}
+              disabled={editingChannelId !== null}
               onChange={(event) => setCreateRule(event.target.checked)}
             />
             Tự tạo rule cho cảnh báo critical/warning
           </label>
 
-          <button type="button" disabled={busy} onClick={() => void createNotificationChannel()}>
-            Tạo và lưu kênh
-          </button>
+          <div className="notification-form-actions">
+            <button type="button" disabled={busy} onClick={() => void saveNotificationChannel()}>
+              {editingChannelId ? 'Lưu thay đổi' : 'Tạo và lưu kênh'}
+            </button>
+            {editingChannelId ? (
+              <button type="button" disabled={busy} onClick={cancelChannelEdit}>
+                Hủy chỉnh sửa
+              </button>
+            ) : null}
+          </div>
         </div>
       </WidgetCard>
 
@@ -374,7 +654,7 @@ export function NotificationPanel({
           description="Bật, tắt hoặc xóa địa chỉ nhận thông báo"
         >
           <div className="notification-panel__list">
-            {channels.slice(0, 10).map((channel) => (
+            {channels.map((channel) => (
               <article
                 className="notification-panel__row"
                 data-state={channel.enabled ? 'enabled' : 'disabled'}
@@ -409,6 +689,15 @@ export function NotificationPanel({
                   >
                     {tr('Kiểm thử', 'Test')}
                   </button>
+                  {channel.type !== 'in_app' ? (
+                    <button
+                      type="button"
+                      disabled={busyEntityId === channel.id}
+                      onClick={() => editChannel(channel)}
+                    >
+                      Sửa
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={busyEntityId === channel.id}
@@ -440,7 +729,7 @@ export function NotificationPanel({
           description="Chọn sự kiện và mức độ được gửi tới từng kênh"
         >
           <div className="notification-panel__list">
-            {rules.slice(0, 10).map((rule) => (
+            {rules.map((rule) => (
               <article
                 className="notification-panel__row"
                 data-state={rule.enabled ? 'enabled' : 'disabled'}
@@ -451,7 +740,11 @@ export function NotificationPanel({
                   <small>
                     {rule.eventTypes.join(', ')} · {rule.severities.join(', ')}
                   </small>
-                  <small>Channels: {rule.channelIds.length}</small>
+                  <small>
+                    Kênh nhận:{' '}
+                    {rule.channelIds.map((id) => resolveChannelName(channels, id)).join(', ') ||
+                      'Không có'}
+                  </small>
                 </div>
 
                 <div className="notification-panel__entity-actions">

@@ -82,7 +82,12 @@
 }
 
 .notification-panel__form input[type='text'],
-.notification-panel__form input[type='url'] {
+.notification-panel__form input[type='url'],
+.notification-panel__form input[type='email'],
+.notification-panel__form input[type='password'],
+.notification-panel__form input[type='number'],
+.notification-panel__form textarea,
+.notification-panel__form select {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 12px;
@@ -92,8 +97,95 @@
 }
 
 [data-theme='light'] .notification-panel__form input[type='text'],
-[data-theme='light'] .notification-panel__form input[type='url'] {
+[data-theme='light'] .notification-panel__form input[type='url'],
+[data-theme='light'] .notification-panel__form input[type='email'],
+[data-theme='light'] .notification-panel__form input[type='password'],
+[data-theme='light'] .notification-panel__form input[type='number'],
+[data-theme='light'] .notification-panel__form textarea,
+[data-theme='light'] .notification-panel__form select {
   background: #fff;
+}
+
+.notification-success {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, #22c55e 42%, var(--border));
+  border-radius: 12px;
+  color: #4ade80;
+  background: color-mix(in srgb, #22c55e 10%, var(--surface));
+}
+
+[data-theme='light'] .notification-success {
+  color: #15803d;
+}
+
+.notification-workflow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-soft);
+}
+
+.notification-workflow > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.notification-workflow span {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #fff;
+  background: #2563eb;
+  font-weight: 800;
+}
+
+.notification-workflow small,
+.notification-field-help {
+  color: var(--muted);
+}
+
+.notification-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.notification-fields-grid--email {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.notification-fields-grid__wide {
+  grid-column: 1 / -1;
+}
+
+.notification-fields-grid__wide textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.notification-field-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+}
+
+.notification-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .notification-panel__checkbox {
@@ -196,6 +288,19 @@
     justify-content: space-between;
     flex-wrap: wrap;
   }
+
+  .notification-workflow {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-workflow > b {
+    display: none;
+  }
+
+  .notification-fields-grid,
+  .notification-fields-grid--email {
+    grid-template-columns: 1fr;
+  }
 }
 
 .notification-panel {
@@ -224,6 +329,5 @@
   border-radius: 12px;
 }
 .notification-panel__form textarea {
-  min-height: 180px;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }

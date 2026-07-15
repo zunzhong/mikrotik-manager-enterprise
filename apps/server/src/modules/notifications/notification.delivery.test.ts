@@ -54,14 +54,58 @@ describe('NotificationDeliveryWorker', () => {
   });
 
   it('sends Telegram bot deliveries', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, result: { message_id: 42 } }), { status: 200 }),
+      );
     vi.stubGlobal('fetch', fetchMock);
-    createDelivery('telegram', { botToken: 'token-123', chatId: '-100123' });
+    createDelivery('telegram', {
+      botToken: 'https://api.telegram.org/bot123456:ABC/sendMessage',
+      chatId: '-100123',
+    });
 
     const result = await new NotificationDeliveryWorker().processPending();
 
     expect(result.sent).toBe(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/bottoken-123/sendMessage');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/bot123456:ABC/sendMessage');
+  });
+
+  it('records Telegram Bot API descriptions when a test fails', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: false, description: 'Bad Request: chat not found' }), {
+        status: 400,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    createDelivery('telegram', { botToken: '123456:ABC', chatId: '-100404' });
+
+    const result = await new NotificationDeliveryWorker().processPending();
+
+    expect(result.failed).toBe(1);
+    expect(result.deliveries[0]?.error).toContain('chat not found');
+    expect(result.deliveries[0]?.error).toContain('/start');
+  });
+
+  it('allows an explicit test for a disabled channel', async () => {
+    const channel = notificationStore.createChannel({
+      name: 'Disabled in-app',
+      type: 'in_app',
+      enabled: false,
+      config: {},
+    });
+    const delivery = notificationStore.createDelivery({
+      ruleId: 'manual-test',
+      channelId: channel.id,
+      channelType: channel.type,
+      payload,
+    });
+
+    const result = await new NotificationDeliveryWorker().processOne(delivery.id, {
+      allowDisabled: true,
+    });
+
+    expect(result.sent).toBe(1);
   });
 
   it('records a failed delivery when required configuration is missing', async () => {

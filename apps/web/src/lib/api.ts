@@ -94,26 +94,30 @@ export class ApiError extends Error {
 }
 
 async function readJson<T>(response: Response, path: string): Promise<T> {
+  const json = (await response.json().catch(() => null)) as {
+    success?: boolean;
+    data?: T;
+    error?: string | { message?: string };
+  } | null;
+
   if (!response.ok) {
     if (response.status === 401 && path !== '/api/v1/auth/login') {
       window.localStorage.removeItem('mme-token');
       window.location.assign('/login');
     }
 
-    throw new ApiError(`API request failed with status ${response.status}`, response.status, path);
+    const message =
+      typeof json?.error === 'string'
+        ? json.error
+        : (json?.error?.message ?? `API request failed with status ${response.status}`);
+    throw new ApiError(message, response.status, path);
   }
 
-  const json = (await response.json()) as {
-    success: boolean;
-    data?: T;
-    error?: string | { message?: string };
-  };
-
-  if (!json.success) {
+  if (!json?.success) {
     const errorMessage =
-      typeof json.error === 'string'
+      typeof json?.error === 'string'
         ? json.error
-        : (json.error?.message ?? 'API returned unsuccessful response');
+        : (json?.error?.message ?? 'API returned unsuccessful response');
 
     throw new ApiError(errorMessage, response.status, path);
   }

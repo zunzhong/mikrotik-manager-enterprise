@@ -46,6 +46,92 @@ function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
 }
 
+const maskedSecret = '••••••••';
+const secretConfigKeys = new Set([
+  'password',
+  'botToken',
+  'token',
+  'authorization',
+  'apiKey',
+  'webhookUrl',
+  'url',
+]);
+
+function normalizedText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizedName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
+function normalizedUrl(value: unknown): string {
+  const raw = normalizedText(value);
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return raw;
+  }
+}
+
+function normalizedTelegramToken(value: unknown): string {
+  const raw = normalizedText(value);
+  if (!raw) return '';
+  const tokenFromUrl = raw.match(/\/bot([^/]+)(?:\/|$)/i)?.[1];
+  return (tokenFromUrl ?? raw).replace(/^bot/i, '').trim();
+}
+
+export function notificationChannelIdentity(input: {
+  type: NotificationChannel['type'];
+  config: Record<string, unknown>;
+}): string | null {
+  const config = input.config;
+  if (input.type === 'in_app') return 'in_app';
+  if (input.type === 'telegram') {
+    const token = normalizedTelegramToken(config.botToken);
+    const chatId = normalizedText(config.chatId);
+    return token && chatId ? `telegram:${token}:${chatId}` : null;
+  }
+  if (input.type === 'email') {
+    const host = normalizedText(config.host).toLocaleLowerCase();
+    const from = normalizedText(config.from).toLocaleLowerCase();
+    const to = normalizedText(config.to).toLocaleLowerCase();
+    return host && from && to ? `email:${host}:${from}:${to}` : null;
+  }
+  if (input.type === 'slack') {
+    const url = normalizedUrl(config.webhookUrl);
+    return url ? `slack:${url}` : null;
+  }
+  const url = normalizedUrl(config.url);
+  const method = normalizedText(config.method).toUpperCase() || 'POST';
+  return url ? `webhook:${method}:${url}` : null;
+}
+
+export function mergeNotificationChannelConfig(
+  current: Record<string, unknown>,
+  update: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...current };
+  for (const [key, value] of Object.entries(update)) {
+    const isPreservedSecret =
+      secretConfigKeys.has(key) &&
+      (value === maskedSecret || (typeof value === 'string' && value.trim() === ''));
+    if (!isPreservedSecret) merged[key] = value;
+  }
+  return merged;
+}
+
+function ruleIdentity(rule: Pick<NotificationRule, 'eventTypes' | 'severities' | 'channelIds'>) {
+  return JSON.stringify({
+    eventTypes: [...rule.eventTypes].sort(),
+    severities: [...rule.severities].sort(),
+    channelIds: [...new Set(rule.channelIds)].sort(),
+  });
+}
+
 export class NotificationStore {
   private readonly channels = new Map<string, NotificationChannel>();
   private readonly rules = new Map<string, NotificationRule>();
@@ -63,9 +149,76 @@ export class NotificationStore {
       for (const channel of state.channels ?? []) this.channels.set(channel.id, channel);
       for (const rule of state.rules ?? []) this.rules.set(rule.id, rule);
       for (const delivery of state.deliveries ?? []) this.deliveries.set(delivery.id, delivery);
+      if (this.deduplicate()) this.persist();
     } catch {
       // Tệp hỏng không được phép làm server ngừng chạy; cấu hình mới sẽ thay thế khi người dùng lưu.
     }
+  }
+
+  private deduplicate(): boolean {
+    let changed = false;
+    const replacements = new Map<string, string>();
+    const seenChannels = new Map<string, NotificationChannel>();
+    const channels = [...this.channels.values()].sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt),
+    );
+
+    for (const channel of channels) {
+      const identity = notificationChannelIdentity(channel);
+      if (!identity) continue;
+      const existing = seenChannels.get(identity);
+      if (!existing) {
+        seenChannels.set(identity, channel);
+        continue;
+      }
+      replacements.set(channel.id, existing.id);
+      if (channel.enabled && !existing.enabled) {
+        const enabled = { ...existing, enabled: true, updatedAt: nowIso() };
+        this.channels.set(existing.id, enabled);
+        seenChannels.set(identity, enabled);
+      }
+      this.channels.delete(channel.id);
+      changed = true;
+    }
+
+    if (replacements.size > 0) {
+      for (const [id, rule] of this.rules) {
+        const channelIds = unique(
+          rule.channelIds
+            .map((channelId) => replacements.get(channelId) ?? channelId)
+            .filter((channelId) => this.channels.has(channelId)),
+        );
+        if (channelIds.join('|') !== rule.channelIds.join('|')) {
+          this.rules.set(id, { ...rule, channelIds, updatedAt: nowIso() });
+        }
+      }
+      for (const [id, delivery] of this.deliveries) {
+        const channelId = replacements.get(delivery.channelId);
+        if (channelId) this.deliveries.set(id, { ...delivery, channelId });
+      }
+    }
+
+    const seenRules = new Map<string, NotificationRule>();
+    const rules = [...this.rules.values()].sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt),
+    );
+    for (const rule of rules) {
+      const identity = ruleIdentity(rule);
+      const existing = seenRules.get(identity);
+      if (!existing) {
+        seenRules.set(identity, rule);
+        continue;
+      }
+      if (rule.enabled && !existing.enabled) {
+        const enabled = { ...existing, enabled: true, updatedAt: nowIso() };
+        this.rules.set(existing.id, enabled);
+        seenRules.set(identity, enabled);
+      }
+      this.rules.delete(rule.id);
+      changed = true;
+    }
+
+    return changed;
   }
 
   private persist(): void {
@@ -110,6 +263,37 @@ export class NotificationStore {
     return this.channels.get(channelId) ?? null;
   }
 
+  public findDuplicateChannel(input: {
+    id?: string;
+    name: string;
+    type: NotificationChannel['type'];
+    config: Record<string, unknown>;
+  }): NotificationChannel | null {
+    const identity = notificationChannelIdentity(input);
+    const name = normalizedName(input.name);
+    return (
+      this.listChannels().find(
+        (channel) =>
+          channel.id !== input.id &&
+          (normalizedName(channel.name) === name ||
+            (identity !== null && notificationChannelIdentity(channel) === identity)),
+      ) ?? null
+    );
+  }
+
+  public findDuplicateRule(input: {
+    id?: string;
+    eventTypes: string[];
+    severities: NotificationRule['severities'];
+    channelIds: string[];
+  }): NotificationRule | null {
+    const identity = ruleIdentity(input);
+    return (
+      this.listRules().find((rule) => rule.id !== input.id && ruleIdentity(rule) === identity) ??
+      null
+    );
+  }
+
   public updateChannel(
     channelId: string,
     input: UpdateNotificationChannelInput,
@@ -121,7 +305,9 @@ export class NotificationStore {
       ...channel,
       name: input.name ?? channel.name,
       enabled: input.enabled ?? channel.enabled,
-      config: input.config ?? channel.config,
+      config: input.config
+        ? mergeNotificationChannelConfig(channel.config, input.config)
+        : channel.config,
       updatedAt: nowIso(),
     };
 
@@ -139,11 +325,9 @@ export class NotificationStore {
           continue;
         }
 
-        this.rules.set(rule.id, {
-          ...rule,
-          channelIds: rule.channelIds.filter((id) => id !== channelId),
-          updatedAt: nowIso(),
-        });
+        const channelIds = rule.channelIds.filter((id) => id !== channelId);
+        if (channelIds.length === 0) this.rules.delete(rule.id);
+        else this.rules.set(rule.id, { ...rule, channelIds, updatedAt: nowIso() });
       }
     }
 

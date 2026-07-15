@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api';
 import type {
   CreateNotificationChannelInput,
   CreateNotificationRuleInput,
@@ -15,32 +15,6 @@ import type {
   UpdateNotificationRuleInput,
 } from './notification.types';
 
-interface ApiEnvelope<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-async function apiJson<T>(path: string, method: 'PATCH' | 'DELETE', body?: unknown): Promise<T> {
-  const response = await fetch(path, {
-    method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const payload = (await response.json()) as ApiEnvelope<T>;
-
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.error ?? `Notification request failed: ${response.status}`);
-  }
-
-  if (payload.data === undefined) {
-    throw new Error('Notification API returned no data.');
-  }
-
-  return payload.data;
-}
-
 export const notificationApi = {
   summary: () => apiGet<NotificationSummary>('/api/v1/notifications/summary'),
 
@@ -50,10 +24,10 @@ export const notificationApi = {
     apiPost<NotificationChannel>('/api/v1/notifications/channels', input),
 
   updateChannel: (id: string, input: UpdateNotificationChannelInput) =>
-    apiJson<NotificationChannel>(`/api/v1/notifications/channels/${id}`, 'PATCH', input),
+    apiPatch<NotificationChannel>(`/api/v1/notifications/channels/${id}`, input),
 
   deleteChannel: (id: string) =>
-    apiJson<NotificationDeleteResult>(`/api/v1/notifications/channels/${id}`, 'DELETE'),
+    apiDelete<NotificationDeleteResult>(`/api/v1/notifications/channels/${id}`),
 
   rules: () => apiGet<NotificationRule[]>('/api/v1/notifications/rules'),
 
@@ -61,10 +35,10 @@ export const notificationApi = {
     apiPost<NotificationRule>('/api/v1/notifications/rules', input),
 
   updateRule: (id: string, input: UpdateNotificationRuleInput) =>
-    apiJson<NotificationRule>(`/api/v1/notifications/rules/${id}`, 'PATCH', input),
+    apiPatch<NotificationRule>(`/api/v1/notifications/rules/${id}`, input),
 
   deleteRule: (id: string) =>
-    apiJson<NotificationDeleteResult>(`/api/v1/notifications/rules/${id}`, 'DELETE'),
+    apiDelete<NotificationDeleteResult>(`/api/v1/notifications/rules/${id}`),
 
   deliveries: (limit = 100) =>
     apiGet<NotificationDelivery[]>(`/api/v1/notifications/deliveries?limit=${limit}`),
@@ -90,6 +64,9 @@ export const notificationApi = {
 
   testChannel: (id: string) =>
     apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/channels/${id}/test`, {}),
+
+  testAllChannels: () =>
+    apiPost<NotificationDeliveryWorkerResult>('/api/v1/notifications/channels/test-all', {}),
 
   retryFailed: () =>
     apiPost<NotificationRetryResult>('/api/v1/notifications/retry-failed', {

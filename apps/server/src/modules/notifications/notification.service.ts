@@ -1,11 +1,13 @@
 import { auditService } from '../audit/index.js';
+import { HttpError } from '../../errors/http-error.js';
 import { notificationRuleMatches } from './notification.matching.js';
 import { notificationDeliveryWorker } from './notification.delivery.js';
-import { notificationStore } from './notification.store.js';
+import { mergeNotificationChannelConfig, notificationStore } from './notification.store.js';
 import type {
   CreateNotificationChannelInput,
   CreateNotificationRuleInput,
   NotificationDelivery,
+  NotificationDeliveryWorkerResult,
   NotificationPayload,
   NotificationRetryResult,
   UpdateNotificationChannelInput,
@@ -60,10 +62,15 @@ function publicConfig(channel: NonNullable<ReturnType<typeof notificationStore.g
     'url',
   ]);
   return Object.fromEntries(
-    Object.entries(channel.config).map(([key, value]) => [
-      key,
-      secretKeys.has(key) && typeof value === 'string' && value ? '••••••••' : value,
-    ]),
+    Object.entries(channel.config).map(([key, value]) => {
+      if (key === 'headers' && value && typeof value === 'object' && !Array.isArray(value)) {
+        return [
+          key,
+          Object.fromEntries(Object.keys(value).map((headerName) => [headerName, '••••••••'])),
+        ];
+      }
+      return [key, secretKeys.has(key) && typeof value === 'string' && value ? '••••••••' : value];
+    }),
   );
 }
 
@@ -115,6 +122,18 @@ export class NotificationService {
   }
 
   public createChannel(input: CreateNotificationChannelInput) {
+    const duplicate = notificationStore.findDuplicateChannel({
+      name: input.name,
+      type: input.type,
+      config: input.config ?? {},
+    });
+    if (duplicate) {
+      throw new HttpError(
+        409,
+        'NOTIFICATION_CHANNEL_DUPLICATE',
+        `Kênh “${duplicate.name}” đã tồn tại. Hãy chỉnh sửa kênh hiện có thay vì tạo lại.`,
+      );
+    }
     const channel = notificationStore.createChannel(input);
 
     auditService.logSuccess({
@@ -141,6 +160,24 @@ export class NotificationService {
 
   public updateChannel(channelId: string, input: UpdateNotificationChannelInput) {
     const before = notificationStore.getChannel(channelId);
+    if (before) {
+      const candidateConfig = input.config
+        ? mergeNotificationChannelConfig(before.config, input.config)
+        : before.config;
+      const duplicate = notificationStore.findDuplicateChannel({
+        id: channelId,
+        name: input.name ?? before.name,
+        type: before.type,
+        config: candidateConfig,
+      });
+      if (duplicate) {
+        throw new HttpError(
+          409,
+          'NOTIFICATION_CHANNEL_DUPLICATE',
+          `Cấu hình này trùng với kênh “${duplicate.name}”.`,
+        );
+      }
+    }
     const channel = notificationStore.updateChannel(channelId, input);
 
     if (channel) {
@@ -220,6 +257,14 @@ export class NotificationService {
   }
 
   public createRule(input: CreateNotificationRuleInput) {
+    const duplicate = notificationStore.findDuplicateRule(input);
+    if (duplicate) {
+      throw new HttpError(
+        409,
+        'NOTIFICATION_RULE_DUPLICATE',
+        `Quy tắc “${duplicate.name}” đã xử lý cùng sự kiện, mức độ và kênh nhận.`,
+      );
+    }
     const rule = notificationStore.createRule(input);
 
     auditService.logSuccess({
@@ -248,6 +293,21 @@ export class NotificationService {
 
   public updateRule(ruleId: string, input: UpdateNotificationRuleInput) {
     const before = notificationStore.getRule(ruleId);
+    if (before) {
+      const duplicate = notificationStore.findDuplicateRule({
+        id: ruleId,
+        eventTypes: input.eventTypes ?? before.eventTypes,
+        severities: input.severities ?? before.severities,
+        channelIds: input.channelIds ?? before.channelIds,
+      });
+      if (duplicate) {
+        throw new HttpError(
+          409,
+          'NOTIFICATION_RULE_DUPLICATE',
+          `Quy tắc này trùng với “${duplicate.name}”.`,
+        );
+      }
+    }
     const rule = notificationStore.updateRule(ruleId, input);
 
     if (rule) {
@@ -332,6 +392,7 @@ export class NotificationService {
 
   public enqueue(payload: NotificationPayload): NotificationDelivery[] {
     const deliveries: NotificationDelivery[] = [];
+    const queuedChannelIds = new Set<string>();
 
     for (const rule of notificationStore.listRules()) {
       if (!notificationRuleMatches(rule, payload)) {
@@ -339,6 +400,7 @@ export class NotificationService {
       }
 
       for (const channelId of rule.channelIds) {
+        if (queuedChannelIds.has(channelId)) continue;
         const channel = notificationStore.getChannel(channelId);
 
         if (!channel || !channel.enabled) {
@@ -353,6 +415,7 @@ export class NotificationService {
             payload,
           }),
         );
+        queuedChannelIds.add(channelId);
       }
     }
 
@@ -419,9 +482,6 @@ export class NotificationService {
     const channel = notificationStore.getChannel(channelId);
     if (!channel) return null;
     const requirements = channelRequirements(channel);
-    if (!requirements.configured) {
-      throw new Error(`Kênh còn thiếu cấu hình: ${requirements.missingFields.join(', ')}`);
-    }
     const delivery = notificationStore.createDelivery({
       ruleId: 'manual-channel-test',
       channelId: channel.id,
@@ -435,7 +495,35 @@ export class NotificationService {
         createdAt: new Date().toISOString(),
       },
     });
-    return notificationDeliveryWorker.processOne(delivery.id);
+    if (!requirements.configured) {
+      const failed = notificationStore.markFailed(
+        delivery.id,
+        `Kênh còn thiếu cấu hình: ${requirements.missingFields.join(', ')}`,
+      );
+      return {
+        processed: failed ? 1 : 0,
+        sent: 0,
+        failed: failed ? 1 : 0,
+        skipped: 0,
+        deliveries: failed ? [failed] : [],
+      };
+    }
+    return notificationDeliveryWorker.processOne(delivery.id, { allowDisabled: true });
+  }
+
+  public async testAllChannels(): Promise<NotificationDeliveryWorkerResult> {
+    const deliveries: NotificationDelivery[] = [];
+    for (const channel of notificationStore.listChannels()) {
+      const result = await this.testChannel(channel.id);
+      if (result) deliveries.push(...result.deliveries);
+    }
+    return {
+      processed: deliveries.length,
+      sent: deliveries.filter((delivery) => delivery.status === 'sent').length,
+      failed: deliveries.filter((delivery) => delivery.status === 'failed').length,
+      skipped: deliveries.filter((delivery) => delivery.status === 'skipped').length,
+      deliveries,
+    };
   }
 
   public async retryFailed(limit = 50): Promise<NotificationRetryResult> {
@@ -482,45 +570,29 @@ export class NotificationService {
 
   public seedDefaults() {
     const existingChannels = notificationStore.listChannels();
-
-    if (existingChannels.length > 0) {
-      void auditService
-        .logSuccess({
-          action: 'notification.defaults.seed_skipped',
-          summary: 'Notification defaults already exist, seed skipped',
-          actor: notificationActor,
-          entity: {
-            type: 'system',
-            id: 'notification-engine',
-            name: 'Notification Engine',
-          },
-          metadata: {
-            channels: existingChannels.length,
-            rules: notificationStore.listRules().length,
-          },
-        })
-        .catch(() => undefined);
-
-      return {
-        channels: existingChannels.map((channel) => this.describeChannel(channel)),
-        rules: notificationStore.listRules(),
-      };
-    }
-
-    const inApp = notificationStore.createChannel({
-      name: 'Default In-App Notifications',
-      type: 'in_app',
-      enabled: true,
-      config: {},
-    });
-
-    const criticalRule = notificationStore.createRule({
-      name: 'Critical Alert Lifecycle Events',
-      enabled: true,
-      eventTypes: ['ALERT_OPENED', 'ALERT_RESOLVED', 'DEVICE_OFFLINE'],
-      severities: ['critical', 'success'],
-      channelIds: [inApp.id],
-    });
+    const inApp =
+      existingChannels.find((channel) => channel.type === 'in_app') ??
+      notificationStore.createChannel({
+        name: 'Default In-App Notifications',
+        type: 'in_app',
+        enabled: true,
+        config: {},
+      });
+    const eventTypes = ['ALERT_OPENED', 'ALERT_RESOLVED', 'DEVICE_OFFLINE'];
+    const severities = ['critical', 'success'] as const;
+    const criticalRule =
+      notificationStore.findDuplicateRule({
+        eventTypes,
+        severities: [...severities],
+        channelIds: [inApp.id],
+      }) ??
+      notificationStore.createRule({
+        name: 'Critical Alert Lifecycle Events',
+        enabled: true,
+        eventTypes,
+        severities: [...severities],
+        channelIds: [inApp.id],
+      });
 
     void auditService
       .logSuccess({
@@ -540,8 +612,8 @@ export class NotificationService {
       .catch(() => undefined);
 
     return {
-      channels: [this.describeChannel(inApp)],
-      rules: [criticalRule],
+      channels: notificationStore.listChannels().map((channel) => this.describeChannel(channel)),
+      rules: notificationStore.listRules(),
     };
   }
 }

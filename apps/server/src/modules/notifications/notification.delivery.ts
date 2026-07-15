@@ -33,6 +33,25 @@ function getConfigText(config: Record<string, unknown>, key: string): string | u
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function telegramBotToken(config: Record<string, unknown>): string | undefined {
+  const raw = getConfigText(config, 'botToken');
+  if (!raw) return undefined;
+  const fromUrl = raw.match(/\/bot([^/]+)(?:\/|$)/i)?.[1];
+  return (fromUrl ?? raw).replace(/^bot/i, '').trim() || undefined;
+}
+
+function externalRequestError(channel: NotificationChannel, error: unknown): Error {
+  if (error instanceof Error && error.name === 'AbortError') {
+    return new Error(`Kênh “${channel.name}” hết thời gian chờ kết nối.`);
+  }
+  const cause = (error as { cause?: { code?: string; message?: string } } | null)?.cause;
+  const detail =
+    cause?.code ?? cause?.message ?? (error instanceof Error ? error.message : 'unknown');
+  return new Error(
+    `Không thể kết nối kênh “${channel.name}” (${detail}). Kiểm tra Internet, DNS và firewall outbound của máy chạy MME.`,
+  );
+}
+
 function getConfigNumber(config: Record<string, unknown>, key: string, fallback: number): number {
   const value = config[key];
 
@@ -160,7 +179,10 @@ export class NotificationDeliveryWorker {
     return summarize(deliveries);
   }
 
-  public async processOne(deliveryId: string): Promise<NotificationDeliveryWorkerResult> {
+  public async processOne(
+    deliveryId: string,
+    options: { allowDisabled?: boolean } = {},
+  ): Promise<NotificationDeliveryWorkerResult> {
     const delivery = notificationStore.getDelivery(deliveryId);
 
     if (!delivery) {
@@ -176,16 +198,17 @@ export class NotificationDeliveryWorker {
       return emptyResult();
     }
 
-    const updated = await this.processDeliveryWithCatch(pending);
+    const updated = await this.processDeliveryWithCatch(pending, options.allowDisabled ?? false);
 
     return updated ? summarize([updated]) : emptyResult();
   }
 
   private async processDeliveryWithCatch(
     delivery: NotificationDelivery,
+    allowDisabled = false,
   ): Promise<NotificationDelivery | null> {
     try {
-      return await this.processDelivery(delivery);
+      return await this.processDelivery(delivery, allowDisabled);
     } catch (error) {
       return notificationStore.markFailed(
         delivery.id,
@@ -196,6 +219,7 @@ export class NotificationDeliveryWorker {
 
   private async processDelivery(
     delivery: NotificationDelivery,
+    allowDisabled = false,
   ): Promise<NotificationDelivery | null> {
     if (delivery.status !== 'pending') {
       return delivery;
@@ -210,7 +234,7 @@ export class NotificationDeliveryWorker {
       );
     }
 
-    if (!channel.enabled) {
+    if (!channel.enabled && !allowDisabled) {
       return notificationStore.markSkipped(
         delivery.id,
         `Notification channel '${channel.name}' is disabled.`,
@@ -245,18 +269,23 @@ export class NotificationDeliveryWorker {
     channel: NotificationChannel,
   ): Promise<NotificationDelivery | null> {
     const config = readWebhookConfig(channel);
-    const response = await fetchWithTimeout(
-      config.url,
-      {
-        method: config.method,
-        headers: {
-          'content-type': 'application/json',
-          ...config.headers,
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        config.url,
+        {
+          method: config.method,
+          headers: {
+            'content-type': 'application/json',
+            ...config.headers,
+          },
+          body: JSON.stringify(webhookPayload(delivery)),
         },
-        body: JSON.stringify(webhookPayload(delivery)),
-      },
-      config.timeoutMs,
-    );
+        config.timeoutMs,
+      );
+    } catch (error) {
+      throw externalRequestError(channel, error);
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
@@ -276,17 +305,20 @@ export class NotificationDeliveryWorker {
     const url = getConfigText(channel.config, 'webhookUrl');
     if (!url) throw new Error(`Slack channel '${channel.name}' is missing config.webhookUrl`);
 
-    const response = await fetchWithTimeout(
-      url,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          text: textPayload(delivery),
-        }),
-      },
-      getConfigNumber(channel.config, 'timeoutMs', 10000),
-    );
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: textPayload(delivery) }),
+        },
+        getConfigNumber(channel.config, 'timeoutMs', 10000),
+      );
+    } catch (error) {
+      throw externalRequestError(channel, error);
+    }
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
@@ -302,7 +334,7 @@ export class NotificationDeliveryWorker {
     delivery: NotificationDelivery,
     channel: NotificationChannel,
   ): Promise<NotificationDelivery | null> {
-    const botToken = getConfigText(channel.config, 'botToken');
+    const botToken = telegramBotToken(channel.config);
     const chatId = getConfigText(channel.config, 'chatId');
     if (!botToken || !chatId) {
       throw new Error(
@@ -310,24 +342,33 @@ export class NotificationDeliveryWorker {
       );
     }
 
-    const response = await fetchWithTimeout(
-      `https://api.telegram.org/bot${botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: textPayload(delivery),
-          disable_web_page_preview: true,
-        }),
-      },
-      getConfigNumber(channel.config, 'timeoutMs', 10000),
-    );
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        `https://api.telegram.org/bot${botToken}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: textPayload(delivery),
+            disable_web_page_preview: true,
+          }),
+        },
+        getConfigNumber(channel.config, 'timeoutMs', 15000),
+      );
+    } catch (error) {
+      throw externalRequestError(channel, error);
+    }
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { description?: string } | null;
+    const body = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      description?: string;
+      result?: { message_id?: number };
+    } | null;
+    if (!response.ok || body?.ok !== true || !body.result?.message_id) {
       throw new Error(
-        `Telegram API returned HTTP ${response.status}${body?.description ? `: ${body.description}` : ''}`,
+        `Telegram không gửi được (HTTP ${response.status}): ${body?.description ?? 'phản hồi không hợp lệ từ Bot API'}. Kiểm tra Bot Token, Chat ID và hãy nhắn /start cho bot trước khi kiểm thử.`,
       );
     }
 
@@ -362,15 +403,19 @@ export class NotificationDeliveryWorker {
       ...(user && password ? { auth: { user, pass: password } } : {}),
     });
 
-    await transporter.sendMail({
-      from,
-      to,
-      subject: `[MME][${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}`,
-      text: `${delivery.payload.message}\n\nNguồn: ${delivery.payload.source}\nThời gian: ${formatDeliveryTime(delivery.payload.createdAt)} (${systemPreferencesService.get().timeZone})`,
-      ...(getConfigText(channel.config, 'replyTo')
-        ? { replyTo: getConfigText(channel.config, 'replyTo') }
-        : {}),
-    });
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: `[MME][${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}`,
+        text: `${delivery.payload.message}\n\nNguồn: ${delivery.payload.source}\nThời gian: ${formatDeliveryTime(delivery.payload.createdAt)} (${systemPreferencesService.get().timeZone})`,
+        ...(getConfigText(channel.config, 'replyTo')
+          ? { replyTo: getConfigText(channel.config, 'replyTo') }
+          : {}),
+      });
+    } catch (error) {
+      throw externalRequestError(channel, error);
+    }
 
     return notificationStore.markSent(delivery.id);
   }

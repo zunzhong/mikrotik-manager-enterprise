@@ -226,6 +226,15 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.post(
+    '/api/v1/notifications/channels/test-all',
+    { preHandler: notificationTestPreHandler },
+    async () => ({
+      success: true,
+      data: await notificationService.testAllChannels(),
+    }),
+  );
+
+  app.post(
     '/api/v1/notifications/channels/:id/test',
     { preHandler: notificationTestPreHandler },
     async (request, reply) => {
@@ -265,10 +274,14 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post('/api/v1/notifications/seed-defaults', async () => ({
-    success: true,
-    data: notificationService.seedDefaults(),
-  }));
+  app.post(
+    '/api/v1/notifications/seed-defaults',
+    { preHandler: notificationManagePreHandler },
+    async () => ({
+      success: true,
+      data: notificationService.seedDefaults(),
+    }),
+  );
 
   app.post(
     '/api/v1/notifications/test',
