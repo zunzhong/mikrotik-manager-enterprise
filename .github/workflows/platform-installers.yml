@@ -305,6 +305,9 @@ jobs:
           app="$root/opt/mikrotik-manager-enterprise"
           mkdir -p "$app" "$root/usr/local/bin" "$root/lib/systemd/system" "$root/DEBIAN" artifacts
           pnpm install --frozen-lockfile
+          # TypeScript nguồn dùng các kiểu JSON của schema PostgreSQL. Sinh client chuẩn
+          # trước quality gate, sau đó mới chuyển sang client SQLite cho payload Linux.
+          pnpm --filter @mme/server prisma:generate
           pnpm lint
           pnpm typecheck
           pnpm test
