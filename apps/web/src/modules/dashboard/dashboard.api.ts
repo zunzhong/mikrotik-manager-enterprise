@@ -41,6 +41,7 @@ export interface DashboardAlerts {
     status: string;
     title: string;
     message: string;
+    deviceId?: string;
     createdAt: string;
   }>;
 }

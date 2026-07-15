@@ -49,7 +49,10 @@ export function DeviceExplorer({ detailOnlyId }: { detailOnlyId?: string } = {})
   useEffect(() => {
     const requested = detailOnlyId ?? searchParams.get('device') ?? undefined;
     setSelectedId(requested);
-    setActiveTab('overview');
+    const requestedTab = searchParams.get('tab') as TabId | null;
+    setActiveTab(
+      requestedTab && tabs.some((tab) => tab.id === requestedTab) ? requestedTab : 'overview',
+    );
   }, [detailOnlyId, searchParams]);
 
   const devices = data ?? [];
@@ -128,7 +131,13 @@ export function DeviceExplorer({ detailOnlyId }: { detailOnlyId?: string } = {})
                     className={activeTab === tab.id ? 'active' : ''}
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setSearchParams(
+                        { ...(selected?.id ? { device: selected.id } : {}), tab: tab.id },
+                        { replace: true },
+                      );
+                    }}
                   >
                     {tab.label}
                   </button>

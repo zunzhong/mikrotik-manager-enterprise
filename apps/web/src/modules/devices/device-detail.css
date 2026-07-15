@@ -429,6 +429,39 @@
     var(--surface-soft);
   overflow-x: auto;
 }
+.traffic-chart-with-axis {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.traffic-y-axis {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4px 0 28px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+.traffic-y-axis b {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: rotate(-90deg) translateX(-50%);
+  transform-origin: left top;
+  color: var(--text);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@media (max-width: 640px) {
+  .traffic-chart-with-axis {
+    grid-template-columns: 58px minmax(560px, 1fr);
+    overflow-x: auto;
+  }
+}
 .traffic-bar-chart__column {
   min-width: 38px;
   flex: 1;

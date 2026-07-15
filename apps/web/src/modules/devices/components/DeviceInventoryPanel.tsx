@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { deviceInventoryApi, type DeviceInventorySection } from '../device-inventory.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
+  const { formatDateTime, tr } = useLanguage();
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
   const [actionMessage, setActionMessage] = useState('');
 
@@ -46,15 +48,20 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
     <div className="device-inventory-panel">
       <div className="inventory-action-row">
         <div>
-          <h3>Inventory Overview</h3>
-          <p>Dữ liệu RouterOS mới nhất, phân nhóm rõ ràng theo từng khu vực.</p>
+          <h3>{tr('Tổng quan Inventory', 'Inventory Overview')}</h3>
+          <p>
+            {tr(
+              'Dữ liệu RouterOS mới nhất, phân nhóm rõ ràng theo từng khu vực.',
+              'Latest RouterOS data, clearly grouped by area.',
+            )}
+          </p>
         </div>
         <div className="toolbar-actions">
           <button className="small-button" onClick={collectInventory}>
-            Collect Inventory
+            {tr('Thu thập Inventory', 'Collect Inventory')}
           </button>
           <button className="small-button" onClick={diffLatest}>
-            Diff Latest
+            {tr('So sánh bản mới nhất', 'Diff Latest')}
           </button>
         </div>
       </div>
@@ -64,26 +71,26 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
 
       <div className="inventory-summary compact">
         <div className="summary-card">
-          <span>Dữ liệu Inventory</span>
+          <span>{tr('Dữ liệu Inventory', 'Inventory data')}</span>
           <strong>{overview.data?.hasSnapshot ? 'Yes' : 'No'}</strong>
           <small>
             {overview.data?.snapshot?.collectedAt
-              ? new Date(overview.data.snapshot.collectedAt).toLocaleString()
+              ? formatDateTime(overview.data.snapshot.collectedAt)
               : 'not collected'}
           </small>
         </div>
         <div className="summary-card">
-          <span>Sections</span>
+          <span>{tr('Nhóm dữ liệu', 'Sections')}</span>
           <strong>{overview.data?.totals.sections ?? 0}</strong>
           <small>lần thu thập gần nhất</small>
         </div>
         <div className="summary-card">
-          <span>Items</span>
+          <span>{tr('Đối tượng', 'Items')}</span>
           <strong>{overview.data?.totals.items ?? 0}</strong>
           <small>inventory objects</small>
         </div>
         <div className="summary-card">
-          <span>Latest Diff</span>
+          <span>{tr('Thay đổi mới nhất', 'Latest Diff')}</span>
           <strong>{overview.data?.latestDiff?.changeCount ?? 0}</strong>
           <small>changes</small>
         </div>
@@ -91,7 +98,7 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
 
       <div className="inventory-browser">
         <aside className="inventory-tree">
-          <h3>Inventory Tree</h3>
+          <h3>{tr('Cây Inventory', 'Inventory Tree')}</h3>
 
           {(tree.data?.categories ?? []).map((category, index) => (
             <details className="tree-category" key={category.category} open={index < 2}>
@@ -129,8 +136,13 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
         <section className="inventory-section-view">
           {!selectedSectionId ? (
             <div className="empty-state large">
-              <strong>Select a section</strong>
-              <p>Choose an inventory section to inspect RouterOS objects.</p>
+              <strong>{tr('Chọn một nhóm dữ liệu', 'Select a section')}</strong>
+              <p>
+                {tr(
+                  'Chọn nhóm Inventory để xem các đối tượng RouterOS.',
+                  'Choose an inventory section to inspect RouterOS objects.',
+                )}
+              </p>
             </div>
           ) : (
             <>
@@ -146,15 +158,14 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
                 {(section.data?.items ?? []).map((item) => (
                   <div className="object-row" key={item.id}>
                     <div>
-                      <strong>{item.name ?? item.externalId ?? item.id}</strong>
-                      <small>{item.externalId}</small>
+                      <strong>{item.name ?? 'RouterOS object'}</strong>
                     </div>
                     <InventoryObjectFields
                       raw={item.raw}
                       bridgePort={section.data?.path === '/interface/bridge/port/print'}
                     />
                     <details className="raw-object">
-                      <summary>Dữ liệu RouterOS gốc</summary>
+                      <summary>{tr('Dữ liệu RouterOS gốc', 'Raw RouterOS data')}</summary>
                       <code>{JSON.stringify(item.raw, null, 2)}</code>
                     </details>
                   </div>

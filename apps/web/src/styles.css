@@ -801,6 +801,23 @@ body {
   color: var(--muted);
   font-size: 13px;
 }
+.managed-device-edit {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.managed-device-edit label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.managed-device-edit__actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
 .device-catalog {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
@@ -1136,14 +1153,14 @@ body {
   color-scheme: dark;
 }
 .app-shell[data-theme='light'] {
-  --app-bg: #eef2f7;
-  --header-bg: #f7f9fc;
-  --sidebar-bg: #f8fafc;
-  --surface: #f9fbfd;
-  --surface-solid: #f9fbfd;
-  --surface-soft: #edf2f7;
-  --surface-hover: #e4ebf4;
-  --border: #cbd6e3;
+  --app-bg: #e6ebf1;
+  --header-bg: #edf1f5;
+  --sidebar-bg: #e9eef3;
+  --surface: #f1f4f7;
+  --surface-solid: #f1f4f7;
+  --surface-soft: #e5eaf0;
+  --surface-hover: #dbe3eb;
+  --border: #bcc8d5;
   --text: #172033;
   --muted: #607086;
   --accent: #087ca7;
@@ -1237,6 +1254,52 @@ body {
 .app-shell :is(.theme-toggle, .logout-button, .small-button, button, input, textarea, select) {
   font-family: inherit;
 }
+.theme-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 5px;
+  min-width: 84px;
+  height: 38px;
+  padding: 4px 9px;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.theme-switch::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  width: 32px;
+  height: 28px;
+  left: 5px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  transition: transform 180ms ease;
+}
+.theme-switch[data-active-theme='light']::before {
+  transform: translateX(40px);
+}
+.theme-switch > * {
+  position: relative;
+  z-index: 1;
+}
+.theme-switch span {
+  font-size: 18px;
+  line-height: 1;
+}
+.theme-switch b {
+  color: var(--muted);
+  font-size: 13px;
+}
+.theme-switch[data-active-theme='dark'] .theme-switch__moon,
+.theme-switch[data-active-theme='light'] .theme-switch__sun {
+  color: #fff;
+}
 .app-shell :is(.theme-toggle, .logout-button, .small-button) {
   color: var(--text);
   background: var(--surface-soft);
@@ -1282,6 +1345,20 @@ body {
 }
 .app-shell :is(.page-header p, .muted, small, .settings-toolbar p, .widget-header p) {
   color: var(--muted);
+}
+.summary-card--link,
+.list-row:is(a) {
+  color: inherit;
+  text-decoration: none;
+}
+.summary-card--link {
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease;
+}
+.summary-card--link:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
 }
 .app-shell table,
 .app-shell thead,

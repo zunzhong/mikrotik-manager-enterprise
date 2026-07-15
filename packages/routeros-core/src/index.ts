@@ -19,4 +19,5 @@ export * from './queue/async-queue.js';
 export * from './testing/fake-routeros-server.js';
 export * from './testing/fake-transport.js';
 export * from './transport/tcp-transport.js';
+export * from './transport/tls-transport.js';
 export * from './types/index.js';

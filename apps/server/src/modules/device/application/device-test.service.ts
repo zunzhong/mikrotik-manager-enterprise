@@ -29,6 +29,7 @@ export class DeviceTestService {
       tls: input.useTls,
       loginMode: input.loginMode,
       timeoutMs: input.timeoutMs,
+      rejectUnauthorized: false,
     });
 
     try {

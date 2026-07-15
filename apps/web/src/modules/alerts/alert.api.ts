@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '../../lib/api';
 
 export interface AlertRule {
   key: string;
@@ -7,6 +7,8 @@ export interface AlertRule {
   source: string;
   description: string;
   enabledByDefault?: boolean;
+  enabled?: boolean;
+  configured?: boolean;
 }
 
 export interface AlertRecord {
@@ -40,6 +42,12 @@ export interface AlertEvaluationResult {
 
 export const alertApi = {
   rules: () => apiGet<AlertRule[]>('/api/v1/alerts/rules'),
+  deviceRules: (deviceId: string) =>
+    apiGet<AlertRule[]>(`/api/v1/devices/${deviceId}/alerts/rules`),
+  configureDeviceRule: (deviceId: string, ruleKey: string, enabled: boolean) =>
+    apiPut(`/api/v1/devices/${deviceId}/alerts/rules/${encodeURIComponent(ruleKey)}`, { enabled }),
+  removeDeviceRuleConfig: (deviceId: string, ruleKey: string) =>
+    apiDelete(`/api/v1/devices/${deviceId}/alerts/rules/${encodeURIComponent(ruleKey)}`),
   list: () => apiGet<AlertRecord[]>('/api/v1/alerts'),
   acknowledge: (alertId: string) => apiPatch<AlertRecord>(`/api/v1/alerts/${alertId}/ack`, {}),
   resolve: (alertId: string) => apiPatch<AlertRecord>(`/api/v1/alerts/${alertId}/resolve`, {}),

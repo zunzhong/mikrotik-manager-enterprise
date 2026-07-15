@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 2;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 3;
 
 interface Migration {
   version: number;
@@ -27,6 +27,23 @@ const migrations: Migration[] = [
       )`,
       'CREATE INDEX IF NOT EXISTS "TrafficSample_deviceId_collectedAt_idx" ON "TrafficSample"("deviceId", "collectedAt")',
       'CREATE INDEX IF NOT EXISTS "TrafficSample_deviceId_interfaceName_collectedAt_idx" ON "TrafficSample"("deviceId", "interfaceName", "collectedAt")',
+    ],
+  },
+  {
+    version: 3,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "DeviceAlertRuleConfig" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "deviceId" TEXT NOT NULL,
+        "ruleKey" TEXT NOT NULL,
+        "enabled" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        CONSTRAINT "DeviceAlertRuleConfig_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS "DeviceAlertRuleConfig_deviceId_ruleKey_key" ON "DeviceAlertRuleConfig"("deviceId", "ruleKey")',
+      'CREATE INDEX IF NOT EXISTS "DeviceAlertRuleConfig_deviceId_idx" ON "DeviceAlertRuleConfig"("deviceId")',
+      'CREATE INDEX IF NOT EXISTS "DeviceAlertRuleConfig_ruleKey_idx" ON "DeviceAlertRuleConfig"("ruleKey")',
     ],
   },
 ];

@@ -27,8 +27,14 @@ describe('SQLite migration service', () => {
     const trafficTable = database
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'TrafficSample'`)
       .get() as { name: string } | undefined;
+    const alertRuleConfigTable = database
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'DeviceAlertRuleConfig'`,
+      )
+      .get() as { name: string } | undefined;
     database.close();
     expect(trafficTable?.name).toBe('TrafficSample');
+    expect(alertRuleConfigTable?.name).toBe('DeviceAlertRuleConfig');
   });
 
   it('rejects a database created by a newer application', () => {

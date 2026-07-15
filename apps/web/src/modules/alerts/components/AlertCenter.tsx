@@ -1,23 +1,59 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { deviceApi } from '../../devices/device.api';
 import { alertApi, type AlertRecord } from '../alert.api';
+import type { AlertRule } from '../alert.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function AlertCenter() {
+  const { t, tr, formatDateTime } = useLanguage();
   const rules = useAsyncData(useCallback(() => alertApi.rules(), []));
   const alerts = useAsyncData(useCallback(() => alertApi.list(), []));
   const devices = useAsyncData(useCallback(() => deviceApi.list(), []));
 
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [message, setMessage] = useState('');
+  const [deviceRules, setDeviceRules] = useState<AlertRule[]>([]);
 
   const activeDeviceId = selectedDeviceId || devices.data?.[0]?.id || '';
 
+  const refreshDeviceRules = useCallback(async () => {
+    if (!activeDeviceId) return setDeviceRules([]);
+    try {
+      setDeviceRules(await alertApi.deviceRules(activeDeviceId));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể tải quy tắc thiết bị.');
+    }
+  }, [activeDeviceId]);
+
+  useEffect(() => {
+    void refreshDeviceRules();
+  }, [refreshDeviceRules]);
+
+  async function setRule(rule: AlertRule, enabled: boolean) {
+    if (!activeDeviceId) return;
+    await alertApi.configureDeviceRule(activeDeviceId, rule.key, enabled);
+    setMessage(`${enabled ? t('enable') : t('disable')}: ${rule.title}`);
+    await refreshDeviceRules();
+  }
+
+  async function removeRuleConfig(rule: AlertRule) {
+    if (!activeDeviceId) return;
+    await alertApi.removeDeviceRuleConfig(activeDeviceId, rule.key);
+    setMessage(`Đã xóa cấu hình riêng; quy tắc dùng lại mặc định hệ thống.`);
+    await refreshDeviceRules();
+  }
+
   async function evaluateAll() {
-    setMessage('Đang đánh giá tất cả quy tắc cảnh báo...');
+    setMessage(tr('Đang đánh giá tất cả quy tắc cảnh báo...', 'Evaluating all alert rules...'));
     try {
       const result = await alertApi.evaluateAll();
-      setMessage(`Đánh giá hoàn tất: ${result.triggered} cảnh báo được kích hoạt.`);
+      setMessage(
+        tr(
+          `Đánh giá hoàn tất: ${result.triggered} cảnh báo được kích hoạt.`,
+          `Evaluation complete: ${result.triggered} alerts triggered.`,
+        ),
+      );
       alerts.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Đánh giá thất bại');
@@ -26,14 +62,19 @@ export function AlertCenter() {
 
   async function evaluateDevice() {
     if (!activeDeviceId) {
-      setMessage('Chưa chọn thiết bị.');
+      setMessage(tr('Chưa chọn thiết bị.', 'No device selected.'));
       return;
     }
 
-    setMessage('Đang đánh giá thiết bị đã chọn...');
+    setMessage(tr('Đang đánh giá thiết bị đã chọn...', 'Evaluating selected device...'));
     try {
       const result = await alertApi.evaluateDevice(activeDeviceId);
-      setMessage(`Đã đánh giá: ${result.triggered} cảnh báo được kích hoạt.`);
+      setMessage(
+        tr(
+          `Đã đánh giá: ${result.triggered} cảnh báo được kích hoạt.`,
+          `Evaluation complete: ${result.triggered} alerts triggered.`,
+        ),
+      );
       alerts.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Đánh giá thiết bị thất bại');
@@ -75,10 +116,12 @@ export function AlertCenter() {
     <div className="alert-center">
       <div className="alert-toolbar">
         <div>
-          <h3>Trung tâm cảnh báo</h3>
+          <h3>{tr('Trung tâm cảnh báo', 'Alert Center')}</h3>
           <p>
-            Cảnh báo được gom theo thiết bị và rule; một rule đang hoạt động không tạo bản ghi trùng
-            lặp.
+            {tr(
+              'Cảnh báo được gom theo thiết bị và quy tắc; một quy tắc đang hoạt động không tạo bản ghi trùng lặp.',
+              'Alerts are grouped by device and rule; an active rule never creates duplicate records.',
+            )}
           </p>
         </div>
 
@@ -95,10 +138,10 @@ export function AlertCenter() {
             {(devices.data ?? []).length === 0 ? <option value="">Chưa có thiết bị</option> : null}
           </select>
           <button className="small-button" onClick={evaluateDevice}>
-            Đánh giá thiết bị
+            {tr('Đánh giá thiết bị', 'Evaluate device')}
           </button>
           <button className="small-button" onClick={evaluateAll}>
-            Đánh giá tất cả
+            {tr('Đánh giá tất cả', 'Evaluate all')}
           </button>
         </div>
       </div>
@@ -109,17 +152,17 @@ export function AlertCenter() {
 
       <div className="alert-summary">
         <div className="summary-card">
-          <span>Đang kích hoạt</span>
+          <span>{tr('Đang kích hoạt', 'Active')}</span>
           <strong>{openCount}</strong>
-          <small>chưa được xác nhận</small>
+          <small>{tr('chưa được xác nhận', 'not acknowledged')}</small>
         </div>
         <div className="summary-card">
-          <span>Nghiêm trọng</span>
+          <span>{tr('Nghiêm trọng', 'Critical')}</span>
           <strong>{criticalCount}</strong>
-          <small>cần xử lý ngay</small>
+          <small>{tr('cần xử lý ngay', 'requires immediate action')}</small>
         </div>
         <div className="summary-card">
-          <span>Quy tắc</span>
+          <span>{tr('Quy tắc', 'Rules')}</span>
           <strong>{rules.data?.length ?? 0}</strong>
           <small>bộ quy tắc duy nhất</small>
         </div>
@@ -127,9 +170,9 @@ export function AlertCenter() {
 
       <div className="alert-grid">
         <section className="alert-panel">
-          <h3>Quy tắc cảnh báo</h3>
+          <h3>{t('alertRules')}</h3>
           <div className="rule-list">
-            {(rules.data ?? []).map((rule) => (
+            {(deviceRules.length ? deviceRules : (rules.data ?? [])).map((rule) => (
               <article className="rule-card" key={rule.key}>
                 <div>
                   <h4>{rule.title}</h4>
@@ -138,14 +181,32 @@ export function AlertCenter() {
                     {rule.source} • {rule.key}
                   </small>
                 </div>
-                <span className={`alert-severity sev-${rule.severity}`}>{rule.severity}</span>
+                <div className="rule-card__actions">
+                  <span className={`alert-severity sev-${rule.severity}`}>{rule.severity}</span>
+                  <button
+                    type="button"
+                    className={`rule-toggle ${(rule.enabled ?? rule.enabledByDefault) ? 'enabled' : ''}`}
+                    onClick={() => void setRule(rule, !(rule.enabled ?? rule.enabledByDefault))}
+                  >
+                    {(rule.enabled ?? rule.enabledByDefault) ? t('disable') : t('enable')}
+                  </button>
+                  {rule.configured ? (
+                    <button
+                      type="button"
+                      className="small-button"
+                      onClick={() => void removeRuleConfig(rule)}
+                    >
+                      {t('removeRule')}
+                    </button>
+                  ) : null}
+                </div>
               </article>
             ))}
           </div>
         </section>
 
         <section className="alert-panel">
-          <h3>Danh sách cảnh báo</h3>
+          <h3>{tr('Danh sách cảnh báo', 'Alert list')}</h3>
           <div className="alert-list">
             {visibleAlerts.map((alert) => (
               <article className="alert-card" key={alert.id}>
@@ -155,7 +216,7 @@ export function AlertCenter() {
                     <p>{alert.message}</p>
                     <small>
                       {alert.device?.name ?? 'Hệ thống'} · {alert.source} ·{' '}
-                      {new Date(alert.createdAt).toLocaleString()}
+                      {formatDateTime(alert.createdAt)}
                     </small>
                     <AlertMetadata metadata={alert.metadata} />
                   </div>
@@ -171,12 +232,12 @@ export function AlertCenter() {
 
                 {alert.status === 'open' ? (
                   <button className="small-button" onClick={() => acknowledge(alert)}>
-                    Xác nhận cảnh báo
+                    {tr('Xác nhận cảnh báo', 'Acknowledge alert')}
                   </button>
                 ) : null}
                 {alert.status !== 'resolved' ? (
                   <button className="small-button" onClick={() => void resolve(alert)}>
-                    Đánh dấu đã xử lý
+                    {tr('Đánh dấu đã xử lý', 'Mark resolved')}
                   </button>
                 ) : null}
               </article>

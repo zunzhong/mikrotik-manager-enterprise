@@ -7,6 +7,8 @@ import type {
 import { SummaryCard } from './SummaryCard';
 import { WidgetCard } from './WidgetCard';
 import './health-dashboard-summary.css';
+import { Link } from 'react-router-dom';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export interface HealthDashboardSummaryProps {
   overview?: DeviceRealtimeOverview;
@@ -94,6 +96,7 @@ export function HealthDashboardSummary({
   error,
   onRefresh,
 }: HealthDashboardSummaryProps) {
+  const { formatDateTime } = useLanguage();
   const devices = overview?.devices ?? [];
   const summary = buildSummary(devices);
   const averageScore = summary.scored > 0 ? Math.round(summary.totalScore / summary.scored) : 0;
@@ -139,10 +142,11 @@ export function HealthDashboardSummary({
               const score = scoreForSnapshot(device);
 
               return (
-                <div
+                <Link
                   className="health-dashboard-summary__row"
                   data-status={status}
                   key={device.deviceId}
+                  to={`/devices/${device.deviceId}?tab=overview&focus=health`}
                 >
                   <div>
                     <strong>{device.deviceName ?? device.deviceId}</strong>
@@ -157,7 +161,7 @@ export function HealthDashboardSummary({
                   </div>
 
                   <span>{score === null ? 'N/A' : score}</span>
-                </div>
+                </Link>
               );
             })}
 
@@ -174,10 +178,15 @@ export function HealthDashboardSummary({
         <WidgetCard title="Recent Health Events" description="Realtime health and device events">
           <div className="health-dashboard-summary__event-list">
             {healthEvents.map((event) => (
-              <div
+              <Link
                 className="health-dashboard-summary__row"
                 data-status={event.severity}
                 key={event.id}
+                to={
+                  event.deviceId
+                    ? `/devices/${event.deviceId}?tab=alerts&focus=${event.id}`
+                    : '/alerts'
+                }
               >
                 <div>
                   <strong>{event.title}</strong>
@@ -186,12 +195,12 @@ export function HealthDashboardSummary({
                   </small>
                   <small>
                     {event.deviceName ?? event.deviceId ?? 'System'} ·{' '}
-                    {new Date(event.createdAt).toLocaleString()}
+                    {formatDateTime(event.createdAt)}
                   </small>
                 </div>
 
                 <span>{event.severity}</span>
-              </div>
+              </Link>
             ))}
 
             {!loading && healthEvents.length === 0 ? (

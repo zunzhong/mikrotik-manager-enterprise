@@ -25,6 +25,11 @@ export interface TcpTransportOptions {
   timeoutMs: number;
 }
 
+export interface TlsTransportOptions extends TcpTransportOptions {
+  rejectUnauthorized: boolean;
+  servername?: string;
+}
+
 export type RouterOsSentence = string[];
 
 export interface Transport {

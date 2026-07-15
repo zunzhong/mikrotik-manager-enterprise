@@ -1,0 +1,50 @@
+HƯỚNG DẪN CẤU HÌNH KÊNH THÔNG BÁO MME
+Phiên bản: 4.1.5
+Tác giả hệ thống: Bùi Quang Chính
+
+1. EMAIL / SMTP
+- Vào Cảnh báo > Kênh gửi cảnh báo > Thêm kênh.
+- Chọn Email/SMTP.
+- Nhập SMTP host, port, username, password, địa chỉ gửi và địa chỉ nhận.
+- Port khuyến nghị: 587 + STARTTLS hoặc 465 + TLS.
+- Bấm Lưu, sau đó Gửi thử. Chỉ bật rule sau khi gửi thử thành công.
+- Với Gmail: bật xác minh 2 bước và dùng App Password; không dùng mật khẩu Gmail chính.
+
+2. TELEGRAM
+- Mở Telegram, chat với @BotFather, chạy /newbot và lấy Bot Token.
+- Gửi một tin nhắn cho bot vừa tạo.
+- Truy cập https://api.telegram.org/bot<TOKEN>/getUpdates để lấy chat_id.
+- Trong MME chọn Telegram, nhập Bot Token và Chat ID, lưu rồi Gửi thử.
+- Với group: thêm bot vào group, gửi tin nhắn, lấy chat_id âm trong getUpdates.
+
+3. SLACK
+- Tạo Incoming Webhook trong Slack App tại https://api.slack.com/apps
+- Chọn channel nhận cảnh báo và sao chép Webhook URL.
+- Trong MME chọn Slack, nhập Webhook URL, lưu và Gửi thử.
+- Không chia sẻ Webhook URL; hãy thay URL nếu bị lộ.
+
+4. WEBHOOK TÙY CHỈNH
+- Nhập URL HTTPS của hệ thống nhận.
+- Chọn POST, cấu hình header Authorization nếu cần.
+- Payload MME gồm rule, severity, device, title, message, metadata và timestamp.
+- Endpoint nên trả HTTP 2xx trong vòng 10 giây và xử lý idempotent.
+
+5. GẮN RULE VỚI THIẾT BỊ
+- Trong Cảnh báo, chọn thiết bị.
+- Bật/tắt từng quy tắc riêng cho thiết bị.
+- “Xóa cấu hình” đưa quy tắc về mặc định hệ thống, không xóa rule gốc.
+- Bấm Đánh giá thiết bị để kiểm tra ngay.
+
+6. XỬ LÝ SỰ CỐ
+- Kiểm tra DNS, firewall outbound và thời gian hệ thống.
+- Kiểm tra delivery history và nội dung lỗi.
+- Email: xác minh TLS/port/App Password.
+- Telegram: xác minh token/chat_id và bot có quyền gửi.
+- Slack/Webhook: xác minh URL còn hiệu lực và endpoint trả 2xx.
+- Không ghi token, mật khẩu SMTP hay webhook secret vào ảnh/log hỗ trợ.
+
+7. KHUYẾN NGHỊ BẢO MẬT
+- Dùng tài khoản/bot riêng cho MME.
+- Đổi secret định kỳ và giới hạn quyền tối thiểu.
+- Luôn kiểm thử kênh trước khi bật cảnh báo production.
+

@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { alertApi } from '../../alerts/alert.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function DeviceAlertsPanel({ deviceId }: { deviceId: string }) {
+  const { formatDateTime } = useLanguage();
   const alerts = useAsyncData(
     useCallback(
       async () => (await alertApi.list()).filter((item) => item.deviceId === deviceId),
@@ -40,7 +42,7 @@ export function DeviceAlertsPanel({ deviceId }: { deviceId: string }) {
               <strong>{alert.title}</strong>
               <p>{alert.message}</p>
               <small>
-                {new Date(alert.createdAt).toLocaleString()} ·{' '}
+                {formatDateTime(alert.createdAt)} ·{' '}
                 {alert.status === 'open'
                   ? 'Đang kích hoạt'
                   : alert.status === 'acknowledged'

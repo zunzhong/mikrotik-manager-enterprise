@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { ConnectionState } from './connection-state.js';
 import { RouterOsConnectionError } from '../errors/routeros-error.js';
 import { TcpTransport } from '../transport/tcp-transport.js';
+import { TlsTransport } from '../transport/tls-transport.js';
 import type { RouterClientOptions, Transport } from '../types/index.js';
 
 export interface ConnectionManagerEvents {
@@ -97,13 +98,20 @@ export class ConnectionManager extends EventEmitter {
   private createTransport(): Transport {
     const options = {
       host: this.options.host,
-      port: this.options.port ?? 8728,
+      port: this.options.port ?? (this.options.tls ? 8729 : 8728),
       timeoutMs: this.options.timeoutMs ?? 10000,
     };
 
-    return this.options.transportFactory
-      ? this.options.transportFactory(options)
-      : new TcpTransport(options);
+    if (this.options.transportFactory) return this.options.transportFactory(options);
+    if (this.options.tls) {
+      const isIpAddress = /^[\d.:]+$/.test(this.options.host);
+      return new TlsTransport({
+        ...options,
+        rejectUnauthorized: this.options.rejectUnauthorized ?? false,
+        servername: isIpAddress ? undefined : this.options.host,
+      });
+    }
+    return new TcpTransport(options);
   }
 
   private setState(state: ConnectionState): void {

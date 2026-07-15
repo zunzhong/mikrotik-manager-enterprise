@@ -57,6 +57,14 @@
   border-radius: 14px;
   padding: 12px;
 }
+.health-dashboard-summary__row:is(a) {
+  color: inherit;
+  text-decoration: none;
+}
+.health-dashboard-summary__row:is(a):hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
 
 .health-dashboard-summary__row div {
   display: grid;

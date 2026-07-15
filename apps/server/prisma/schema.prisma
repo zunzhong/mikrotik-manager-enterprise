@@ -116,6 +116,7 @@ model Device {
   alerts             Alert[]
   backups            BackupRecord[]
   trafficSamples     TrafficSample[]
+  alertRuleConfigs   DeviceAlertRuleConfig[]
 
   @@index([host])
   @@index([status])
@@ -287,6 +288,21 @@ model Alert {
   @@index([createdAt])
 }
 
+model DeviceAlertRuleConfig {
+  id        String   @id @default(cuid())
+  deviceId  String
+  ruleKey   String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, ruleKey])
+  @@index([deviceId])
+  @@index([ruleKey])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String?
@@ -377,17 +393,17 @@ model DeviceSnapshot {
 }
 
 model TrafficSample {
-  id             String   @id @default(cuid())
-  deviceId       String
-  interfaceName  String
-  collectedAt    DateTime @default(now())
-  rxBytes        BigInt
-  txBytes        BigInt
-  rxDeltaBytes   BigInt   @default(0)
-  txDeltaBytes   BigInt   @default(0)
-  rxBps          Float    @default(0)
-  txBps          Float    @default(0)
-  running        Boolean  @default(false)
+  id            String   @id @default(cuid())
+  deviceId      String
+  interfaceName String
+  collectedAt   DateTime @default(now())
+  rxBytes       BigInt
+  txBytes       BigInt
+  rxDeltaBytes  BigInt   @default(0)
+  txDeltaBytes  BigInt   @default(0)
+  rxBps         Float    @default(0)
+  txBps         Float    @default(0)
+  running       Boolean  @default(false)
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 

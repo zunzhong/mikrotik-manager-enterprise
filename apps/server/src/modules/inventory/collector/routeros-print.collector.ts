@@ -28,26 +28,31 @@ export class RouterOsPrintCollector implements InventoryCollector {
   }
 
   public async collect(context: InventoryCollectorContext): Promise<InventoryCollectorResult> {
-    try {
-      const response = await context.client.command(this.path);
-      return {
-        key: this.key,
-        category: this.category,
-        label: this.label,
-        path: this.path,
-        rows: response.rows,
-        success: true,
-      };
-    } catch (error) {
-      return {
-        key: this.key,
-        category: this.category,
-        label: this.label,
-        path: this.path,
-        rows: [],
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown collector error',
-      };
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const response = await context.client.command(this.path, undefined, { timeoutMs: 20000 });
+        return {
+          key: this.key,
+          category: this.category,
+          label: this.label,
+          path: this.path,
+          rows: response.rows,
+          success: true,
+        };
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250));
+      }
     }
+    return {
+      key: this.key,
+      category: this.category,
+      label: this.label,
+      path: this.path,
+      rows: [],
+      success: false,
+      error: lastError instanceof Error ? lastError.message : 'Unknown collector error',
+    };
   }
 }

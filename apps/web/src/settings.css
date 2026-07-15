@@ -33,6 +33,22 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
+
+.timezone-settings {
+  align-items: end;
+}
+.timezone-preview {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.timezone-preview span {
+  color: var(--muted);
+  font-size: 12px;
+}
 .settings-panel {
   margin-top: 18px;
 }

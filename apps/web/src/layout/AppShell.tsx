@@ -131,8 +131,21 @@ export function AppShell() {
         <header className="topbar">
           <div className="topbar-spacer" />
           <div className="topbar-account">
-            <button className="theme-toggle" type="button" onClick={toggleTheme}>
-              {theme === 'dark' ? t('lightMode') : t('darkMode')}
+            <button
+              className="theme-switch"
+              type="button"
+              onClick={toggleTheme}
+              aria-label={t('themeToggle')}
+              title={theme === 'dark' ? t('lightMode') : t('darkMode')}
+              data-active-theme={theme}
+            >
+              <span className="theme-switch__moon" aria-hidden="true">
+                ☾
+              </span>
+              <b aria-hidden="true">/</b>
+              <span className="theme-switch__sun" aria-hidden="true">
+                ☀
+              </span>
             </button>
             <div className="account-identity">
               <span>{t('adminAccount')}</span>

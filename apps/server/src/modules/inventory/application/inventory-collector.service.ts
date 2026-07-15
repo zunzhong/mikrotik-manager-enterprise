@@ -23,7 +23,8 @@ export class InventoryCollectorService {
       password: encryptionService.decrypt(device.passwordEncrypted),
       tls: device.useTls,
       loginMode: device.loginMode as 'auto' | 'modern' | 'legacy',
-      timeoutMs: 10000,
+      timeoutMs: device.useTls ? 20000 : 12000,
+      rejectUnauthorized: false,
     });
 
     const collectors = collectorRegistry.enabledByDefault();

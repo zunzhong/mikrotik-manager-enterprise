@@ -4,6 +4,7 @@ import { SecuritySessionsPanel } from '../modules/auth/components/SecuritySessio
 import { SystemStatusPanel } from '../modules/system/components/SystemStatusPanel';
 import { LanguageSettingsPanel } from '../modules/settings/LanguageSettingsPanel';
 import { useLanguage } from '../i18n/LanguageContext';
+import { TimezoneSettingsPanel } from '../modules/settings/TimezoneSettingsPanel';
 
 export function SettingsPage() {
   const { t } = useLanguage();
@@ -16,6 +17,7 @@ export function SettingsPage() {
 
       <AccountProfilePanel />
       <LanguageSettingsPanel />
+      <TimezoneSettingsPanel />
       <SystemStatusPanel />
       <SecuritySessionsPanel />
       <PasswordSecurityPanel />

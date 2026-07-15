@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
 import type { DeviceTrafficHistory, TrafficPeriod } from './device-traffic.types';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 const periodLabels: Record<TrafficPeriod, string> = {
   hour: 'Theo giờ',
@@ -32,6 +33,7 @@ function formatRate(value: number): string {
 }
 
 export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
+  const { language, tr } = useLanguage();
   const [period, setPeriod] = useState<TrafficPeriod>('hour');
   const [interfaceName, setInterfaceName] = useState('all');
   const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
@@ -45,11 +47,15 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
       setHistory(result);
       setError('');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Không thể tải dữ liệu traffic.');
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : tr('Không thể tải dữ liệu traffic.', 'Cannot load traffic data.'),
+      );
     } finally {
       setLoading(false);
     }
-  }, [anchor, deviceId, interfaceName, period]);
+  }, [anchor, deviceId, interfaceName, period, tr]);
 
   useEffect(() => {
     setLoading(true);
@@ -66,14 +72,23 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
       ),
     [history],
   );
+  const axisTicks = useMemo(
+    () => [1, 0.75, 0.5, 0.25, 0].map((ratio) => ({ ratio, label: formatBytes(max * ratio) })),
+    [max],
+  );
 
   return (
     <section className="traffic-monitor">
       <header className="traffic-monitor__header">
         <div>
           <p className="device-dashboard__eyebrow">TRAFFIC DATABASE MONITOR</p>
-          <h3>Giám sát lưu lượng Interface</h3>
-          <p>Dữ liệu RX/TX được thu thập tự động, lưu trong database và tổng hợp theo thời gian.</p>
+          <h3>{tr('Giám sát lưu lượng Interface', 'Interface Traffic Monitor')}</h3>
+          <p>
+            {tr(
+              'Dữ liệu RX/TX được thu thập tự động, lưu trong database và tổng hợp theo thời gian.',
+              'RX/TX data is collected automatically, stored in the database, and aggregated over time.',
+            )}
+          </p>
         </div>
         <span className="traffic-monitor__database">● DATABASE</span>
       </header>
@@ -87,13 +102,17 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
               onClick={() => setPeriod(value)}
               key={value}
             >
-              {periodLabels[value]}
+              {language === 'en'
+                ? ({ hour: 'Hourly', day: 'Daily', month: 'Monthly', year: 'Yearly' } as const)[
+                    value
+                  ]
+                : periodLabels[value]}
             </button>
           ))}
         </div>
         <div className="traffic-monitor__filters">
           <select value={interfaceName} onChange={(event) => setInterfaceName(event.target.value)}>
-            <option value="all">Tất cả Interface</option>
+            <option value="all">{tr('Tất cả Interface', 'All interfaces')}</option>
             {(history?.interfaces ?? []).map((name) => (
               <option value={name} key={name}>
                 {name}
@@ -102,7 +121,7 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
           </select>
           <input type="date" value={anchor} onChange={(event) => setAnchor(event.target.value)} />
           <button type="button" className="small-button" onClick={() => void load()}>
-            Làm mới
+            {tr('Làm mới', 'Refresh')}
           </button>
         </div>
       </div>
@@ -110,50 +129,62 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
       {error ? <div className="error-banner">{error}</div> : null}
       <div className="traffic-monitor__summary">
         <article>
-          <span>Tải xuống (RX)</span>
+          <span>{tr('Tải xuống (RX)', 'Download (RX)')}</span>
           <strong>{formatBytes(history?.totals.rxBytes ?? 0)}</strong>
         </article>
         <article>
-          <span>Tải lên (TX)</span>
+          <span>{tr('Tải lên (TX)', 'Upload (TX)')}</span>
           <strong>{formatBytes(history?.totals.txBytes ?? 0)}</strong>
         </article>
         <article>
-          <span>Tổng lưu lượng</span>
+          <span>{tr('Tổng lưu lượng', 'Total traffic')}</span>
           <strong>{formatBytes(history?.totals.totalBytes ?? 0)}</strong>
         </article>
         <article>
-          <span>Tốc độ hiện tại</span>
+          <span>{tr('Tốc độ hiện tại', 'Current rate')}</span>
           <strong>
             {formatRate(history?.current?.rxBps ?? 0)} / {formatRate(history?.current?.txBps ?? 0)}
           </strong>
         </article>
       </div>
 
-      <div className="traffic-bar-chart" aria-label="Biểu đồ traffic theo thời gian">
-        {(history?.buckets ?? []).map((bucket) => (
-          <div
-            className="traffic-bar-chart__column"
-            key={bucket.key}
-            title={`${bucket.label}: RX ${formatBytes(bucket.rxBytes)}, TX ${formatBytes(bucket.txBytes)}`}
-          >
-            <div className="traffic-bar-chart__bars">
-              <i
-                className="rx"
-                style={{
-                  height: `${Math.max(bucket.rxBytes > 0 ? 3 : 0, (bucket.rxBytes / max) * 100)}%`,
-                }}
-              />
-              <i
-                className="tx"
-                style={{
-                  height: `${Math.max(bucket.txBytes > 0 ? 3 : 0, (bucket.txBytes / max) * 100)}%`,
-                }}
-              />
+      <div className="traffic-chart-with-axis">
+        <div className="traffic-y-axis" aria-label="Đơn vị lưu lượng">
+          {axisTicks.map((tick) => (
+            <span key={tick.ratio}>{tick.label}</span>
+          ))}
+          <b>{tr('Đơn vị', 'Unit')}</b>
+        </div>
+        <div className="traffic-bar-chart" aria-label="Biểu đồ traffic theo thời gian">
+          {(history?.buckets ?? []).map((bucket) => (
+            <div
+              className="traffic-bar-chart__column"
+              key={bucket.key}
+              title={`${bucket.label}: RX ${formatBytes(bucket.rxBytes)}, TX ${formatBytes(bucket.txBytes)}`}
+            >
+              <div className="traffic-bar-chart__bars">
+                <i
+                  className="rx"
+                  style={{
+                    height: `${Math.max(bucket.rxBytes > 0 ? 3 : 0, (bucket.rxBytes / max) * 100)}%`,
+                  }}
+                />
+                <i
+                  className="tx"
+                  style={{
+                    height: `${Math.max(bucket.txBytes > 0 ? 3 : 0, (bucket.txBytes / max) * 100)}%`,
+                  }}
+                />
+              </div>
+              <span>{bucket.label}</span>
             </div>
-            <span>{bucket.label}</span>
-          </div>
-        ))}
-        {loading ? <div className="traffic-monitor__empty">Đang tải dữ liệu...</div> : null}
+          ))}
+          {loading ? (
+            <div className="traffic-monitor__empty">
+              {tr('Đang tải dữ liệu...', 'Loading traffic data...')}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className="traffic-chart-legend">
         <span className="rx">RX / Download</span>
@@ -164,10 +195,10 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
         <table className="traffic-monitor__table">
           <thead>
             <tr>
-              <th>Thời gian</th>
+              <th>{tr('Thời gian', 'Time')}</th>
               <th>RX / Download</th>
               <th>TX / Upload</th>
-              <th>Tổng</th>
+              <th>{tr('Tổng', 'Total')}</th>
             </tr>
           </thead>
           <tbody>

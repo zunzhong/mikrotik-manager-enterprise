@@ -29,8 +29,16 @@ export function LoginPage() {
     <div className="login-page" data-theme={theme}>
       <div className="login-card">
         <div className="login-preferences">
-          <button type="button" onClick={toggleTheme}>
-            {theme === 'dark' ? '☀' : '☾'}
+          <button
+            type="button"
+            className="theme-switch"
+            data-active-theme={theme}
+            onClick={toggleTheme}
+            aria-label={t('themeToggle')}
+          >
+            <span className="theme-switch__moon">☾</span>
+            <b>/</b>
+            <span className="theme-switch__sun">☀</span>
           </button>
           <button type="button" onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}>
             {language.toUpperCase()}

@@ -17,6 +17,9 @@ export function AlertsPage() {
           <span>DELIVERY ENGINE</span>
           <h2>{t('notificationChannels')}</h2>
           <p>Cấu hình, kiểm thử và theo dõi lịch sử gửi cảnh báo từ cùng một nơi.</p>
+          <a className="notification-guide-link" href="/HUONG-DAN-KENH-THONG-BAO-MME.txt" download>
+            ↓ {t('notificationGuide')} (.txt)
+          </a>
         </div>
         <AlertNotificationChannels />
       </div>

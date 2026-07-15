@@ -46,6 +46,24 @@ const vi = {
   signingIn: 'Đang đăng nhập...',
   loginFailed: 'Đăng nhập thất bại',
   preflight: 'Kiểm tra cài đặt và cơ sở dữ liệu',
+  themeToggle: 'Chuyển giao diện sáng / tối',
+  timezone: 'Múi giờ',
+  timezoneTitle: 'Múi giờ hệ thống',
+  timezoneDescription: 'Múi giờ dùng để hiển thị ngày giờ trong toàn bộ giao diện MME.',
+  browserTimezone: 'Tự động theo trình duyệt',
+  addEditDevice: 'Thêm / Chỉnh sửa thiết bị',
+  managedDevices: 'Thiết bị đang quản lý',
+  edit: 'Chỉnh sửa',
+  save: 'Lưu thay đổi',
+  cancel: 'Hủy',
+  deleteDevice: 'Xóa thiết bị',
+  refresh: 'Làm mới',
+  alertRules: 'Quy tắc cảnh báo',
+  enable: 'Bật',
+  disable: 'Tắt',
+  removeRule: 'Xóa cấu hình',
+  addRule: 'Thêm quy tắc',
+  notificationGuide: 'Tải hướng dẫn cấu hình kênh thông báo',
 } as const;
 
 const en: Record<TranslationKey, string> = {
@@ -90,12 +108,34 @@ const en: Record<TranslationKey, string> = {
   signingIn: 'Signing in...',
   loginFailed: 'Sign in failed',
   preflight: 'Check installation and database',
+  themeToggle: 'Switch light / dark theme',
+  timezone: 'Time zone',
+  timezoneTitle: 'System time zone',
+  timezoneDescription: 'Time zone used to display dates and times throughout MME.',
+  browserTimezone: 'Automatic (browser)',
+  addEditDevice: 'Add / Edit device',
+  managedDevices: 'Managed devices',
+  edit: 'Edit',
+  save: 'Save changes',
+  cancel: 'Cancel',
+  deleteDevice: 'Delete device',
+  refresh: 'Refresh',
+  alertRules: 'Alert rules',
+  enable: 'Enable',
+  disable: 'Disable',
+  removeRule: 'Remove configuration',
+  addRule: 'Add rule',
+  notificationGuide: 'Download notification channel setup guide',
 };
 
 interface LanguageContextValue {
   language: Language;
   setLanguage: (language: Language) => void;
   t: (key: TranslationKey) => string;
+  timeZone: string;
+  setTimeZone: (timeZone: string) => void;
+  formatDateTime: (value: string | number | Date) => string;
+  tr: (vietnamese: string, english: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -105,19 +145,37 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const stored = window.localStorage.getItem('mme-language');
     return stored === 'en' ? 'en' : 'vi';
   });
+  const [timeZone, setTimeZone] = useState(
+    () =>
+      window.localStorage.getItem('mme-timezone') ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
 
   useEffect(() => {
     window.localStorage.setItem('mme-language', language);
     document.documentElement.lang = language;
   }, [language]);
 
+  useEffect(() => {
+    window.localStorage.setItem('mme-timezone', timeZone);
+  }, [timeZone]);
+
   const value = useMemo<LanguageContextValue>(
     () => ({
       language,
       setLanguage,
       t: (key) => (language === 'en' ? en[key] : vi[key]),
+      timeZone,
+      setTimeZone,
+      formatDateTime: (value) =>
+        new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'vi-VN', {
+          timeZone,
+          dateStyle: 'medium',
+          timeStyle: 'medium',
+        }).format(new Date(value)),
+      tr: (vietnamese, english) => (language === 'en' ? english : vietnamese),
     }),
-    [language],
+    [language, timeZone],
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

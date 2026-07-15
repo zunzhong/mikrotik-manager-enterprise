@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
 import type { InventorySnapshotSummary } from './device-inventory.types';
 import { formatBytes, formatMaybe, snapshotSummary } from './device-dashboard.utils';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface DeviceDashboardProps {
   deviceId: string;
 }
 
 export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
+  const { formatDateTime } = useLanguage();
   const [snapshot, setSnapshot] = useState<InventorySnapshotSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -62,7 +64,8 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
           <p className="device-dashboard__eyebrow">Device Dashboard</p>
           <h2>{info.identity}</h2>
           <p className="device-dashboard__muted">
-            Latest inventory: {snapshot?.collectedAt ?? 'No snapshot yet'}
+            Latest inventory:{' '}
+            {snapshot?.collectedAt ? formatDateTime(snapshot.collectedAt) : 'No snapshot yet'}
           </p>
         </div>
 
