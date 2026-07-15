@@ -1,4 +1,6 @@
 import { prisma } from '../../../database/index.js';
+import { DateTime } from 'luxon';
+import { systemPreferencesService } from '../../system/application/system-preferences.service.js';
 
 export type TrafficPeriod = 'hour' | 'day' | 'month' | 'year';
 
@@ -30,59 +32,58 @@ function runningValue(value: unknown): boolean {
   return String(value ?? '').toLowerCase() === 'true';
 }
 
-function periodBounds(period: TrafficPeriod, anchorText?: string) {
-  const anchor = anchorText ? new Date(`${anchorText}T12:00:00.000Z`) : new Date();
-  const safeAnchor = Number.isNaN(anchor.getTime()) ? new Date() : anchor;
-  let from: Date;
-  let to: Date;
+export function periodBounds(period: TrafficPeriod, timeZone: string, anchorText?: string) {
+  const parsedAnchor = anchorText
+    ? DateTime.fromISO(anchorText, { zone: timeZone })
+    : DateTime.now().setZone(timeZone);
+  const anchor = parsedAnchor.isValid ? parsedAnchor : DateTime.now().setZone(timeZone);
+  let from: DateTime;
+  let to: DateTime;
 
   if (period === 'hour') {
-    from = new Date(
-      Date.UTC(safeAnchor.getUTCFullYear(), safeAnchor.getUTCMonth(), safeAnchor.getUTCDate()),
-    );
-    to = new Date(from);
-    to.setUTCDate(to.getUTCDate() + 1);
+    from = anchor.startOf('day');
+    to = from.plus({ days: 1 });
   } else if (period === 'day') {
-    from = new Date(Date.UTC(safeAnchor.getUTCFullYear(), safeAnchor.getUTCMonth(), 1));
-    to = new Date(Date.UTC(safeAnchor.getUTCFullYear(), safeAnchor.getUTCMonth() + 1, 1));
+    from = anchor.startOf('month');
+    to = from.plus({ months: 1 });
   } else if (period === 'month') {
-    from = new Date(Date.UTC(safeAnchor.getUTCFullYear(), 0, 1));
-    to = new Date(Date.UTC(safeAnchor.getUTCFullYear() + 1, 0, 1));
+    from = anchor.startOf('year');
+    to = from.plus({ years: 1 });
   } else {
-    from = new Date(Date.UTC(safeAnchor.getUTCFullYear() - 4, 0, 1));
-    to = new Date(Date.UTC(safeAnchor.getUTCFullYear() + 1, 0, 1));
+    from = anchor.startOf('year').minus({ years: 4 });
+    to = anchor.startOf('year').plus({ years: 1 });
   }
 
   return { from, to };
 }
 
-function bucketIdentity(date: Date, period: TrafficPeriod): { key: string; label: string } {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + 1;
-  const day = date.getUTCDate();
-  const hour = date.getUTCHours();
+export function bucketIdentity(
+  date: DateTime,
+  period: TrafficPeriod,
+): { key: string; label: string } {
+  const start = date.startOf(period === 'hour' ? 'hour' : period);
+  const key = start.toUTC().toISO() ?? String(start.toMillis());
+  const { year, month, day, hour } = start;
   if (period === 'hour') {
-    return { key: `${year}-${month}-${day}-${hour}`, label: `${String(hour).padStart(2, '0')}:00` };
+    return { key, label: `${String(hour).padStart(2, '0')}:00` };
   }
   if (period === 'day') {
     return {
-      key: `${year}-${month}-${day}`,
+      key,
       label: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`,
     };
   }
   if (period === 'month') {
-    return { key: `${year}-${month}`, label: `${String(month).padStart(2, '0')}/${year}` };
+    return { key, label: `${String(month).padStart(2, '0')}/${year}` };
   }
-  return { key: String(year), label: String(year) };
+  return { key, label: String(year) };
 }
 
-function advance(date: Date, period: TrafficPeriod): Date {
-  const next = new Date(date);
-  if (period === 'hour') next.setUTCHours(next.getUTCHours() + 1);
-  else if (period === 'day') next.setUTCDate(next.getUTCDate() + 1);
-  else if (period === 'month') next.setUTCMonth(next.getUTCMonth() + 1);
-  else next.setUTCFullYear(next.getUTCFullYear() + 1);
-  return next;
+function advance(date: DateTime, period: TrafficPeriod): DateTime {
+  if (period === 'hour') return date.plus({ hours: 1 });
+  if (period === 'day') return date.plus({ days: 1 });
+  if (period === 'month') return date.plus({ months: 1 });
+  return date.plus({ years: 1 });
 }
 
 export class DeviceTrafficMonitorService {
@@ -128,10 +129,13 @@ export class DeviceTrafficMonitorService {
     interfaceName?: string;
     anchor?: string;
   }) {
-    const { from, to } = periodBounds(input.period, input.anchor);
+    const timeZone = systemPreferencesService.get().timeZone;
+    const { from, to } = periodBounds(input.period, timeZone, input.anchor);
+    const fromUtc = from.toUTC().toJSDate();
+    const toUtc = to.toUTC().toJSDate();
     const where = {
       deviceId: input.deviceId,
-      collectedAt: { gte: from, lt: to },
+      collectedAt: { gte: fromUtc, lt: toUtc },
       ...(input.interfaceName && input.interfaceName !== 'all'
         ? { interfaceName: input.interfaceName }
         : {}),
@@ -145,11 +149,11 @@ export class DeviceTrafficMonitorService {
     });
 
     const buckets = new Map<string, TrafficBucket>();
-    for (let cursor = new Date(from); cursor < to; cursor = advance(cursor, input.period)) {
+    for (let cursor = from; cursor < to; cursor = advance(cursor, input.period)) {
       const identity = bucketIdentity(cursor, input.period);
       buckets.set(identity.key, {
         ...identity,
-        from: cursor.toISOString(),
+        from: cursor.toUTC().toISO() ?? cursor.toISO() ?? '',
         rxBytes: 0,
         txBytes: 0,
         totalBytes: 0,
@@ -157,7 +161,10 @@ export class DeviceTrafficMonitorService {
     }
 
     for (const sample of samples) {
-      const identity = bucketIdentity(sample.collectedAt, input.period);
+      const identity = bucketIdentity(
+        DateTime.fromJSDate(sample.collectedAt, { zone: 'utc' }).setZone(timeZone),
+        input.period,
+      );
       const bucket = buckets.get(identity.key);
       if (!bucket) continue;
       bucket.rxBytes += Number(sample.rxDeltaBytes);
@@ -175,8 +182,9 @@ export class DeviceTrafficMonitorService {
       deviceId: input.deviceId,
       period: input.period,
       interfaceName: input.interfaceName ?? 'all',
-      from: from.toISOString(),
-      to: to.toISOString(),
+      timeZone,
+      from: from.toUTC().toISO() ?? '',
+      to: to.toUTC().toISO() ?? '',
       interfaces: names.map((item) => item.interfaceName),
       current: latest
         ? {

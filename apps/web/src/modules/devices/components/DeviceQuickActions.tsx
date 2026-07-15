@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { deviceApi, type Device, type DeviceActionResult } from '../device.api';
 import { backupApi } from '../../backup/backup.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export interface DeviceQuickActionsProps {
   device: Device;
   onInventoryCollected?: () => void;
 }
 
-function resultText(result: DeviceActionResult): string {
-  const finished = new Date(result.finishedAt).toLocaleString();
+function resultText(result: DeviceActionResult, formatDateTime: (value: string) => string): string {
+  const finished = formatDateTime(result.finishedAt);
   return `${result.success ? 'Hoàn tất' : 'Thất bại'} lúc ${finished} (${result.durationMs} ms) — ${result.message}`;
 }
 
 export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuickActionsProps) {
+  const { formatDateTime } = useLanguage();
   const [message, setMessage] = useState('');
   const [success, setSuccess] = useState<boolean | null>(null);
   const [busyAction, setBusyAction] = useState('');
@@ -24,7 +26,7 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
     try {
       const result = await fn();
       setSuccess(result.success);
-      setMessage(resultText(result));
+      setMessage(resultText(result, formatDateTime));
     } catch (error) {
       setSuccess(false);
       setMessage(error instanceof Error ? error.message : `${action} thất bại`);
@@ -41,7 +43,7 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
       onInventoryCollected?.();
       setSuccess(true);
       setMessage(
-        `Đã đồng bộ Inventory lúc ${new Date().toLocaleString()} — mã lần thu thập ${result.snapshotId}.`,
+        `Đã đồng bộ Inventory lúc ${formatDateTime(new Date())} — mã lần thu thập ${result.snapshotId}.`,
       );
     } catch (error) {
       setSuccess(false);

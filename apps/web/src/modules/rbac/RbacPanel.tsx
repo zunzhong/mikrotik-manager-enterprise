@@ -8,6 +8,7 @@ import type {
   UserPermissionResult,
 } from './rbac.types';
 import './rbac.css';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 function roleLabel(roles: Role[], roleId: string): string {
   return roles.find((role: Role) => role.id === roleId)?.name ?? roleId;
@@ -18,6 +19,7 @@ function roleHasPermission(role: Role, permissionKey: string): boolean {
 }
 
 export function RbacPanel() {
+  const { formatDateTime } = useLanguage();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userId, setUserId] = useState('demo-user');
@@ -205,7 +207,7 @@ export function RbacPanel() {
               <div>
                 <strong>{roleLabel(roles, assignment.roleId)}</strong>
                 <small>
-                  {assignment.roleId} · assigned {new Date(assignment.createdAt).toLocaleString()}
+                  {assignment.roleId} · assigned {formatDateTime(assignment.createdAt)}
                 </small>
               </div>
 

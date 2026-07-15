@@ -1,5 +1,6 @@
 import { notificationStore } from './notification.store.js';
 import nodemailer from 'nodemailer';
+import { systemPreferencesService } from '../system/application/system-preferences.service.js';
 import type {
   NotificationChannel,
   NotificationDelivery,
@@ -60,6 +61,20 @@ function getConfigHeaders(config: Record<string, unknown>): Record<string, strin
   return headers;
 }
 
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function readWebhookConfig(channel: NotificationChannel): WebhookConfig {
   const url = getConfigText(channel.config, 'url');
 
@@ -80,6 +95,7 @@ function readWebhookConfig(channel: NotificationChannel): WebhookConfig {
 }
 
 function webhookPayload(delivery: NotificationDelivery) {
+  const preferences = systemPreferencesService.get();
   return {
     deliveryId: delivery.id,
     ruleId: delivery.ruleId,
@@ -87,8 +103,23 @@ function webhookPayload(delivery: NotificationDelivery) {
     channelType: delivery.channelType,
     attempts: delivery.attempts,
     createdAt: delivery.createdAt,
+    timeZone: preferences.timeZone,
+    localCreatedAt: formatDeliveryTime(delivery.payload.createdAt),
     payload: delivery.payload,
   };
+}
+
+function formatDeliveryTime(value: string): string {
+  const preferences = systemPreferencesService.get();
+  return new Intl.DateTimeFormat(preferences.language === 'en' ? 'en-US' : 'vi-VN', {
+    timeZone: preferences.timeZone,
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  }).format(new Date(value));
+}
+
+function textPayload(delivery: NotificationDelivery): string {
+  return `[${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}\n${delivery.payload.message}\n${formatDeliveryTime(delivery.payload.createdAt)} (${systemPreferencesService.get().timeZone})`;
 }
 
 function emptyResult(): NotificationDeliveryWorkerResult {
@@ -214,32 +245,28 @@ export class NotificationDeliveryWorker {
     channel: NotificationChannel,
   ): Promise<NotificationDelivery | null> {
     const config = readWebhookConfig(channel);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
-
-    try {
-      const response = await fetch(config.url, {
+    const response = await fetchWithTimeout(
+      config.url,
+      {
         method: config.method,
         headers: {
           'content-type': 'application/json',
           ...config.headers,
         },
         body: JSON.stringify(webhookPayload(delivery)),
-        signal: controller.signal,
-      });
+      },
+      config.timeoutMs,
+    );
 
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        return notificationStore.markFailed(
-          delivery.id,
-          `Webhook returned HTTP ${response.status}${text ? `: ${text.slice(0, 300)}` : ''}`,
-        );
-      }
-
-      return notificationStore.markSent(delivery.id);
-    } finally {
-      clearTimeout(timeout);
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      return notificationStore.markFailed(
+        delivery.id,
+        `Webhook returned HTTP ${response.status}${text ? `: ${text.slice(0, 300)}` : ''}`,
+      );
     }
+
+    return notificationStore.markSent(delivery.id);
   }
 
   private async deliverSlack(
@@ -249,16 +276,23 @@ export class NotificationDeliveryWorker {
     const url = getConfigText(channel.config, 'webhookUrl');
     if (!url) throw new Error(`Slack channel '${channel.name}' is missing config.webhookUrl`);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        text: `[${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}\n${delivery.payload.message}`,
-      }),
-    });
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: textPayload(delivery),
+        }),
+      },
+      getConfigNumber(channel.config, 'timeoutMs', 10000),
+    );
 
     if (!response.ok) {
-      throw new Error(`Slack webhook returned HTTP ${response.status}`);
+      const detail = await response.text().catch(() => '');
+      throw new Error(
+        `Slack webhook returned HTTP ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ''}`,
+      );
     }
 
     return notificationStore.markSent(delivery.id);
@@ -276,18 +310,25 @@ export class NotificationDeliveryWorker {
       );
     }
 
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: `[${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}\n${delivery.payload.message}`,
-        disable_web_page_preview: true,
-      }),
-    });
+    const response = await fetchWithTimeout(
+      `https://api.telegram.org/bot${botToken}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: textPayload(delivery),
+          disable_web_page_preview: true,
+        }),
+      },
+      getConfigNumber(channel.config, 'timeoutMs', 10000),
+    );
 
     if (!response.ok) {
-      throw new Error(`Telegram API returned HTTP ${response.status}`);
+      const body = (await response.json().catch(() => null)) as { description?: string } | null;
+      throw new Error(
+        `Telegram API returned HTTP ${response.status}${body?.description ? `: ${body.description}` : ''}`,
+      );
     }
 
     return notificationStore.markSent(delivery.id);
@@ -312,6 +353,12 @@ export class NotificationDeliveryWorker {
       host,
       port: getConfigNumber(channel.config, 'port', 587),
       secure: getConfigBoolean(channel.config, 'secure', false),
+      connectionTimeout: getConfigNumber(channel.config, 'connectionTimeoutMs', 10000),
+      greetingTimeout: getConfigNumber(channel.config, 'greetingTimeoutMs', 10000),
+      socketTimeout: getConfigNumber(channel.config, 'socketTimeoutMs', 15000),
+      tls: {
+        rejectUnauthorized: getConfigBoolean(channel.config, 'tlsRejectUnauthorized', true),
+      },
       ...(user && password ? { auth: { user, pass: password } } : {}),
     });
 
@@ -319,7 +366,10 @@ export class NotificationDeliveryWorker {
       from,
       to,
       subject: `[MME][${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}`,
-      text: `${delivery.payload.message}\n\nNguồn: ${delivery.payload.source}\nThời gian: ${delivery.payload.createdAt}`,
+      text: `${delivery.payload.message}\n\nNguồn: ${delivery.payload.source}\nThời gian: ${formatDeliveryTime(delivery.payload.createdAt)} (${systemPreferencesService.get().timeZone})`,
+      ...(getConfigText(channel.config, 'replyTo')
+        ? { replyTo: getConfigText(channel.config, 'replyTo') }
+        : {}),
     });
 
     return notificationStore.markSent(delivery.id);

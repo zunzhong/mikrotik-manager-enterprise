@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { deviceApi } from '../device.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; deviceName: string }) {
+  const { formatDateTime } = useLanguage();
   const [command, setCommand] = useState('/log');
   const [transport, setTransport] = useState<'api' | 'rest' | 'script' | 'rest-crud'>('api');
   const [restTls, setRestTls] = useState(true);
@@ -42,7 +44,7 @@ export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; dev
       });
       setHistory((current) => [value, ...current.filter((item) => item !== value)].slice(0, 12));
       setOutput(
-        `> ${value}\n${result.success ? 'THÀNH CÔNG' : 'THẤT BẠI'} · ${result.message}\nHoàn tất: ${new Date(result.finishedAt).toLocaleString()} · ${result.durationMs} ms\n\n${JSON.stringify(result.data ?? [], null, 2)}`,
+        `> ${value}\n${result.success ? 'THÀNH CÔNG' : 'THẤT BẠI'} · ${result.message}\nHoàn tất: ${formatDateTime(result.finishedAt)} · ${result.durationMs} ms\n\n${JSON.stringify(result.data ?? [], null, 2)}`,
       );
     } catch (error) {
       setOutput(

@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { authApi } from '../auth.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function SecuritySessionsPanel() {
+  const { formatDateTime } = useLanguage();
   const sessions = useAsyncData(useCallback(() => authApi.sessions(), []));
   const [message, setMessage] = useState('');
 
@@ -41,8 +43,7 @@ export function SecuritySessionsPanel() {
             <div>
               <strong>{session.userAgent ?? 'Unknown device'}</strong>
               <small>
-                {session.ipAddress ?? 'unknown IP'} • last used{' '}
-                {new Date(session.lastUsedAt).toLocaleString()}
+                {session.ipAddress ?? 'unknown IP'} • last used {formatDateTime(session.lastUsedAt)}
               </small>
             </div>
             {session.revokedAt ? (

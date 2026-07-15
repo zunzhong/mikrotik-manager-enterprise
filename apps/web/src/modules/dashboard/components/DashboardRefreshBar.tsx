@@ -1,3 +1,5 @@
+import { useLanguage } from '../../../i18n/LanguageContext';
+
 export function DashboardRefreshBar({
   enabled,
   setEnabled,
@@ -13,12 +15,13 @@ export function DashboardRefreshBar({
   lastUpdatedAt?: Date;
   onRefresh: () => void;
 }) {
+  const { formatDateTime } = useLanguage();
   return (
     <div className="dashboard-refresh-bar">
       <div>
         <strong>Dashboard Refresh</strong>
         <span>
-          Last updated: {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString() : 'not updated yet'}
+          Last updated: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'not updated yet'}
         </span>
       </div>
 

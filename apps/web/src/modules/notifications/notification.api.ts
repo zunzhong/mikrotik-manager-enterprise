@@ -88,6 +88,9 @@ export const notificationApi = {
   retryDelivery: (id: string) =>
     apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/deliveries/${id}/retry`, {}),
 
+  testChannel: (id: string) =>
+    apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/channels/${id}/test`, {}),
+
   retryFailed: () =>
     apiPost<NotificationRetryResult>('/api/v1/notifications/retry-failed', {
       limit: 50,

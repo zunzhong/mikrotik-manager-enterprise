@@ -4,6 +4,7 @@ import { WidgetCard } from '../dashboard/components/WidgetCard';
 import { alertLifecycleApi } from './alert-lifecycle.api';
 import type { AlertLifecycleItem, AlertLifecycleSummary } from './alert-lifecycle.types';
 import './alert-lifecycle.css';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface AlertLifecyclePanelProps {
   summary?: AlertLifecycleSummary;
@@ -30,6 +31,7 @@ export function AlertLifecyclePanel({
   error,
   onChanged,
 }: AlertLifecyclePanelProps) {
+  const { formatDateTime } = useLanguage();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -250,8 +252,7 @@ export function AlertLifecyclePanel({
                     <strong>{alert.title}</strong>
                     <p>{alert.message}</p>
                     <small>
-                      {alertDeviceName(alert)} · {alert.ruleKey} ·{' '}
-                      {new Date(alert.createdAt).toLocaleString()}
+                      {alertDeviceName(alert)} · {alert.ruleKey} · {formatDateTime(alert.createdAt)}
                       {count ? ` · ${count} occurrences` : ''}
                     </small>
                   </div>

@@ -1,7 +1,22 @@
+import { useState } from 'react';
 import { useLanguage, type Language } from '../../i18n/LanguageContext';
 
 export function LanguageSettingsPanel() {
   const { language, setLanguage, t } = useLanguage();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function selectLanguage(value: Language) {
+    setSaving(true);
+    setError(null);
+    try {
+      await setLanguage(value);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Không thể lưu ngôn ngữ hệ thống.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <section className="settings-panel language-settings-panel">
@@ -26,7 +41,8 @@ export function LanguageSettingsPanel() {
             role="radio"
             aria-checked={language === value}
             className={language === value ? 'active' : ''}
-            onClick={() => setLanguage(value)}
+            disabled={saving}
+            onClick={() => void selectLanguage(value)}
             key={value}
           >
             <span>{flag}</span>
@@ -36,6 +52,7 @@ export function LanguageSettingsPanel() {
         ))}
       </div>
       <p className="settings-note">{t('savedAutomatically')}</p>
+      {error ? <p className="settings-error">{error}</p> : null}
     </section>
   );
 }

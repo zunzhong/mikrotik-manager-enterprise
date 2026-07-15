@@ -32,14 +32,29 @@ function formatRate(value: number): string {
   return `${current >= 10 || unit === 0 ? current.toFixed(0) : current.toFixed(1)} ${units[unit]}`;
 }
 
+function currentDateInTimeZone(timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
 export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
-  const { language, tr } = useLanguage();
+  const { language, timeZone, tr } = useLanguage();
   const [period, setPeriod] = useState<TrafficPeriod>('hour');
   const [interfaceName, setInterfaceName] = useState('all');
-  const [anchor, setAnchor] = useState(() => new Date().toISOString().slice(0, 10));
+  const [anchor, setAnchor] = useState(() => currentDateInTimeZone(timeZone));
   const [history, setHistory] = useState<DeviceTrafficHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setAnchor(currentDateInTimeZone(timeZone));
+  }, [timeZone]);
 
   const load = useCallback(async () => {
     try {
@@ -120,6 +135,7 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
             ))}
           </select>
           <input type="date" value={anchor} onChange={(event) => setAnchor(event.target.value)} />
+          <span className="muted">{history?.timeZone ?? timeZone}</span>
           <button type="button" className="small-button" onClick={() => void load()}>
             {tr('Làm mới', 'Refresh')}
           </button>

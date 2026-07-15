@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
 import type { InventorySnapshotSummary } from './device-inventory.types';
 import { buildDeviceFacts, buildDeviceMetricBars } from './device-metric-chart.utils';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface DeviceMetricChartsProps {
   deviceId: string;
 }
 
 export function DeviceMetricCharts({ deviceId }: DeviceMetricChartsProps) {
+  const { formatDateTime } = useLanguage();
   const [snapshot, setSnapshot] = useState<InventorySnapshotSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,8 @@ export function DeviceMetricCharts({ deviceId }: DeviceMetricChartsProps) {
           <p className="device-metric-charts__eyebrow">Dashboard Metrics</p>
           <h3>Resource Overview</h3>
           <p className="device-metric-charts__muted">
-            Source: latest inventory snapshot · {snapshot?.collectedAt ?? 'No snapshot'}
+            Source: latest inventory snapshot ·{' '}
+            {snapshot?.collectedAt ? formatDateTime(snapshot.collectedAt) : 'No snapshot'}
           </p>
         </div>
 

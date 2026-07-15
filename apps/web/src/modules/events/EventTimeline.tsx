@@ -1,10 +1,12 @@
 import type { AppEvent } from './event.types';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface EventTimelineProps {
   events: AppEvent[];
 }
 
 export function EventTimeline({ events }: EventTimelineProps) {
+  const { formatDateTime } = useLanguage();
   if (events.length === 0) {
     return (
       <div className="event-timeline__empty">
@@ -22,7 +24,7 @@ export function EventTimeline({ events }: EventTimelineProps) {
           <div>
             <div className="event-timeline__head">
               <strong>{event.title}</strong>
-              <time>{new Date(event.createdAt).toLocaleString()}</time>
+              <time>{formatDateTime(event.createdAt)}</time>
             </div>
             <p>{event.message}</p>
             <small>

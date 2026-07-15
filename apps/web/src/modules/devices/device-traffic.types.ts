@@ -13,6 +13,7 @@ export interface DeviceTrafficHistory {
   deviceId: string;
   period: TrafficPeriod;
   interfaceName: string;
+  timeZone: string;
   from: string;
   to: string;
   interfaces: string[];

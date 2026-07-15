@@ -1,6 +1,7 @@
 import type { HealthIssue, HealthReport } from './device-realtime.types';
 import { healthStatusHint, healthStatusLabel } from './device-realtime.utils';
 import './device-health-card.css';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface DeviceHealthCardProps {
   report?: HealthReport;
@@ -8,6 +9,7 @@ export interface DeviceHealthCardProps {
 }
 
 export function DeviceHealthCard({ report, online }: DeviceHealthCardProps) {
+  const { formatDateTime } = useLanguage();
   if (!report) {
     return (
       <section className="device-health-card" data-status="unknown">
@@ -56,7 +58,7 @@ export function DeviceHealthCard({ report, online }: DeviceHealthCardProps) {
         <p className="device-health-card__healthy">No active health issues detected.</p>
       )}
 
-      <footer>Evaluated at: {new Date(report.evaluatedAt).toLocaleString()}</footer>
+      <footer>Evaluated at: {formatDateTime(report.evaluatedAt)}</footer>
     </section>
   );
 }

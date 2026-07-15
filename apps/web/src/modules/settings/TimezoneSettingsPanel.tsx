@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 const commonTimeZones = [
@@ -15,8 +16,22 @@ const commonTimeZones = [
 
 export function TimezoneSettingsPanel() {
   const { t, timeZone, setTimeZone, formatDateTime } = useLanguage();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const zones = Array.from(new Set([browserTimeZone, timeZone, ...commonTimeZones]));
+
+  async function selectTimeZone(value: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      await setTimeZone(value);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Không thể lưu múi giờ hệ thống.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <section className="settings-panel">
@@ -29,7 +44,11 @@ export function TimezoneSettingsPanel() {
       <div className="settings-grid timezone-settings">
         <label>
           <span>{t('timezone')}</span>
-          <select value={timeZone} onChange={(event) => setTimeZone(event.target.value)}>
+          <select
+            value={timeZone}
+            disabled={saving}
+            onChange={(event) => void selectTimeZone(event.target.value)}
+          >
             {zones.map((zone) => (
               <option value={zone} key={zone}>
                 {zone === browserTimeZone ? `${zone} — ${t('browserTimezone')}` : zone}
@@ -43,6 +62,7 @@ export function TimezoneSettingsPanel() {
         </div>
       </div>
       <small>{t('savedAutomatically')}</small>
+      {error ? <p className="settings-error">{error}</p> : null}
     </section>
   );
 }

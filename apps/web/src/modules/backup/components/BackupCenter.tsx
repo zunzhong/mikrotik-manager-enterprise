@@ -2,8 +2,10 @@ import { useCallback, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { deviceApi } from '../../devices/device.api';
 import { backupApi, type BackupRecord } from '../backup.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function BackupCenter() {
+  const { formatDateTime } = useLanguage();
   const devices = useAsyncData(useCallback(() => deviceApi.list(), []));
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [message, setMessage] = useState('');
@@ -101,7 +103,7 @@ export function BackupCenter() {
               <div>
                 <h4>{backup.fileName}</h4>
                 <p>
-                  {backup.type} • {new Date(backup.createdAt).toLocaleString()}
+                  {backup.type} • {formatDateTime(backup.createdAt)}
                 </p>
               </div>
               <span className={`backup-status backup-${backup.status}`}>{backup.status}</span>

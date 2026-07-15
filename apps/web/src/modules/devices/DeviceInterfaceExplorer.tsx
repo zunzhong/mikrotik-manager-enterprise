@@ -7,12 +7,14 @@ import {
   mapInterfaceRows,
   type InterfaceExplorerRow,
 } from './device-interface.utils';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface DeviceInterfaceExplorerProps {
   deviceId: string;
 }
 
 export function DeviceInterfaceExplorer({ deviceId }: DeviceInterfaceExplorerProps) {
+  const { formatDateTime } = useLanguage();
   const [snapshot, setSnapshot] = useState<InventorySnapshotSummary | null>(null);
   const [sections, setSections] = useState<InventorySectionDetail[]>([]);
   const [query, setQuery] = useState('');
@@ -89,8 +91,9 @@ export function DeviceInterfaceExplorer({ deviceId }: DeviceInterfaceExplorerPro
           <p className="device-interface-explorer__eyebrow">Interface Explorer</p>
           <h2>Interfaces</h2>
           <p className="device-interface-explorer__muted">
-            Lần đồng bộ: {snapshot?.collectedAt ?? 'Chưa có dữ liệu'} · Nhóm Interface:{' '}
-            {interfaceSectionCount(snapshot)}
+            Lần đồng bộ:{' '}
+            {snapshot?.collectedAt ? formatDateTime(snapshot.collectedAt) : 'Chưa có dữ liệu'} ·
+            Nhóm Interface: {interfaceSectionCount(snapshot)}
           </p>
         </div>
 

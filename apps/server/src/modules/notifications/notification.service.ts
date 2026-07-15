@@ -12,6 +12,61 @@ import type {
   UpdateNotificationRuleInput,
 } from './notification.types.js';
 
+function text(config: Record<string, unknown>, key: string): string {
+  const value = config[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function channelRequirements(channel: ReturnType<typeof notificationStore.getChannel>) {
+  if (!channel) return { configured: false, missingFields: ['channel'], destination: '—' };
+  const required: Record<string, string[]> = {
+    email: ['host', 'from', 'to'],
+    telegram: ['botToken', 'chatId'],
+    slack: ['webhookUrl'],
+    webhook: ['url'],
+    in_app: [],
+  };
+  const missingFields = (required[channel.type] ?? []).filter((key) => !text(channel.config, key));
+  const configuredDestination =
+    channel.type === 'email'
+      ? text(channel.config, 'to')
+      : channel.type === 'telegram'
+        ? text(channel.config, 'chatId')
+        : channel.type === 'slack'
+          ? 'Slack Incoming Webhook'
+          : channel.type === 'webhook'
+            ? text(channel.config, 'url')
+            : 'MME Web';
+  let destination = configuredDestination;
+  if (channel.type === 'webhook' && configuredDestination) {
+    try {
+      const url = new URL(configuredDestination);
+      destination = `${url.protocol}//${url.host}`;
+    } catch {
+      destination = 'Webhook URL';
+    }
+  }
+  return { configured: missingFields.length === 0, missingFields, destination: destination || '—' };
+}
+
+function publicConfig(channel: NonNullable<ReturnType<typeof notificationStore.getChannel>>) {
+  const secretKeys = new Set([
+    'password',
+    'botToken',
+    'token',
+    'authorization',
+    'apiKey',
+    'webhookUrl',
+    'url',
+  ]);
+  return Object.fromEntries(
+    Object.entries(channel.config).map(([key, value]) => [
+      key,
+      secretKeys.has(key) && typeof value === 'string' && value ? '••••••••' : value,
+    ]),
+  );
+}
+
 const notificationActor = {
   type: 'api' as const,
   id: 'notification-api',
@@ -43,6 +98,22 @@ function retryResult(
 }
 
 export class NotificationService {
+  private describeChannel(channel: NonNullable<ReturnType<typeof notificationStore.getChannel>>) {
+    const latest = notificationStore
+      .listDeliveries(500)
+      .find((delivery) => delivery.channelId === channel.id);
+    return {
+      ...channel,
+      config: publicConfig(channel),
+      status: {
+        ...channelRequirements(channel),
+        lastDeliveryStatus: latest?.status,
+        lastAttemptAt: latest?.sentAt ?? latest?.failedAt ?? latest?.skippedAt ?? latest?.createdAt,
+        lastError: latest?.error,
+      },
+    };
+  }
+
   public createChannel(input: CreateNotificationChannelInput) {
     const channel = notificationStore.createChannel(input);
 
@@ -61,11 +132,11 @@ export class NotificationService {
       },
     });
 
-    return channel;
+    return this.describeChannel(channel);
   }
 
   public listChannels() {
-    return notificationStore.listChannels();
+    return notificationStore.listChannels().map((channel) => this.describeChannel(channel));
   }
 
   public updateChannel(channelId: string, input: UpdateNotificationChannelInput) {
@@ -83,8 +154,8 @@ export class NotificationService {
           name: channel.name,
         },
         metadata: {
-          before,
-          after: channel,
+          before: before ? this.describeChannel(before) : null,
+          after: this.describeChannel(channel),
         },
       });
     } else {
@@ -98,12 +169,16 @@ export class NotificationService {
         },
         severity: 'warning',
         metadata: {
-          input,
+          input: {
+            name: input.name,
+            enabled: input.enabled,
+            configKeys: input.config ? Object.keys(input.config) : undefined,
+          },
         },
       });
     }
 
-    return channel;
+    return channel ? this.describeChannel(channel) : null;
   }
 
   public deleteChannel(channelId: string) {
@@ -122,7 +197,7 @@ export class NotificationService {
         },
         severity: 'warning',
         metadata: {
-          before,
+          before: before ? this.describeChannel(before) : null,
         },
       });
     } else {
@@ -340,6 +415,29 @@ export class NotificationService {
     return result;
   }
 
+  public async testChannel(channelId: string) {
+    const channel = notificationStore.getChannel(channelId);
+    if (!channel) return null;
+    const requirements = channelRequirements(channel);
+    if (!requirements.configured) {
+      throw new Error(`Kênh còn thiếu cấu hình: ${requirements.missingFields.join(', ')}`);
+    }
+    const delivery = notificationStore.createDelivery({
+      ruleId: 'manual-channel-test',
+      channelId: channel.id,
+      channelType: channel.type,
+      payload: {
+        eventType: 'CHANNEL_TEST',
+        severity: 'info',
+        title: 'MME kiểm thử kênh thông báo',
+        message: `Kênh “${channel.name}” đã nhận được thông báo kiểm thử từ MME.`,
+        source: 'notification-channel-test',
+        createdAt: new Date().toISOString(),
+      },
+    });
+    return notificationDeliveryWorker.processOne(delivery.id);
+  }
+
   public async retryFailed(limit = 50): Promise<NotificationRetryResult> {
     const failed = notificationStore.listDeliveriesByStatus('failed', limit);
     const skipped = notificationStore.listDeliveriesByStatus('skipped', limit);
@@ -404,7 +502,7 @@ export class NotificationService {
         .catch(() => undefined);
 
       return {
-        channels: existingChannels,
+        channels: existingChannels.map((channel) => this.describeChannel(channel)),
         rules: notificationStore.listRules(),
       };
     }
@@ -442,7 +540,7 @@ export class NotificationService {
       .catch(() => undefined);
 
     return {
-      channels: [inApp],
+      channels: [this.describeChannel(inApp)],
       rules: [criticalRule],
     };
   }

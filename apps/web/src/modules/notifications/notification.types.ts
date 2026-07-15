@@ -12,6 +12,14 @@ export interface NotificationChannel {
   createdAt: string;
   updatedAt: string;
   config: Record<string, unknown>;
+  status?: {
+    configured: boolean;
+    missingFields: string[];
+    destination: string;
+    lastDeliveryStatus?: NotificationDeliveryStatus;
+    lastAttemptAt?: string;
+    lastError?: string;
+  };
 }
 
 export interface NotificationRule {

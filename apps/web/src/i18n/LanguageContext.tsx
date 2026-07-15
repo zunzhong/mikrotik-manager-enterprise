@@ -1,4 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { systemPreferencesApi } from '../modules/settings/system-preferences.api';
 
 export type Language = 'vi' | 'en';
 
@@ -27,7 +36,7 @@ const vi = {
   languageDescription: 'Chọn ngôn ngữ hiển thị cho giao diện quản trị MME.',
   vietnamese: 'Tiếng Việt',
   english: 'English',
-  savedAutomatically: 'Thay đổi được lưu tự động trên trình duyệt này.',
+  savedAutomatically: 'Thay đổi được lưu cho toàn bộ hệ thống MME.',
   settingsTitle: 'Cài đặt',
   settingsDescription: 'Cấu hình tài khoản, bảo mật, ngôn ngữ và trạng thái hệ thống.',
   overview: 'Tổng quan',
@@ -89,7 +98,7 @@ const en: Record<TranslationKey, string> = {
   languageDescription: 'Choose the display language for the MME administration interface.',
   vietnamese: 'Vietnamese',
   english: 'English',
-  savedAutomatically: 'Changes are saved automatically in this browser.',
+  savedAutomatically: 'Changes are saved for the entire MME system.',
   settingsTitle: 'Settings',
   settingsDescription: 'Configure account, security, language and system status.',
   overview: 'Overview',
@@ -130,26 +139,54 @@ const en: Record<TranslationKey, string> = {
 
 interface LanguageContextValue {
   language: Language;
-  setLanguage: (language: Language) => void;
+  setLanguage: (language: Language) => Promise<void>;
   t: (key: TranslationKey) => string;
   timeZone: string;
-  setTimeZone: (timeZone: string) => void;
+  setTimeZone: (timeZone: string) => Promise<void>;
   formatDateTime: (value: string | number | Date) => string;
+  formatTime: (value: string | number | Date) => string;
   tr: (vietnamese: string, english: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
+  const [language, setLanguageState] = useState<Language>(() => {
     const stored = window.localStorage.getItem('mme-language');
     return stored === 'en' ? 'en' : 'vi';
   });
-  const [timeZone, setTimeZone] = useState(
+  const [timeZone, setTimeZoneState] = useState(
     () =>
       window.localStorage.getItem('mme-timezone') ||
       Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
+
+  useEffect(() => {
+    let active = true;
+    void systemPreferencesApi
+      .get()
+      .then((preferences) => {
+        if (!active) return;
+        setLanguageState(preferences.language);
+        setTimeZoneState(preferences.timeZone);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const setLanguage = useCallback(async (next: Language) => {
+    const preferences = await systemPreferencesApi.update({ language: next });
+    setLanguageState(preferences.language);
+    setTimeZoneState(preferences.timeZone);
+  }, []);
+
+  const setTimeZone = useCallback(async (next: string) => {
+    const preferences = await systemPreferencesApi.update({ timeZone: next });
+    setLanguageState(preferences.language);
+    setTimeZoneState(preferences.timeZone);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem('mme-language', language);
@@ -173,9 +210,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           dateStyle: 'medium',
           timeStyle: 'medium',
         }).format(new Date(value)),
+      formatTime: (value) =>
+        new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'vi-VN', {
+          timeZone,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }).format(new Date(value)),
       tr: (vietnamese, english) => (language === 'en' ? english : vietnamese),
     }),
-    [language, timeZone],
+    [language, setLanguage, setTimeZone, timeZone],
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

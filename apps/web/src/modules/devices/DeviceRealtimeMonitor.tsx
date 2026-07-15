@@ -12,6 +12,7 @@ import {
   schedulerLabel,
   snapshotAge,
 } from './device-realtime.utils';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface DeviceRealtimeMonitorProps {
   deviceId: string;
@@ -28,6 +29,7 @@ function parseEventData<T>(event: MessageEvent<string>): T | null {
 }
 
 export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) {
+  const { formatTime } = useLanguage();
   const [snapshot, setSnapshot] = useState<DeviceRealtimeSnapshot | null>(null);
   const [scheduler, setScheduler] = useState<DeviceRealtimeSchedulerStatus | null>(null);
   const [refreshMs, setRefreshMs] = useState(5000);
@@ -51,7 +53,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       ]);
       setSnapshot(latest);
       setScheduler(schedulerStatus);
-      setLastLoadedAt(new Date().toLocaleTimeString());
+      setLastLoadedAt(formatTime(new Date()));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot load realtime data');
     } finally {
@@ -68,7 +70,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       const schedulerStatus = await deviceApi.getRealtimeSchedulerStatus();
       setSnapshot(latest);
       setScheduler(schedulerStatus);
-      setLastLoadedAt(new Date().toLocaleTimeString());
+      setLastLoadedAt(formatTime(new Date()));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot refresh realtime data');
     } finally {
@@ -122,7 +124,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       setStream({
         enabled: true,
         connected: true,
-        lastEventAt: new Date().toLocaleTimeString(),
+        lastEventAt: formatTime(new Date()),
       });
     });
 
@@ -131,12 +133,12 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       if (!data) return;
 
       setSnapshot(data);
-      setLastLoadedAt(new Date().toLocaleTimeString());
+      setLastLoadedAt(formatTime(new Date()));
       setLoading(false);
       setStream({
         enabled: true,
         connected: true,
-        lastEventAt: new Date().toLocaleTimeString(),
+        lastEventAt: formatTime(new Date()),
       });
     });
 
@@ -148,7 +150,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
       setStream((current) => ({
         ...current,
         connected: true,
-        lastEventAt: new Date().toLocaleTimeString(),
+        lastEventAt: formatTime(new Date()),
       }));
     });
 
@@ -172,7 +174,7 @@ export function DeviceRealtimeMonitor({ deviceId }: DeviceRealtimeMonitorProps) 
     return () => {
       source.close();
     };
-  }, [deviceId, stream.enabled]);
+  }, [deviceId, formatTime, stream.enabled]);
 
   useEffect(() => {
     if (stream.enabled || !autoRefresh) return undefined;

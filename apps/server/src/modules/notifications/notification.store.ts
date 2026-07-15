@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import type {
   CreateNotificationChannelInput,
   CreateNotificationRuleInput,
@@ -10,6 +12,23 @@ import type {
   UpdateNotificationChannelInput,
   UpdateNotificationRuleInput,
 } from './notification.types.js';
+
+interface PersistedNotificationState {
+  version: 1;
+  channels: NotificationChannel[];
+  rules: NotificationRule[];
+  deliveries: NotificationDelivery[];
+}
+
+function storePath(): string | null {
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) return null;
+  if (process.env.MME_NOTIFICATION_STORE_PATH) {
+    return resolve(process.env.MME_NOTIFICATION_STORE_PATH);
+  }
+  const backupPath = process.env.BACKUP_STORAGE_PATH;
+  if (backupPath) return join(dirname(resolve(backupPath)), 'config', 'notifications.json');
+  return resolve('data/config/notifications.json');
+}
 
 function createId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -31,6 +50,40 @@ export class NotificationStore {
   private readonly channels = new Map<string, NotificationChannel>();
   private readonly rules = new Map<string, NotificationRule>();
   private readonly deliveries = new Map<string, NotificationDelivery>();
+  private readonly path = storePath();
+
+  public constructor() {
+    this.hydrate();
+  }
+
+  private hydrate(): void {
+    if (!this.path || !existsSync(this.path)) return;
+    try {
+      const state = JSON.parse(readFileSync(this.path, 'utf8')) as PersistedNotificationState;
+      for (const channel of state.channels ?? []) this.channels.set(channel.id, channel);
+      for (const rule of state.rules ?? []) this.rules.set(rule.id, rule);
+      for (const delivery of state.deliveries ?? []) this.deliveries.set(delivery.id, delivery);
+    } catch {
+      // Tệp hỏng không được phép làm server ngừng chạy; cấu hình mới sẽ thay thế khi người dùng lưu.
+    }
+  }
+
+  private persist(): void {
+    if (!this.path) return;
+    mkdirSync(dirname(this.path), { recursive: true });
+    const deliveries = [...this.deliveries.values()]
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 2000);
+    const state: PersistedNotificationState = {
+      version: 1,
+      channels: [...this.channels.values()],
+      rules: [...this.rules.values()],
+      deliveries,
+    };
+    const temporary = `${this.path}.${process.pid}.tmp`;
+    writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+    renameSync(temporary, this.path);
+  }
 
   public createChannel(input: CreateNotificationChannelInput): NotificationChannel {
     const now = nowIso();
@@ -45,6 +98,7 @@ export class NotificationStore {
     };
 
     this.channels.set(channel.id, channel);
+    this.persist();
     return channel;
   }
 
@@ -72,6 +126,7 @@ export class NotificationStore {
     };
 
     this.channels.set(channelId, updated);
+    this.persist();
     return updated;
   }
 
@@ -92,6 +147,7 @@ export class NotificationStore {
       }
     }
 
+    if (deleted) this.persist();
     return deleted;
   }
 
@@ -109,6 +165,7 @@ export class NotificationStore {
     };
 
     this.rules.set(rule.id, rule);
+    this.persist();
     return rule;
   }
 
@@ -135,11 +192,14 @@ export class NotificationStore {
     };
 
     this.rules.set(ruleId, updated);
+    this.persist();
     return updated;
   }
 
   public deleteRule(ruleId: string): boolean {
-    return this.rules.delete(ruleId);
+    const deleted = this.rules.delete(ruleId);
+    if (deleted) this.persist();
+    return deleted;
   }
 
   public createDelivery(input: {
@@ -162,6 +222,7 @@ export class NotificationStore {
     };
 
     this.deliveries.set(delivery.id, delivery);
+    this.persist();
     return delivery;
   }
 
@@ -184,6 +245,7 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
+    this.persist();
     return updated;
   }
 
@@ -203,6 +265,7 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
+    this.persist();
     return updated;
   }
 
@@ -221,6 +284,7 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
+    this.persist();
     return updated;
   }
 
@@ -237,6 +301,7 @@ export class NotificationStore {
     };
 
     this.deliveries.set(deliveryId, updated);
+    this.persist();
     return updated;
   }
 
@@ -278,6 +343,7 @@ export class NotificationStore {
     this.channels.clear();
     this.rules.clear();
     this.deliveries.clear();
+    this.persist();
   }
 }
 

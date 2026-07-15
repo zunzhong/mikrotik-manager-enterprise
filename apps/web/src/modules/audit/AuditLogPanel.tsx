@@ -13,6 +13,7 @@ import type {
   AuditSummary,
 } from './audit.types';
 import './audit-log.css';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 const statusOptions: Array<AuditStatus | 'all'> = ['all', 'success', 'failure'];
 const severityOptions: Array<AuditSeverity | 'all'> = ['all', 'info', 'warning', 'critical'];
@@ -29,10 +30,6 @@ const entityOptions: Array<AuditEntityType | 'all'> = [
   'config',
 ];
 const pageSizeOptions = [10, 25, 50, 100];
-
-function formatTime(value: string): string {
-  return new Date(value).toLocaleString();
-}
 
 function metadataPreview(event: AuditEvent): string {
   if (!event.metadata) return 'No metadata';
@@ -65,6 +62,7 @@ function triggerDownload(url: string) {
 }
 
 export function AuditLogPanel() {
+  const { formatDateTime } = useLanguage();
   const [pageResult, setPageResult] = useState<AuditPageResult>(() => emptyPage(1, 25));
   const [summary, setSummary] = useState<AuditSummary | null>(null);
   const [status, setStatus] = useState<AuditStatus | 'all'>('all');
@@ -343,7 +341,7 @@ export function AuditLogPanel() {
         {retentionResult ? (
           <div className="audit-log-panel__retention-result">
             <strong>{retentionResult.dryRun ? 'Dry-run result' : 'Prune result'}</strong>
-            <span>Cutoff: {formatTime(retentionResult.cutoff)}</span>
+            <span>Cutoff: {formatDateTime(retentionResult.cutoff)}</span>
             <span>Matched: {retentionResult.matched}</span>
             <span>Deleted: {retentionResult.deleted}</span>
           </div>
@@ -401,7 +399,7 @@ export function AuditLogPanel() {
                 </div>
               </div>
 
-              <small>{formatTime(event.createdAt)}</small>
+              <small>{formatDateTime(event.createdAt)}</small>
             </article>
           ))}
 

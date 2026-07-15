@@ -226,6 +226,20 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.post(
+    '/api/v1/notifications/channels/:id/test',
+    { preHandler: notificationTestPreHandler },
+    async (request, reply) => {
+      const params = idParamsSchema.parse(request.params);
+      const result = await notificationService.testChannel(params.id);
+      if (!result) {
+        reply.code(404);
+        return { success: false, error: 'Notification channel not found' };
+      }
+      return { success: true, data: result };
+    },
+  );
+
+  app.post(
     '/api/v1/notifications/process-pending',
     { preHandler: notificationSendPreHandler },
     async (request) => {

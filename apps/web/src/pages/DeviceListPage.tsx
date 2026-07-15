@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { deviceApi } from '../modules/devices/device.api';
 import { StatusBadge } from '../modules/devices/components/StatusBadge';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export function DeviceListPage() {
+  const { formatDateTime } = useLanguage();
   const devices = useAsyncData(useCallback(() => deviceApi.list(), []));
   return (
     <div className="page">
@@ -30,7 +32,7 @@ export function DeviceListPage() {
               <small>
                 {device.useTls ? 'API-SSL' : 'API'} ·{' '}
                 {device.lastSeenAt
-                  ? `Gặp lần cuối ${new Date(device.lastSeenAt).toLocaleString()}`
+                  ? `Gặp lần cuối ${formatDateTime(device.lastSeenAt)}`
                   : 'Đang chờ thu thập'}
               </small>
             </div>

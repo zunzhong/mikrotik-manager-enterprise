@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { backupApi } from '../../backup/backup.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function DeviceBackupsPanel({ deviceId }: { deviceId: string }) {
+  const { formatDateTime } = useLanguage();
   const backups = useAsyncData(useCallback(() => backupApi.list(deviceId), [deviceId]));
   return (
     <section className="device-subpanel">
@@ -21,7 +23,7 @@ export function DeviceBackupsPanel({ deviceId }: { deviceId: string }) {
             <div>
               <strong>{backup.fileName}</strong>
               <small>
-                {backup.type} · {new Date(backup.createdAt).toLocaleString()}
+                {backup.type} · {formatDateTime(backup.createdAt)}
               </small>
             </div>
             <span

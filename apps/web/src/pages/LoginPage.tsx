@@ -40,7 +40,7 @@ export function LoginPage() {
             <b>/</b>
             <span className="theme-switch__sun">☀</span>
           </button>
-          <button type="button" onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}>
+          <button type="button" onClick={() => void setLanguage(language === 'vi' ? 'en' : 'vi')}>
             {language.toUpperCase()}
           </button>
         </div>

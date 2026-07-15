@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { authApi, type AuthUser } from '../auth.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function AccountProfilePanel() {
+  const { formatDateTime } = useLanguage();
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -79,8 +81,7 @@ export function AccountProfilePanel() {
           <span>Vai trò</span>
           <strong>{profile?.role ?? '—'}</strong>
           <small>
-            Cập nhật gần nhất:{' '}
-            {profile?.updatedAt ? new Date(profile.updatedAt).toLocaleString() : '—'}
+            Cập nhật gần nhất: {profile?.updatedAt ? formatDateTime(profile.updatedAt) : '—'}
           </small>
         </div>
       </div>

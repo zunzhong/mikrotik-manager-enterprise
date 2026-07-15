@@ -1,11 +1,13 @@
 import { StatusBadge } from './StatusBadge';
 import type { Device } from '../device.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 export interface DeviceDetailHeaderProps {
   device: Device;
 }
 
 export function DeviceDetailHeader({ device }: DeviceDetailHeaderProps) {
+  const { formatDateTime } = useLanguage();
   return (
     <div className="device-detail-header">
       <div>
@@ -19,8 +21,7 @@ export function DeviceDetailHeader({ device }: DeviceDetailHeaderProps) {
       <div className="device-detail-header__status">
         <StatusBadge status={device.status} />
         <span>
-          Lần cuối kết nối:{' '}
-          {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : 'Chưa có'}
+          Lần cuối kết nối: {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Chưa có'}
         </span>
       </div>
     </div>

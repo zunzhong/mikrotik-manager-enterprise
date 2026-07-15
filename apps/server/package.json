@@ -1,6 +1,6 @@
 {
   "name": "@mme/server",
-  "version": "4.1.6",
+  "version": "4.1.7",
   "private": true,
   "type": "module",
   "scripts": {
@@ -27,11 +27,13 @@
     "@mme/routeros-sdk": "workspace:*",
     "@prisma/client": "^6.19.3",
     "fastify": "^5.2.1",
+    "luxon": "^3.7.2",
     "nodemailer": "^9.0.1",
     "pino": "^9.6.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/luxon": "^3.7.2",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^7.0.0",
     "pino-pretty": "^13.0.0",

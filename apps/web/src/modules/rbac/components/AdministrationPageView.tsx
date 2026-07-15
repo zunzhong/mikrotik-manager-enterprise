@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { rbacApi, type AdminUser, type Permission, type Role } from '../rbac.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 type Tab = 'users' | 'roles' | 'permissions';
 
 export function AdministrationPageView() {
+  const { formatDateTime } = useLanguage();
   const users = useAsyncData(useCallback(() => rbacApi.users(), []));
   const roles = useAsyncData(useCallback(() => rbacApi.roles(), []));
   const permissions = useAsyncData(useCallback(() => rbacApi.permissions(), []));
@@ -112,7 +114,7 @@ export function AdministrationPageView() {
                   <p>{user.email}</p>
                   <small>
                     {user.isActive ? 'active' : 'disabled'} • created{' '}
-                    {new Date(user.createdAt).toLocaleString()}
+                    {formatDateTime(user.createdAt)}
                   </small>
                   <div className="tag-row">
                     {user.roles.map((item) => (

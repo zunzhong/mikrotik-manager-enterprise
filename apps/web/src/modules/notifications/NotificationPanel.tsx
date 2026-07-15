@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { SummaryCard } from '../dashboard/components/SummaryCard';
 import { WidgetCard } from '../dashboard/components/WidgetCard';
 import { notificationApi } from './notification.api';
+import { useLanguage } from '../../i18n/LanguageContext';
 import type {
   NotificationChannel,
   NotificationChannelType,
@@ -26,9 +27,12 @@ function countByStatus(
   return deliveries.filter((delivery) => delivery.status === status).length;
 }
 
-function latestDeliveryAt(deliveries: NotificationDelivery[]): string {
+function latestDeliveryAt(
+  deliveries: NotificationDelivery[],
+  formatDateTime: (value: string) => string,
+): string {
   const latest = deliveries[0]?.createdAt;
-  return latest ? new Date(latest).toLocaleString() : 'N/A';
+  return latest ? formatDateTime(latest) : 'N/A';
 }
 
 function resolveChannelName(channels: NotificationChannel[], channelId: string): string {
@@ -36,19 +40,21 @@ function resolveChannelName(channels: NotificationChannel[], channelId: string):
 }
 
 function channelUrl(channel: NotificationChannel): string {
-  const value = channel.config.url;
-  return typeof value === 'string' ? value : channel.type;
+  return channel.status?.destination ?? channel.type;
 }
 
 function canRetry(delivery: NotificationDelivery): boolean {
   return delivery.status === 'failed' || delivery.status === 'skipped';
 }
 
-function deliveryTimestamp(delivery: NotificationDelivery): string {
-  if (delivery.sentAt) return `sent ${new Date(delivery.sentAt).toLocaleString()}`;
-  if (delivery.failedAt) return `failed ${new Date(delivery.failedAt).toLocaleString()}`;
-  if (delivery.skippedAt) return `skipped ${new Date(delivery.skippedAt).toLocaleString()}`;
-  return `created ${new Date(delivery.createdAt).toLocaleString()}`;
+function deliveryTimestamp(
+  delivery: NotificationDelivery,
+  formatDateTime: (value: string) => string,
+): string {
+  if (delivery.sentAt) return `sent ${formatDateTime(delivery.sentAt)}`;
+  if (delivery.failedAt) return `failed ${formatDateTime(delivery.failedAt)}`;
+  if (delivery.skippedAt) return `skipped ${formatDateTime(delivery.skippedAt)}`;
+  return `created ${formatDateTime(delivery.createdAt)}`;
 }
 
 export function NotificationPanel({
@@ -59,6 +65,7 @@ export function NotificationPanel({
   error,
   onChanged,
 }: NotificationPanelProps) {
+  const { formatDateTime, tr } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
   const [busyEntityId, setBusyEntityId] = useState<string | null>(null);
@@ -129,6 +136,22 @@ export function NotificationPanel({
       onChanged?.();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Cannot update channel');
+    } finally {
+      setBusyEntityId(null);
+    }
+  }
+
+  async function testChannel(channel: NotificationChannel) {
+    setBusyEntityId(channel.id);
+    setActionError(null);
+    try {
+      const result = await notificationApi.testChannel(channel.id);
+      if (result.failed > 0 || result.skipped > 0) {
+        throw new Error(result.deliveries[0]?.error ?? 'Kênh không gửi được thông báo kiểm thử.');
+      }
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không thể kiểm thử kênh.');
     } finally {
       setBusyEntityId(null);
     }
@@ -362,10 +385,30 @@ export function NotificationPanel({
                   <small>
                     {channel.type} · {channelUrl(channel)}
                   </small>
+                  <small>
+                    {channel.status?.configured
+                      ? tr('Đã cấu hình đầy đủ', 'Configuration complete')
+                      : `${tr('Thiếu cấu hình', 'Missing configuration')}: ${channel.status?.missingFields.join(', ') ?? '—'}`}
+                  </small>
+                  {channel.status?.lastAttemptAt ? (
+                    <small>
+                      {tr('Lần gửi gần nhất', 'Last delivery')}:{' '}
+                      {formatDateTime(channel.status.lastAttemptAt)} ·{' '}
+                      {channel.status.lastDeliveryStatus}
+                    </small>
+                  ) : null}
+                  {channel.status?.lastError ? <small>{channel.status.lastError}</small> : null}
                 </div>
 
                 <div className="notification-panel__entity-actions">
                   <span>{channel.enabled ? 'Đang bật' : 'Đã tắt'}</span>
+                  <button
+                    type="button"
+                    disabled={busyEntityId === channel.id}
+                    onClick={() => void testChannel(channel)}
+                  >
+                    {tr('Kiểm thử', 'Test')}
+                  </button>
                   <button
                     type="button"
                     disabled={busyEntityId === channel.id}
@@ -442,7 +485,7 @@ export function NotificationPanel({
 
       <WidgetCard
         title="Lịch sử gửi gần đây"
-        description={`Lần gửi mới nhất: ${latestDeliveryAt(deliveries)}`}
+        description={`Lần gửi mới nhất: ${latestDeliveryAt(deliveries, formatDateTime)}`}
       >
         <div className="notification-panel__list">
           {deliveries.slice(0, 8).map((delivery) => (
@@ -458,7 +501,7 @@ export function NotificationPanel({
                   {resolveChannelName(channels, delivery.channelId)}
                 </small>
                 <small>
-                  Số lần thử: {delivery.attempts} · {deliveryTimestamp(delivery)}
+                  Số lần thử: {delivery.attempts} · {deliveryTimestamp(delivery, formatDateTime)}
                 </small>
                 {delivery.error ? <small>{delivery.error}</small> : null}
               </div>
