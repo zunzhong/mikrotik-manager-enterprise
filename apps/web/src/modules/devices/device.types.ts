@@ -42,6 +42,7 @@ export interface RouterOsProbeInput {
 export interface RouterOsProbeResult {
   online: boolean;
   latencyMs?: number;
+  responseTimeMs?: number;
   identity?: string;
   version?: string;
   architecture?: string;
@@ -49,6 +50,7 @@ export interface RouterOsProbeResult {
   serialNumber?: string;
   uptime?: string;
   error?: string;
+  reason?: string;
   raw?: Record<string, unknown>;
 }
 

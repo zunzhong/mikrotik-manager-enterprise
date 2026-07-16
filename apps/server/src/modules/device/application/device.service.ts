@@ -2,6 +2,7 @@ import { HttpError } from '../../../errors/http-error.js';
 import { encryptionService } from '../../../security/encryption.service.js';
 import { deviceRepository } from '../infrastructure/device.repository.js';
 import type { CreateDeviceInput, UpdateDeviceInput } from '../presentation/device.schemas.js';
+import { deviceRealtimeService } from './device-realtime.service.js';
 
 export class DeviceService {
   public async create(input: CreateDeviceInput) {
@@ -37,6 +38,7 @@ export class DeviceService {
 
   public async update(id: string, input: UpdateDeviceInput) {
     await this.get(id);
+    deviceRealtimeService.clear(id);
 
     const { password, ...rest } = input;
 
@@ -50,6 +52,7 @@ export class DeviceService {
 
   public async delete(id: string) {
     await this.get(id);
+    deviceRealtimeService.clear(id);
     await deviceRepository.delete(id);
 
     return { deleted: true, id };

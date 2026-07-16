@@ -1,4 +1,5 @@
 import { RouterOsClient } from '@mme/routeros-sdk';
+import { createHash } from 'node:crypto';
 import { HttpError } from '../../../errors/http-error.js';
 import { encryptionService } from '../../../security/encryption.service.js';
 import { eventBus, type AppEventSeverity, type AppEventType } from '../../events/index.js';
@@ -10,6 +11,7 @@ import {
   type RouterOsResourceLike,
 } from '../health/index.js';
 import { deviceRepository } from '../infrastructure/device.repository.js';
+import { routerOsLogFingerprintRepository } from '../infrastructure/routeros-log-fingerprint.repository.js';
 import { deviceTrafficMonitorService } from './device-traffic-monitor.service.js';
 
 export interface DeviceRealtimeSnapshot {
@@ -49,6 +51,7 @@ export interface DeviceRealtimeView extends DeviceRealtimeSnapshot {
 }
 
 const DEFAULT_TTL_MS = 5000;
+const ROUTEROS_LOG_POLL_INTERVAL_MS = 60000;
 
 async function safePrint<T extends object = object>(
   client: RouterOsClient,
@@ -132,21 +135,55 @@ function interfaceState(interfaces: object[]): Map<string, boolean> {
   );
 }
 
-function logFingerprint(log: object): string {
-  return [
-    recordText(log, '.id'),
-    recordText(log, 'time'),
-    recordText(log, 'topics'),
-    recordText(log, 'message'),
+function routerOsLogTime(log: object): string {
+  return recordText(log, '_mmeRouterOccurredAt') || recordText(log, 'time');
+}
+
+function logsWithRouterDate(logs: object[], clock: object | undefined): object[] {
+  const routerDate = clock ? recordText(clock, 'date') : '';
+  if (!routerDate) return logs;
+  return logs.map((log) => {
+    const rawTime = recordText(log, 'time');
+    const occurredAt = /^\d{1,2}:\d{2}:\d{2}(?:\.\d+)?$/.test(rawTime)
+      ? `${routerDate} ${rawTime}`
+      : rawTime;
+    return occurredAt ? { ...log, _mmeRouterOccurredAt: occurredAt } : log;
+  });
+}
+
+export function routerOsLogFingerprint(log: object): string {
+  const stableValue = [
+    routerOsLogTime(log).toLowerCase(),
+    recordText(log, 'topics').toLowerCase(),
+    recordText(log, 'message').replace(/\s+/g, ' ').trim().toLowerCase(),
   ].join('|');
+  return createHash('sha256').update(stableValue).digest('hex');
+}
+
+export function routerOsLogAlertMessage(log: object): string {
+  const topics = recordText(log, 'topics').toLowerCase();
+  const searchable = `${topics} ${recordText(log, 'message')}`.toLowerCase();
+  const kind = /login.*fail|fail.*login|auth(?:entication)?.*fail/.test(searchable)
+    ? 'login failed'
+    : topics
+          .split(',')
+          .map((topic) => topic.trim())
+          .includes('error')
+      ? 'error'
+      : 'warning';
+  const logTime = routerOsLogTime(log) || 'Không rõ thời gian RouterOS';
+  const message = recordText(log, 'message') || '(empty RouterOS log message)';
+  return `${logTime}: RouterOS ${kind}: ${message}`;
 }
 
 export class DeviceRealtimeService {
   private readonly cache = new Map<string, DeviceRealtimeCacheEntry>();
+  private readonly clients = new Map<string, { key: string; client: RouterOsClient }>();
+  private readonly refreshes = new Map<string, Promise<DeviceRealtimeView>>();
   private readonly lastOnlineState = new Map<string, boolean>();
   private readonly lastHealthFingerprint = new Map<string, string>();
   private readonly lastInterfaceState = new Map<string, Map<string, boolean>>();
-  private readonly seenLogFingerprints = new Map<string, Set<string>>();
+  private readonly lastLogPollAt = new Map<string, number>();
   private readonly lastDeviceIdentity = new Map<string, string>();
 
   public async getSnapshot(deviceId: string, ttlMs = DEFAULT_TTL_MS): Promise<DeviceRealtimeView> {
@@ -170,6 +207,23 @@ export class DeviceRealtimeService {
       pollIntervalMs?: number;
     } = {},
   ): Promise<DeviceRealtimeView> {
+    const pending = this.refreshes.get(deviceId);
+    if (pending) return pending;
+    const refresh = this.performRefreshSnapshot(deviceId, options).finally(() => {
+      if (this.refreshes.get(deviceId) === refresh) this.refreshes.delete(deviceId);
+    });
+    this.refreshes.set(deviceId, refresh);
+    return refresh;
+  }
+
+  private async performRefreshSnapshot(
+    deviceId: string,
+    options: {
+      ttlMs?: number;
+      source?: DeviceRealtimeCacheEntry['source'];
+      pollIntervalMs?: number;
+    },
+  ): Promise<DeviceRealtimeView> {
     const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
     const source = options.source ?? 'manual';
     const device = await deviceRepository.findById(deviceId);
@@ -179,18 +233,38 @@ export class DeviceRealtimeService {
     }
 
     const startedAt = Date.now();
-    const client = new RouterOsClient({
-      host: device.host,
-      port: device.port,
-      username: device.username,
-      password: encryptionService.decrypt(device.passwordEncrypted),
-      tls: device.useTls,
-      timeoutMs: 10000,
-      rejectUnauthorized: false,
-    });
+    let client: RouterOsClient | undefined;
 
     try {
-      await client.connect();
+      const password = encryptionService.decrypt(device.passwordEncrypted);
+      const connectionKey = createHash('sha256')
+        .update(
+          JSON.stringify({
+            host: device.host,
+            port: device.port,
+            username: device.username,
+            password,
+            useTls: device.useTls,
+          }),
+        )
+        .digest('hex');
+      const existing = this.clients.get(deviceId);
+      if (existing?.key === connectionKey) {
+        client = existing.client;
+      } else {
+        existing?.client.close();
+        client = new RouterOsClient({
+          host: device.host,
+          port: device.port,
+          username: device.username,
+          password,
+          tls: device.useTls,
+          timeoutMs: 10000,
+          rejectUnauthorized: false,
+        });
+        await client.connect();
+        this.clients.set(deviceId, { key: connectionKey, client });
+      }
 
       // Do not overlap commands on one RouterOS sentence stream.
       const identity = (await safePrint(client, '/system/identity/print'))[0] ?? {};
@@ -198,7 +272,16 @@ export class DeviceRealtimeService {
       const routerboard = (await safePrint(client, '/system/routerboard/print'))[0] ?? {};
       const health = await safePrint<RouterOsHealthLike>(client, '/system/health/print');
       const interfaces = await safePrint(client, '/interface/print');
-      const logs = await safePrint(client, '/log/print');
+      const lastLogPollAt = this.lastLogPollAt.get(deviceId) ?? 0;
+      const shouldPollLogs =
+        source !== 'scheduler' || Date.now() - lastLogPollAt >= ROUTEROS_LOG_POLL_INTERVAL_MS;
+      const routerClock = shouldPollLogs
+        ? (await safePrint(client, '/system/clock/print'))[0]
+        : undefined;
+      const logs = shouldPollLogs
+        ? logsWithRouterDate(await safePrint(client, '/log/print'), routerClock)
+        : undefined;
+      if (shouldPollLogs) this.lastLogPollAt.set(deviceId, Date.now());
 
       const healthReport = calculateHealthScore(resource, health);
 
@@ -231,10 +314,12 @@ export class DeviceRealtimeService {
         lastError: null,
       });
 
-      this.publishRealtimeEvents(device.id, device.name, snapshot);
+      await this.publishRealtimeEvents(device.id, device.name, snapshot);
 
       return this.storeSnapshot(deviceId, snapshot, ttlMs, source, options.pollIntervalMs);
     } catch (error) {
+      client?.close();
+      this.clients.delete(deviceId);
       const snapshot: DeviceRealtimeSnapshot = {
         deviceId,
         deviceName: device.name,
@@ -249,11 +334,9 @@ export class DeviceRealtimeService {
         lastError: snapshot.error ?? 'Realtime refresh failed',
       });
 
-      this.publishRealtimeEvents(device.id, device.name, snapshot);
+      await this.publishRealtimeEvents(device.id, device.name, snapshot);
 
       return this.storeSnapshot(deviceId, snapshot, ttlMs, source, options.pollIntervalMs);
-    } finally {
-      client.close();
     }
   }
 
@@ -269,20 +352,24 @@ export class DeviceRealtimeService {
   }
 
   public clear(deviceId: string): void {
+    this.clients.get(deviceId)?.client.close();
+    this.clients.delete(deviceId);
     this.cache.delete(deviceId);
     this.lastOnlineState.delete(deviceId);
     this.lastHealthFingerprint.delete(deviceId);
     this.lastInterfaceState.delete(deviceId);
-    this.seenLogFingerprints.delete(deviceId);
+    this.lastLogPollAt.delete(deviceId);
     this.lastDeviceIdentity.delete(deviceId);
   }
 
   public clearAll(): void {
+    for (const { client } of this.clients.values()) client.close();
+    this.clients.clear();
     this.cache.clear();
     this.lastOnlineState.clear();
     this.lastHealthFingerprint.clear();
     this.lastInterfaceState.clear();
-    this.seenLogFingerprints.clear();
+    this.lastLogPollAt.clear();
     this.lastDeviceIdentity.clear();
   }
 
@@ -308,11 +395,11 @@ export class DeviceRealtimeService {
     return toView(entry);
   }
 
-  private publishRealtimeEvents(
+  private async publishRealtimeEvents(
     deviceId: string,
     deviceName: string,
     snapshot: DeviceRealtimeSnapshot,
-  ): void {
+  ): Promise<void> {
     const previousOnline = this.lastOnlineState.get(deviceId);
     const identityFromSnapshot = identityName(snapshot.identity, '');
     if (identityFromSnapshot) this.lastDeviceIdentity.set(deviceId, identityFromSnapshot);
@@ -350,7 +437,7 @@ export class DeviceRealtimeService {
     }
 
     this.publishInterfaceEvents(deviceId, deviceName, deviceIdentity, snapshot);
-    this.publishLogEvents(deviceId, deviceName, deviceIdentity, snapshot);
+    await this.publishLogEvents(deviceId, deviceName, deviceIdentity, snapshot);
 
     const currentFingerprint = issueFingerprint(snapshot.healthReport.issues);
     const previousFingerprint = this.lastHealthFingerprint.get(deviceId) ?? '';
@@ -440,21 +527,18 @@ export class DeviceRealtimeService {
     }
   }
 
-  private publishLogEvents(
+  private async publishLogEvents(
     deviceId: string,
     deviceName: string,
     deviceIdentity: string,
     snapshot: DeviceRealtimeSnapshot,
-  ): void {
-    const logs = snapshot.logs ?? [];
-    const previous = this.seenLogFingerprints.get(deviceId);
-    const current = new Set(logs.map(logFingerprint));
-    this.seenLogFingerprints.set(deviceId, new Set([...current].slice(-500)));
-    if (!previous) return;
+  ): Promise<void> {
+    if (!snapshot.logs) return;
+    const logs = snapshot.logs;
+    const hasBaseline = await routerOsLogFingerprintRepository.isInitialized(deviceId);
 
     for (const log of logs) {
-      const fingerprint = logFingerprint(log);
-      if (previous.has(fingerprint)) continue;
+      const fingerprint = routerOsLogFingerprint(log);
       const topics = recordText(log, 'topics').toLowerCase();
       const message = recordText(log, 'message');
       const searchable = `${topics} ${message}`.toLowerCase();
@@ -463,6 +547,16 @@ export class DeviceRealtimeService {
       const isError = topicList.includes('error');
       const isWarning = topicList.includes('warning');
       if (!loginFailed && !isError && !isWarning) continue;
+
+      const logTime = routerOsLogTime(log);
+      const isNew = await routerOsLogFingerprintRepository.remember({
+        deviceId,
+        fingerprint,
+        logTime: logTime || undefined,
+        topics: topics || undefined,
+        message: message || undefined,
+      });
+      if (!isNew || !hasBaseline) continue;
 
       eventBus.publish({
         type: loginFailed
@@ -476,7 +570,7 @@ export class DeviceRealtimeService {
           : isError
             ? 'RouterOS error log'
             : 'RouterOS warning log',
-        message: `${deviceIdentity}: ${message || '(empty RouterOS log message)'}`,
+        message: routerOsLogAlertMessage(log),
         source: 'routeros-log',
         deviceId,
         deviceName,
@@ -484,11 +578,15 @@ export class DeviceRealtimeService {
           deviceIdentity,
           routerOsLog: log as Record<string, unknown>,
           topics,
-          logTime: recordText(log, 'time'),
+          logTime,
+          routerOsOccurredAt: logTime,
           collectedAt: snapshot.collectedAt,
         },
       });
     }
+
+    if (!hasBaseline) await routerOsLogFingerprintRepository.markInitialized(deviceId);
+    await routerOsLogFingerprintRepository.prune(deviceId);
   }
 }
 

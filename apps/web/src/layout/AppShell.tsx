@@ -90,7 +90,11 @@ export function AppShell() {
                 >
                   <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
-                  <span className="nav-flyout-arrow">⌄</span>
+                  <span className="nav-flyout-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" focusable="false">
+                      <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
+                    </svg>
+                  </span>
                 </button>
               ) : (
                 <NavLink

@@ -1234,6 +1234,25 @@ body {
   display: grid;
   place-items: center;
   transform: translateY(-50%);
+  border-radius: 7px;
+  color: var(--muted);
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+.app-shell .nav-flyout-arrow svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app-shell .nav-parent:hover .nav-flyout-arrow {
+  color: var(--text);
+  background: var(--surface-hover);
 }
 .app-shell .nav-item:hover,
 .app-shell .nav-item.active,
@@ -1271,14 +1290,35 @@ body {
 }
 .app-shell .sidebar-collapse {
   top: 50%;
-  right: -22px;
-  width: 44px;
-  height: 34px;
-  border-radius: 8px;
+  right: 7px;
+  width: 30px;
+  height: 40px;
+  border: 0;
+  border-radius: 7px;
   transform: translateY(-50%);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: -2px;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell .sidebar-collapse:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.sidebar-is-collapsed .app-shell .sidebar-collapse,
+.app-shell.sidebar-is-collapsed .sidebar-collapse {
+  right: 4px;
+}
+.managed-device-card__actions {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+}
+.managed-device-card > .danger-button {
+  min-width: auto;
+  padding-inline: 11px;
 }
 .app-shell :is(.theme-toggle, .logout-button, .small-button, button, input, textarea, select) {
   font-family: inherit;

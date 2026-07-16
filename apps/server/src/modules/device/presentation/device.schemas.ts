@@ -41,6 +41,17 @@ export const testDeviceConnectionSchema = z
     port: input.port ?? (input.useTls ? 8729 : 8728),
   }));
 
+export const testSavedDeviceConnectionSchema = z.object({
+  host: z.string().min(1).optional(),
+  port: z.coerce.number().int().positive().optional(),
+  username: z.string().min(1).optional(),
+  password: z.string().optional(),
+  useTls: z.boolean().optional(),
+  loginMode: loginModeSchema.optional(),
+  timeoutMs: z.coerce.number().int().positive().optional().default(15000),
+});
+
 export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 export type UpdateDeviceInput = z.infer<typeof updateDeviceSchema>;
 export type TestDeviceConnectionInput = z.infer<typeof testDeviceConnectionSchema>;
+export type TestSavedDeviceConnectionInput = z.infer<typeof testSavedDeviceConnectionSchema>;

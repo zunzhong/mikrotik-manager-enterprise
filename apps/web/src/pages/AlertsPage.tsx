@@ -11,7 +11,6 @@ export function AlertsPage() {
         <p>{t('alertDescription')}</p>
       </div>
 
-      <AlertCenter />
       <div className="alert-notification-section">
         <div className="section-heading">
           <span>DELIVERY ENGINE</span>
@@ -23,6 +22,7 @@ export function AlertsPage() {
         </div>
         <AlertNotificationChannels />
       </div>
+      <AlertCenter />
     </div>
   );
 }

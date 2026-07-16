@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 4;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 5;
 
 interface Migration {
   version: number;
@@ -51,6 +51,23 @@ const migrations: Migration[] = [
     statements: [
       'ALTER TABLE "DeviceAlertRuleConfig" ADD COLUMN "channelIds" JSONB',
       'ALTER TABLE "DeviceAlertRuleConfig" ADD COLUMN "notifyAllChannels" BOOLEAN NOT NULL DEFAULT true',
+    ],
+  },
+  {
+    version: 5,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "RouterOsLogFingerprint" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "deviceId" TEXT NOT NULL,
+        "fingerprint" TEXT NOT NULL,
+        "logTime" TEXT,
+        "topics" TEXT,
+        "message" TEXT,
+        "firstSeenAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "RouterOsLogFingerprint_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS "RouterOsLogFingerprint_deviceId_fingerprint_key" ON "RouterOsLogFingerprint"("deviceId", "fingerprint")',
+      'CREATE INDEX IF NOT EXISTS "RouterOsLogFingerprint_deviceId_firstSeenAt_idx" ON "RouterOsLogFingerprint"("deviceId", "firstSeenAt")',
     ],
   },
 ];

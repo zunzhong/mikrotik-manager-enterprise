@@ -1,5 +1,9 @@
 import { RouterClient, RouterOsError } from '@mme/routeros-core';
 import type { TestDeviceConnectionInput } from '../presentation/device.schemas.js';
+import type { TestSavedDeviceConnectionInput } from '../presentation/device.schemas.js';
+import { deviceRepository } from '../infrastructure/device.repository.js';
+import { encryptionService } from '../../../security/encryption.service.js';
+import { HttpError } from '../../../errors/http-error.js';
 
 export interface DeviceTestConnectionResult {
   online: boolean;
@@ -19,6 +23,27 @@ export interface DeviceTestConnectionResult {
  * Tests RouterOS connectivity without storing credentials.
  */
 export class DeviceTestService {
+  public async testSaved(
+    deviceId: string,
+    overrides: TestSavedDeviceConnectionInput,
+  ): Promise<DeviceTestConnectionResult> {
+    const device = await deviceRepository.findById(deviceId);
+    if (!device) throw new HttpError(404, 'DEVICE_NOT_FOUND', 'Device not found');
+    const useTls = overrides.useTls ?? device.useTls;
+    return this.test({
+      host: overrides.host ?? device.host,
+      port: overrides.port ?? device.port ?? (useTls ? 8729 : 8728),
+      username: overrides.username ?? device.username,
+      password:
+        overrides.password && overrides.password.length > 0
+          ? overrides.password
+          : encryptionService.decrypt(device.passwordEncrypted),
+      useTls,
+      loginMode: overrides.loginMode ?? (device.loginMode as 'auto' | 'modern' | 'legacy'),
+      timeoutMs: overrides.timeoutMs,
+    });
+  }
+
   public async test(input: TestDeviceConnectionInput): Promise<DeviceTestConnectionResult> {
     const startedAt = Date.now();
     const client = new RouterClient({

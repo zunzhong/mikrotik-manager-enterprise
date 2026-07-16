@@ -35,9 +35,15 @@ describe('SQLite migration service', () => {
     const alertRuleColumns = database
       .prepare(`PRAGMA table_info("DeviceAlertRuleConfig")`)
       .all() as Array<{ name: string }>;
+    const logFingerprintTable = database
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'RouterOsLogFingerprint'`,
+      )
+      .get() as { name: string } | undefined;
     database.close();
     expect(trafficTable?.name).toBe('TrafficSample');
     expect(alertRuleConfigTable?.name).toBe('DeviceAlertRuleConfig');
+    expect(logFingerprintTable?.name).toBe('RouterOsLogFingerprint');
     expect(alertRuleColumns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['channelIds', 'notifyAllChannels']),
     );

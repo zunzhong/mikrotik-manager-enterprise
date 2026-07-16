@@ -110,17 +110,33 @@ model Device {
   groupId String?
   group   DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
-  inventorySnapshots InventorySnapshot[]
-  inventoryDiffs     InventoryDiff[]
-  complianceReports  ComplianceReport[]
-  alerts             Alert[]
-  backups            BackupRecord[]
-  trafficSamples     TrafficSample[]
-  alertRuleConfigs   DeviceAlertRuleConfig[]
+  inventorySnapshots      InventorySnapshot[]
+  inventoryDiffs          InventoryDiff[]
+  complianceReports       ComplianceReport[]
+  alerts                  Alert[]
+  backups                 BackupRecord[]
+  trafficSamples          TrafficSample[]
+  alertRuleConfigs        DeviceAlertRuleConfig[]
+  routerOsLogFingerprints RouterOsLogFingerprint[]
 
   @@index([host])
   @@index([status])
   @@index([groupId])
+}
+
+model RouterOsLogFingerprint {
+  id          String   @id @default(cuid())
+  deviceId    String
+  fingerprint String
+  logTime     String?
+  topics      String?
+  message     String?
+  firstSeenAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, fingerprint])
+  @@index([deviceId, firstSeenAt])
 }
 
 model InventorySnapshot {

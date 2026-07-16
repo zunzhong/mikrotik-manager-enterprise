@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 4.1.12
+        default: 4.1.13
       platform:
         description: Nền tảng cần build
         required: true
@@ -268,7 +268,8 @@ jobs:
 
   linux-installer:
     name: Linux DEB Installer
-    if: github.event_name == 'push' || inputs.platform == 'linux' || inputs.platform == 'all'
+    # Linux is intentionally manual-only until the Windows release is accepted.
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'linux' || inputs.platform == 'all')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

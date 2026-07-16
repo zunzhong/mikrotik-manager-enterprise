@@ -56,6 +56,9 @@ export const deviceApi = {
 
   delete: (id: string) => apiDelete<void>(`/api/v1/devices/${id}`),
 
+  testSaved: (id: string, input: Partial<RouterOsProbeInput>) =>
+    apiPost<RouterOsProbeResult>(`/api/v1/devices/${id}/test`, input),
+
   getRealtimeOverview: () => apiGet<DeviceRealtimeOverview>('/api/v1/realtime/devices'),
 
   getRealtimeSchedulerStatus: () =>

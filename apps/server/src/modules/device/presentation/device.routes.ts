@@ -11,6 +11,7 @@ import { routerOsDeviceActionService } from '../application/routeros-device-acti
 import { deviceTrafficMonitorService } from '../application/device-traffic-monitor.service.js';
 import {
   createDeviceSchema,
+  testSavedDeviceConnectionSchema,
   testDeviceConnectionSchema,
   updateDeviceSchema,
 } from './device.schemas.js';
@@ -237,6 +238,21 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
       data: await deviceService.get(params.id),
     };
   });
+
+  app.post(
+    '/api/v1/devices/:id/test',
+    { preHandler: deviceConnectionTestPreHandler },
+    async (request) => {
+      const params = deviceIdParamsSchema.parse(request.params);
+      return {
+        success: true,
+        data: await deviceTestService.testSaved(
+          params.id,
+          testSavedDeviceConnectionSchema.parse(request.body ?? {}),
+        ),
+      };
+    },
+  );
 
   app.post(
     '/api/v1/devices',
