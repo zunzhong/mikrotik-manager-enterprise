@@ -20,9 +20,10 @@ export function AlertsPage() {
             ↓ {t('notificationGuide')} (.txt)
           </a>
         </div>
-        <AlertNotificationChannels />
+        <AlertNotificationChannels>
+          <AlertCenter />
+        </AlertNotificationChannels>
       </div>
-      <AlertCenter />
     </div>
   );
 }

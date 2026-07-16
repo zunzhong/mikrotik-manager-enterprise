@@ -1316,9 +1316,24 @@ body {
   align-items: center;
   gap: 8px !important;
 }
-.managed-device-card > .danger-button {
-  min-width: auto;
-  padding-inline: 11px;
+.managed-device-delete {
+  min-width: auto !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.42) !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+.managed-device-delete:hover:not(:disabled) {
+  color: #fee2e2 !important;
+  border-color: rgba(239, 68, 68, 0.72) !important;
+  background: rgba(239, 68, 68, 0.18) !important;
+}
+[data-theme='light'] .managed-device-delete {
+  color: #b91c1c !important;
+  background: #fef2f2 !important;
+}
+.notification-panel__alert-management {
+  display: grid;
+  gap: 16px;
 }
 .app-shell :is(.theme-toggle, .logout-button, .small-button, button, input, textarea, select) {
   font-family: inherit;

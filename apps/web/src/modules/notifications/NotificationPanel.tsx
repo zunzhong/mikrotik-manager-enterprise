@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { SummaryCard } from '../dashboard/components/SummaryCard';
 import { WidgetCard } from '../dashboard/components/WidgetCard';
 import { notificationApi } from './notification.api';
@@ -18,6 +18,7 @@ export interface NotificationPanelProps {
   loading?: boolean;
   error?: string | null;
   onChanged?: () => void;
+  alertManagement?: ReactNode;
 }
 
 function countByStatus(
@@ -118,6 +119,7 @@ export function NotificationPanel({
   loading = false,
   error,
   onChanged,
+  alertManagement,
 }: NotificationPanelProps) {
   const { formatDateTime, tr } = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -623,133 +625,132 @@ export function NotificationPanel({
         </div>
       </WidgetCard>
 
-      <div className="notification-panel__grid">
-        <WidgetCard
-          title="Kênh nhận cảnh báo"
-          description="Bật, tắt hoặc xóa địa chỉ nhận thông báo"
-        >
-          <div className="notification-panel__list">
-            {channels.map((channel) => (
-              <article
-                className="notification-panel__row"
-                data-state={channel.enabled ? 'enabled' : 'disabled'}
-                key={channel.id}
-              >
-                <div>
-                  <strong>{channel.name}</strong>
+      <WidgetCard title="Kênh nhận cảnh báo" description="Bật, tắt hoặc xóa địa chỉ nhận thông báo">
+        <div className="notification-panel__list">
+          {channels.map((channel) => (
+            <article
+              className="notification-panel__row"
+              data-state={channel.enabled ? 'enabled' : 'disabled'}
+              key={channel.id}
+            >
+              <div>
+                <strong>{channel.name}</strong>
+                <small>
+                  {channel.type} · {channelUrl(channel)}
+                </small>
+                <small>
+                  {channel.status?.configured
+                    ? tr('Đã cấu hình đầy đủ', 'Configuration complete')
+                    : `${tr('Thiếu cấu hình', 'Missing configuration')}: ${channel.status?.missingFields.join(', ') ?? '—'}`}
+                </small>
+                {channel.status?.lastAttemptAt ? (
                   <small>
-                    {channel.type} · {channelUrl(channel)}
+                    {tr('Lần gửi gần nhất', 'Last delivery')}:{' '}
+                    {formatDateTime(channel.status.lastAttemptAt)} ·{' '}
+                    {channel.status.lastDeliveryStatus}
                   </small>
-                  <small>
-                    {channel.status?.configured
-                      ? tr('Đã cấu hình đầy đủ', 'Configuration complete')
-                      : `${tr('Thiếu cấu hình', 'Missing configuration')}: ${channel.status?.missingFields.join(', ') ?? '—'}`}
-                  </small>
-                  {channel.status?.lastAttemptAt ? (
-                    <small>
-                      {tr('Lần gửi gần nhất', 'Last delivery')}:{' '}
-                      {formatDateTime(channel.status.lastAttemptAt)} ·{' '}
-                      {channel.status.lastDeliveryStatus}
-                    </small>
-                  ) : null}
-                  {channel.status?.lastError ? <small>{channel.status.lastError}</small> : null}
-                </div>
+                ) : null}
+                {channel.status?.lastError ? <small>{channel.status.lastError}</small> : null}
+              </div>
 
-                <div className="notification-panel__entity-actions">
-                  <span>{channel.enabled ? 'Đang bật' : 'Đã tắt'}</span>
+              <div className="notification-panel__entity-actions">
+                <span>{channel.enabled ? 'Đang bật' : 'Đã tắt'}</span>
+                <button
+                  type="button"
+                  disabled={busyEntityId === channel.id}
+                  onClick={() => void testChannel(channel)}
+                >
+                  {tr('Kiểm thử', 'Test')}
+                </button>
+                {channel.type !== 'in_app' ? (
                   <button
                     type="button"
                     disabled={busyEntityId === channel.id}
-                    onClick={() => void testChannel(channel)}
+                    onClick={() => editChannel(channel)}
                   >
-                    {tr('Kiểm thử', 'Test')}
+                    Sửa
                   </button>
-                  {channel.type !== 'in_app' ? (
-                    <button
-                      type="button"
-                      disabled={busyEntityId === channel.id}
-                      onClick={() => editChannel(channel)}
-                    >
-                      Sửa
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={busyEntityId === channel.id}
-                    onClick={() => void toggleChannel(channel)}
-                  >
-                    {channel.enabled ? 'Tắt' : 'Bật'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyEntityId === channel.id}
-                    onClick={() => void deleteChannel(channel)}
-                  >
-                    Xóa
-                  </button>
-                </div>
-              </article>
-            ))}
+                ) : null}
+                <button
+                  type="button"
+                  disabled={busyEntityId === channel.id}
+                  onClick={() => void toggleChannel(channel)}
+                >
+                  {channel.enabled ? 'Tắt' : 'Bật'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyEntityId === channel.id}
+                  onClick={() => void deleteChannel(channel)}
+                >
+                  Xóa
+                </button>
+              </div>
+            </article>
+          ))}
 
-            {!loading && channels.length === 0 ? (
-              <p className="muted">Chưa có kênh nhận cảnh báo.</p>
-            ) : null}
+          {!loading && channels.length === 0 ? (
+            <p className="muted">Chưa có kênh nhận cảnh báo.</p>
+          ) : null}
 
-            {loading ? <p className="muted">Đang tải kênh cảnh báo...</p> : null}
-          </div>
-        </WidgetCard>
+          {loading ? <p className="muted">Đang tải kênh cảnh báo...</p> : null}
+        </div>
+      </WidgetCard>
 
-        <WidgetCard
-          title="Quy tắc gửi cảnh báo"
-          description="Chọn sự kiện và mức độ được gửi tới từng kênh"
-        >
-          <div className="notification-panel__list">
-            {rules.map((rule) => (
-              <article
-                className="notification-panel__row"
-                data-state={rule.enabled ? 'enabled' : 'disabled'}
-                key={rule.id}
-              >
-                <div>
-                  <strong>{rule.name}</strong>
-                  <small>
-                    {rule.eventTypes.join(', ')} · {rule.severities.join(', ')}
-                  </small>
-                  <small>
-                    Kênh nhận:{' '}
-                    {rule.channelIds.map((id) => resolveChannelName(channels, id)).join(', ') ||
-                      'Không có'}
-                  </small>
-                </div>
+      {alertManagement ? (
+        <div className="notification-panel__alert-management">{alertManagement}</div>
+      ) : null}
 
-                <div className="notification-panel__entity-actions">
-                  <span>{rule.enabled ? 'Đang bật' : 'Đã tắt'}</span>
-                  <button
-                    type="button"
-                    disabled={busyEntityId === rule.id}
-                    onClick={() => void toggleRule(rule)}
-                  >
-                    {rule.enabled ? 'Tắt' : 'Bật'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyEntityId === rule.id}
-                    onClick={() => void deleteRule(rule)}
-                  >
-                    Xóa
-                  </button>
-                </div>
-              </article>
-            ))}
+      <WidgetCard
+        title="Quy tắc gửi cảnh báo"
+        description="Chọn sự kiện và mức độ được gửi tới từng kênh"
+      >
+        <div className="notification-panel__list">
+          {rules.map((rule) => (
+            <article
+              className="notification-panel__row"
+              data-state={rule.enabled ? 'enabled' : 'disabled'}
+              key={rule.id}
+            >
+              <div>
+                <strong>{rule.name}</strong>
+                <small>
+                  {rule.eventTypes.join(', ')} · {rule.severities.join(', ')}
+                </small>
+                <small>
+                  Kênh nhận:{' '}
+                  {rule.channelIds.map((id) => resolveChannelName(channels, id)).join(', ') ||
+                    'Không có'}
+                </small>
+              </div>
 
-            {!loading && rules.length === 0 ? (
-              <p className="muted">Chưa có quy tắc. Bấm “Tạo mặc định” để tạo quy tắc đầu tiên.</p>
-            ) : null}
+              <div className="notification-panel__entity-actions">
+                <span>{rule.enabled ? 'Đang bật' : 'Đã tắt'}</span>
+                <button
+                  type="button"
+                  disabled={busyEntityId === rule.id}
+                  onClick={() => void toggleRule(rule)}
+                >
+                  {rule.enabled ? 'Tắt' : 'Bật'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyEntityId === rule.id}
+                  onClick={() => void deleteRule(rule)}
+                >
+                  Xóa
+                </button>
+              </div>
+            </article>
+          ))}
 
-            {loading ? <p className="muted">Đang tải quy tắc...</p> : null}
-          </div>
-        </WidgetCard>
-      </div>
+          {!loading && rules.length === 0 ? (
+            <p className="muted">Chưa có quy tắc. Bấm “Tạo mặc định” để tạo quy tắc đầu tiên.</p>
+          ) : null}
+
+          {loading ? <p className="muted">Đang tải quy tắc...</p> : null}
+        </div>
+      </WidgetCard>
 
       <WidgetCard
         title="Lịch sử gửi gần đây"

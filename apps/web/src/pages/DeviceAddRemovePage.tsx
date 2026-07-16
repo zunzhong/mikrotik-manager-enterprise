@@ -257,16 +257,16 @@ export function DeviceAddRemovePage() {
                   <button className="small-button" type="button" onClick={() => beginEdit(device)}>
                     {t('edit')}
                   </button>
+                  <button
+                    className="small-button managed-device-delete"
+                    type="button"
+                    disabled={deletingId === device.id}
+                    onClick={() => void removeDevice(device)}
+                  >
+                    {deletingId === device.id ? 'Đang xóa...' : t('deleteDevice')}
+                  </button>
                 </div>
               ) : null}
-              <button
-                className="small-button danger-button"
-                type="button"
-                disabled={deletingId === device.id}
-                onClick={() => void removeDevice(device)}
-              >
-                {deletingId === device.id ? 'Đang xóa...' : t('deleteDevice')}
-              </button>
             </article>
           ))}
         </div>

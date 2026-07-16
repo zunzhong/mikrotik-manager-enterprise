@@ -1,9 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { NotificationPanel } from '../../notifications/NotificationPanel';
 import { notificationApi } from '../../notifications/notification.api';
 
-export function AlertNotificationChannels() {
+export function AlertNotificationChannels({ children }: { children?: ReactNode }) {
   const channels = useAsyncData(useCallback(() => notificationApi.channels(), []));
   const rules = useAsyncData(useCallback(() => notificationApi.rules(), []));
   const deliveries = useAsyncData(useCallback(() => notificationApi.deliveries(100), []));
@@ -22,6 +22,7 @@ export function AlertNotificationChannels() {
       loading={channels.loading || rules.loading || deliveries.loading}
       error={channels.error ?? rules.error ?? deliveries.error}
       onChanged={refreshAll}
+      alertManagement={children}
     />
   );
 }
