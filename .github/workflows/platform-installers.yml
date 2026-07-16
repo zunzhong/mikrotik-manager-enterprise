@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 4.1.14
+        default: 4.1.15
       platform:
         description: Nền tảng cần build
         required: true

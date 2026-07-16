@@ -1242,11 +1242,11 @@ body {
     transform 0.16s ease;
 }
 .app-shell .nav-flyout-arrow svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1263,6 +1263,14 @@ body {
 }
 .app-shell .nav-entry.expanded .nav-flyout-arrow {
   transform: translateY(-50%) rotate(180deg);
+}
+.app-shell .sidebar-collapse-icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease;
+}
+.app-shell.sidebar-is-collapsed .sidebar-collapse-icon {
+  transform: rotate(180deg);
 }
 .app-shell .nav-children {
   animation: mme-nav-open 0.16s ease-out;

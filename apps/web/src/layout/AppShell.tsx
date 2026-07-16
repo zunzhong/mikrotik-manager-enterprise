@@ -72,7 +72,20 @@ export function AppShell() {
           aria-label={sidebarCollapsed ? t('expandMenu') : t('collapseMenu')}
           title={sidebarCollapsed ? t('expandMenu') : t('collapseMenu')}
         >
-          {sidebarCollapsed ? '>>' : '<<'}
+          <svg
+            className="sidebar-collapse-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="m11 17-5-5 5-5" />
+            <path d="m18 17-5-5 5-5" />
+          </svg>
         </button>
 
         <nav className="nav">
@@ -91,8 +104,8 @@ export function AppShell() {
                   <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
                   <span className="nav-flyout-arrow" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" focusable="false">
-                      <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="m6 9 6 6 6-6" />
                     </svg>
                   </span>
                 </button>
