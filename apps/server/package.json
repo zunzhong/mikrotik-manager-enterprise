@@ -1,6 +1,6 @@
 {
   "name": "@mme/server",
-  "version": "4.1.13",
+  "version": "4.1.14",
   "private": true,
   "type": "module",
   "scripts": {
