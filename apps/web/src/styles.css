@@ -1136,7 +1136,7 @@ body {
 .app-shell {
   --app-bg: #091321;
   --header-bg: #0b1626;
-  --sidebar-bg: #0d1829;
+  --sidebar-bg: #091525;
   --surface: #111e31;
   --surface-solid: #111e31;
   --surface-soft: #17263b;
@@ -1155,7 +1155,7 @@ body {
 .app-shell[data-theme='light'] {
   --app-bg: #e6ebf1;
   --header-bg: #edf1f5;
-  --sidebar-bg: #e9eef3;
+  --sidebar-bg: #dfe6ee;
   --surface: #f1f4f7;
   --surface-solid: #f1f4f7;
   --surface-soft: #e5eaf0;
@@ -1218,6 +1218,8 @@ body {
 .app-shell .nav-parent {
   width: 100%;
   border: 0;
+  background: transparent;
+  appearance: none;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -1233,6 +1235,8 @@ body {
   margin: 0;
   display: grid;
   place-items: center;
+  line-height: 0;
+  pointer-events: none;
   transform: translateY(-50%);
   border-radius: 7px;
   color: var(--muted);
