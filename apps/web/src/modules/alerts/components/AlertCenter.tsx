@@ -4,12 +4,14 @@ import { deviceApi } from '../../devices/device.api';
 import { alertApi, type AlertRecord } from '../alert.api';
 import type { AlertRule } from '../alert.api';
 import { useLanguage } from '../../../i18n/LanguageContext';
+import { notificationApi } from '../../notifications/notification.api';
 
 export function AlertCenter() {
   const { t, tr, formatDateTime } = useLanguage();
   const rules = useAsyncData(useCallback(() => alertApi.rules(), []));
   const alerts = useAsyncData(useCallback(() => alertApi.list(), []));
   const devices = useAsyncData(useCallback(() => deviceApi.list(), []));
+  const channels = useAsyncData(useCallback(() => notificationApi.channels(), []));
 
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [message, setMessage] = useState('');
@@ -34,8 +36,27 @@ export function AlertCenter() {
 
   async function setRule(rule: AlertRule, enabled: boolean) {
     if (!activeDeviceId) return;
-    await alertApi.configureDeviceRule(activeDeviceId, rule.key, enabled);
+    await alertApi.configureDeviceRule(activeDeviceId, rule.key, {
+      enabled,
+      channelIds: rule.channelIds ?? [],
+      notifyAllChannels: rule.notifyAllChannels ?? true,
+    });
     setMessage(`${enabled ? t('enable') : t('disable')}: ${rule.title}`);
+    await refreshDeviceRules();
+  }
+
+  async function setRuleRouting(rule: AlertRule, notifyAllChannels: boolean, channelIds: string[]) {
+    if (!activeDeviceId) return;
+    await alertApi.configureDeviceRule(activeDeviceId, rule.key, {
+      enabled: rule.enabled ?? rule.enabledByDefault ?? false,
+      notifyAllChannels,
+      channelIds,
+    });
+    setMessage(
+      notifyAllChannels
+        ? tr('Quy tắc sẽ gửi tới tất cả kênh đang bật.', 'Rule will notify all enabled channels.')
+        : tr(`Đã chọn ${channelIds.length} kênh nhận.`, `${channelIds.length} channels selected.`),
+    );
     await refreshDeviceRules();
   }
 
@@ -259,6 +280,40 @@ export function AlertCenter() {
                       {t('removeRule')}
                     </button>
                   ) : null}
+                </div>
+                <div className="rule-channel-routing">
+                  <strong>{tr('Kênh nhận cảnh báo', 'Notification channels')}</strong>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={rule.notifyAllChannels ?? true}
+                      onChange={(event) =>
+                        void setRuleRouting(rule, event.target.checked, rule.channelIds ?? [])
+                      }
+                    />
+                    {tr('Tất cả kênh đang bật', 'All enabled channels')}
+                  </label>
+                  {!(rule.notifyAllChannels ?? true)
+                    ? (channels.data ?? []).map((channel) => {
+                        const selected = (rule.channelIds ?? []).includes(channel.id);
+                        return (
+                          <label key={channel.id}>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={(event) => {
+                                const next = event.target.checked
+                                  ? [...new Set([...(rule.channelIds ?? []), channel.id])]
+                                  : (rule.channelIds ?? []).filter((id) => id !== channel.id);
+                                void setRuleRouting(rule, false, next);
+                              }}
+                            />
+                            {channel.name} · {channel.type}{' '}
+                            {channel.enabled ? '' : `(${tr('đã tắt', 'disabled')})`}
+                          </label>
+                        );
+                      })
+                    : null}
                 </div>
               </article>
             ))}

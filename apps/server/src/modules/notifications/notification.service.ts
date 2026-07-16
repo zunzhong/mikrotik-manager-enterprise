@@ -440,6 +440,25 @@ export class NotificationService {
     return deliveries;
   }
 
+  public enqueueToChannels(
+    payload: NotificationPayload,
+    requestedChannelIds?: string[],
+  ): NotificationDelivery[] {
+    const requested = requestedChannelIds === undefined ? null : new Set(requestedChannelIds);
+    const channels = notificationStore
+      .listChannels()
+      .filter((channel) => channel.enabled && (!requested || requested.has(channel.id)));
+
+    return channels.map((channel) =>
+      notificationStore.createDelivery({
+        ruleId: `device-rule:${String(payload.metadata?.ruleKey ?? 'alert')}`,
+        channelId: channel.id,
+        channelType: channel.type,
+        payload,
+      }),
+    );
+  }
+
   public async processPending(limit?: number) {
     const result = await notificationDeliveryWorker.processPending(limit);
 

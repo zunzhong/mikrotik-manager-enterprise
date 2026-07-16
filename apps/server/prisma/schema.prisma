@@ -289,12 +289,14 @@ model Alert {
 }
 
 model DeviceAlertRuleConfig {
-  id        String   @id @default(cuid())
-  deviceId  String
-  ruleKey   String
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  deviceId          String
+  ruleKey           String
+  enabled           Boolean  @default(true)
+  channelIds        Json?
+  notifyAllChannels Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 

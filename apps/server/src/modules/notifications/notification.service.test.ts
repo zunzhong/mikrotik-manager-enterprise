@@ -53,4 +53,31 @@ describe('NotificationService delivery routing', () => {
     expect(result?.sent).toBe(1);
     expect(notificationStore.listDeliveries()).toHaveLength(1);
   });
+
+  it('routes a device rule only to its explicitly selected channels', () => {
+    const selected = notificationStore.createChannel({
+      name: 'Selected',
+      type: 'in_app',
+      config: {},
+    });
+    notificationStore.createChannel({
+      name: 'Not selected',
+      type: 'webhook',
+      config: { url: 'https://example.test' },
+    });
+    const payload = {
+      eventType: 'ALERT_OPENED',
+      severity: 'critical' as const,
+      title: 'R1',
+      message: 'Interface ether1 changed to Down',
+      source: 'test',
+      createdAt: new Date().toISOString(),
+      metadata: { ruleKey: 'interface.down' },
+    };
+
+    expect(
+      notificationService.enqueueToChannels(payload, [selected.id]).map((item) => item.channelId),
+    ).toEqual([selected.id]);
+    expect(notificationService.enqueueToChannels(payload, [])).toHaveLength(0);
+  });
 });

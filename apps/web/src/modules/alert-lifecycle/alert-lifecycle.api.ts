@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import type {
   AlertLifecycleActionInput,
   AlertLifecycleBulkActionInput,
@@ -39,6 +39,11 @@ export const alertLifecycleApi = {
   active: () => apiGet<AlertLifecycleItem[]>('/api/v1/alert-lifecycle/active'),
 
   get: (id: string) => apiGet<AlertLifecycleItem>(`/api/v1/alert-lifecycle/${id}`),
+
+  delete: (id: string) =>
+    apiDelete<{ deleted: number; id: string }>(`/api/v1/alert-lifecycle/${id}`),
+
+  deleteAll: () => apiDelete<{ deleted: number }>('/api/v1/alert-lifecycle'),
 
   acknowledge: (id: string, input: AlertLifecycleActionInput = {}) =>
     apiPost<AlertLifecycleItem>(`/api/v1/alert-lifecycle/${id}/acknowledge`, input),

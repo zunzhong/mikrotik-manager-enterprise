@@ -4,6 +4,22 @@ import type { NotificationPayload, NotificationSeverity } from './notification.t
 
 let unsubscribeNotificationEventBridge: (() => void) | null = null;
 
+const deviceRuleManagedEvents = new Set([
+  'DEVICE_ONLINE',
+  'DEVICE_OFFLINE',
+  'DEVICE_WARNING',
+  'DEVICE_CRITICAL',
+  'CPU_HIGH',
+  'MEMORY_LOW',
+  'DISK_LOW',
+  'TEMPERATURE_HIGH',
+  'INTERFACE_UP',
+  'INTERFACE_DOWN',
+  'ROUTEROS_LOG_ERROR',
+  'ROUTEROS_LOG_WARNING',
+  'ROUTEROS_LOGIN_FAILED',
+]);
+
 function severityFromEvent(event: AppEvent): NotificationSeverity {
   if (event.severity === 'critical') return 'critical';
   if (event.severity === 'warning') return 'warning';
@@ -27,8 +43,23 @@ function payloadFromEvent(event: AppEvent): NotificationPayload {
 }
 
 async function handleEvent(event: AppEvent): Promise<void> {
+  // These events are routed only after the per-device alert rule has accepted them
+  // and emitted ALERT_OPENED. This prevents disabled rules from leaking notifications.
+  if (deviceRuleManagedEvents.has(event.type)) return;
   const payload = payloadFromEvent(event);
-  const deliveries = notificationService.enqueue(payload);
+  const configuredIds = Array.isArray(event.metadata?.notificationChannelIds)
+    ? event.metadata.notificationChannelIds.filter(
+        (value): value is string => typeof value === 'string',
+      )
+    : [];
+  const useDeviceRouting =
+    event.type === 'ALERT_OPENED' && typeof event.metadata?.notifyAllChannels === 'boolean';
+  const deliveries = useDeviceRouting
+    ? notificationService.enqueueToChannels(
+        payload,
+        event.metadata?.notifyAllChannels === true ? undefined : configuredIds,
+      )
+    : notificationService.enqueue(payload);
 
   if (deliveries.length === 0) {
     return;

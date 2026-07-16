@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 3;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 4;
 
 interface Migration {
   version: number;
@@ -46,6 +46,13 @@ const migrations: Migration[] = [
       'CREATE INDEX IF NOT EXISTS "DeviceAlertRuleConfig_ruleKey_idx" ON "DeviceAlertRuleConfig"("ruleKey")',
     ],
   },
+  {
+    version: 4,
+    statements: [
+      'ALTER TABLE "DeviceAlertRuleConfig" ADD COLUMN "channelIds" JSONB',
+      'ALTER TABLE "DeviceAlertRuleConfig" ADD COLUMN "notifyAllChannels" BOOLEAN NOT NULL DEFAULT true',
+    ],
+  },
 ];
 
 export function ensureSqliteSchemaVersion(databasePath: string): number {
@@ -73,7 +80,17 @@ export function ensureSqliteSchemaVersion(databasePath: string): number {
     for (const migration of migrations.filter((item) => item.version > version)) {
       database.exec('BEGIN IMMEDIATE');
       try {
-        for (const statement of migration.statements) database.exec(statement);
+        for (const statement of migration.statements) {
+          try {
+            database.exec(statement);
+          } catch (error) {
+            // A fresh Prisma-created database already contains columns from the current
+            // schema. Treat only duplicate-column ALTERs as idempotent migrations.
+            if (!(error instanceof Error) || !/duplicate column name/i.test(error.message)) {
+              throw error;
+            }
+          }
+        }
         database
           .prepare(
             'INSERT INTO "MME_SchemaVersion" ("id", "version", "appliedAt") VALUES (1, ?, ?) ON CONFLICT("id") DO UPDATE SET "version" = excluded."version", "appliedAt" = excluded."appliedAt"',

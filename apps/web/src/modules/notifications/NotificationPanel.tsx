@@ -394,32 +394,6 @@ export function NotificationPanel({
       {actionError ? <div className="error-banner">{actionError}</div> : null}
       {actionSuccess ? <div className="notification-success">{actionSuccess}</div> : null}
 
-      <div className="notification-workflow" aria-label="Quy trình hoạt động cảnh báo">
-        <div>
-          <span>1</span>
-          <strong>Cấu hình kênh</strong>
-          <small>Nhập địa chỉ và credential</small>
-        </div>
-        <b>→</b>
-        <div>
-          <span>2</span>
-          <strong>Kiểm thử</strong>
-          <small>Xác nhận gửi thật thành công</small>
-        </div>
-        <b>→</b>
-        <div>
-          <span>3</span>
-          <strong>Gắn quy tắc</strong>
-          <small>Chọn sự kiện và mức cảnh báo</small>
-        </div>
-        <b>→</b>
-        <div>
-          <span>4</span>
-          <strong>Theo dõi</strong>
-          <small>Xem trạng thái và lỗi gửi</small>
-        </div>
-      </div>
-
       <div className="notification-panel__cards">
         <SummaryCard
           label="Channels"

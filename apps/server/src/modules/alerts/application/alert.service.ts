@@ -4,6 +4,7 @@ import { alertRepository, type CreateAlertInput } from '../infrastructure/alert.
 import { alertRuleEvaluators } from './alert-rule-registry.js';
 import { prisma } from '../../../database/index.js';
 import { HttpError } from '../../../errors/http-error.js';
+import { alertLifecycleService } from '../../alert-lifecycle/alert-lifecycle.service.js';
 
 export interface EvaluateAlertsInput {
   deviceId?: string;
@@ -18,24 +19,48 @@ export class AlertService {
   }
 
   public async listDeviceRules(deviceId: string) {
+    await prisma.deviceAlertRuleConfig.deleteMany({
+      where: {
+        deviceId,
+        ruleKey: { notIn: alertRules.map((rule) => rule.key) },
+      },
+    });
     const configs = await prisma.deviceAlertRuleConfig.findMany({ where: { deviceId } });
     const byKey = new Map(configs.map((config) => [config.ruleKey, config]));
     return alertRules.map((rule) => ({
       ...rule,
       enabled: byKey.get(rule.key)?.enabled ?? rule.enabledByDefault,
+      channelIds: Array.isArray(byKey.get(rule.key)?.channelIds)
+        ? (byKey.get(rule.key)?.channelIds as string[])
+        : [],
+      notifyAllChannels: byKey.get(rule.key)?.notifyAllChannels ?? true,
       configured: byKey.has(rule.key),
     }));
   }
 
-  public async configureDeviceRule(deviceId: string, ruleKey: string, enabled: boolean) {
+  public async configureDeviceRule(
+    deviceId: string,
+    ruleKey: string,
+    input: { enabled: boolean; channelIds?: string[]; notifyAllChannels?: boolean },
+  ) {
     if (!alertRules.some((rule) => rule.key === ruleKey)) {
       throw new HttpError(404, 'ALERT_RULE_NOT_FOUND', 'Alert rule not found');
     }
     await prisma.device.findUniqueOrThrow({ where: { id: deviceId } });
     return prisma.deviceAlertRuleConfig.upsert({
       where: { deviceId_ruleKey: { deviceId, ruleKey } },
-      create: { deviceId, ruleKey, enabled },
-      update: { enabled },
+      create: {
+        deviceId,
+        ruleKey,
+        enabled: input.enabled,
+        channelIds: input.channelIds ?? [],
+        notifyAllChannels: input.notifyAllChannels ?? true,
+      },
+      update: {
+        enabled: input.enabled,
+        channelIds: input.channelIds,
+        notifyAllChannels: input.notifyAllChannels,
+      },
     });
   }
 
@@ -101,14 +126,27 @@ export class AlertService {
 
     if (input.createAlerts ?? true) {
       for (const item of triggered) {
-        const alert = await alertRepository.createOrRefresh({
+        const config = item.deviceId
+          ? await prisma.deviceAlertRuleConfig.findUnique({
+              where: { deviceId_ruleKey: { deviceId: item.deviceId, ruleKey: item.rule.key } },
+            })
+          : null;
+        const metadata = (item.metadata ?? {}) as Record<string, unknown>;
+        const device = metadata.device as { name?: string } | undefined;
+        const alert = await alertLifecycleService.openOrUpdate({
           deviceId: item.deviceId,
           ruleKey: item.rule.key,
           severity: item.rule.severity,
           title: item.title,
           message: item.message,
           source: item.rule.source,
-          metadata: item.metadata,
+          metadata: {
+            ...metadata,
+            deviceName: device?.name,
+            deviceIdentity: device?.name,
+            notificationChannelIds: Array.isArray(config?.channelIds) ? config.channelIds : [],
+            notifyAllChannels: config?.notifyAllChannels ?? true,
+          },
         });
 
         await eventBus.emit('alert.created', {

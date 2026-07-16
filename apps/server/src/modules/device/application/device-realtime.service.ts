@@ -24,6 +24,7 @@ export interface DeviceRealtimeSnapshot {
   routerboard?: object;
   health?: object[];
   interfaces?: object[];
+  logs?: object[];
   healthReport?: HealthReport;
 }
 
@@ -102,10 +103,51 @@ function severityFromIssue(issue: HealthIssue): AppEventSeverity {
   return 'info';
 }
 
+function recordValue(record: object, key: string): unknown {
+  return (record as Record<string, unknown>)[key];
+}
+
+function recordText(record: object, key: string): string {
+  const value = recordValue(record, key);
+  return typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+}
+
+function routerOsBoolean(value: unknown): boolean {
+  return value === true || value === 'true' || value === 'yes' || value === '1';
+}
+
+function identityName(identity: object | undefined, fallback: string): string {
+  const name = identity ? recordText(identity, 'name') : '';
+  return name || fallback;
+}
+
+function interfaceState(interfaces: object[]): Map<string, boolean> {
+  return new Map(
+    interfaces
+      .map(
+        (item) =>
+          [recordText(item, 'name'), routerOsBoolean(recordValue(item, 'running'))] as const,
+      )
+      .filter(([name]) => name.length > 0),
+  );
+}
+
+function logFingerprint(log: object): string {
+  return [
+    recordText(log, '.id'),
+    recordText(log, 'time'),
+    recordText(log, 'topics'),
+    recordText(log, 'message'),
+  ].join('|');
+}
+
 export class DeviceRealtimeService {
   private readonly cache = new Map<string, DeviceRealtimeCacheEntry>();
   private readonly lastOnlineState = new Map<string, boolean>();
   private readonly lastHealthFingerprint = new Map<string, string>();
+  private readonly lastInterfaceState = new Map<string, Map<string, boolean>>();
+  private readonly seenLogFingerprints = new Map<string, Set<string>>();
+  private readonly lastDeviceIdentity = new Map<string, string>();
 
   public async getSnapshot(deviceId: string, ttlMs = DEFAULT_TTL_MS): Promise<DeviceRealtimeView> {
     const cached = this.cache.get(deviceId);
@@ -156,6 +198,7 @@ export class DeviceRealtimeService {
       const routerboard = (await safePrint(client, '/system/routerboard/print'))[0] ?? {};
       const health = await safePrint<RouterOsHealthLike>(client, '/system/health/print');
       const interfaces = await safePrint(client, '/interface/print');
+      const logs = await safePrint(client, '/log/print');
 
       const healthReport = calculateHealthScore(resource, health);
 
@@ -170,6 +213,7 @@ export class DeviceRealtimeService {
         routerboard,
         health,
         interfaces,
+        logs,
         healthReport,
       };
 
@@ -228,12 +272,18 @@ export class DeviceRealtimeService {
     this.cache.delete(deviceId);
     this.lastOnlineState.delete(deviceId);
     this.lastHealthFingerprint.delete(deviceId);
+    this.lastInterfaceState.delete(deviceId);
+    this.seenLogFingerprints.delete(deviceId);
+    this.lastDeviceIdentity.delete(deviceId);
   }
 
   public clearAll(): void {
     this.cache.clear();
     this.lastOnlineState.clear();
     this.lastHealthFingerprint.clear();
+    this.lastInterfaceState.clear();
+    this.seenLogFingerprints.clear();
+    this.lastDeviceIdentity.clear();
   }
 
   private storeSnapshot(
@@ -264,10 +314,18 @@ export class DeviceRealtimeService {
     snapshot: DeviceRealtimeSnapshot,
   ): void {
     const previousOnline = this.lastOnlineState.get(deviceId);
+    const identityFromSnapshot = identityName(snapshot.identity, '');
+    if (identityFromSnapshot) this.lastDeviceIdentity.set(deviceId, identityFromSnapshot);
+    const deviceIdentity =
+      identityFromSnapshot || this.lastDeviceIdentity.get(deviceId) || deviceName;
 
+    const shouldPublishOnlineState =
+      previousOnline !== snapshot.online && (previousOnline !== undefined || !snapshot.online);
     if (previousOnline !== snapshot.online) {
       this.lastOnlineState.set(deviceId, snapshot.online);
+    }
 
+    if (shouldPublishOnlineState) {
       eventBus.publish({
         type: snapshot.online ? 'DEVICE_ONLINE' : 'DEVICE_OFFLINE',
         severity: snapshot.online ? 'success' : 'critical',
@@ -282,6 +340,7 @@ export class DeviceRealtimeService {
           latencyMs: snapshot.latencyMs,
           error: snapshot.error,
           collectedAt: snapshot.collectedAt,
+          deviceIdentity,
         },
       });
     }
@@ -289,6 +348,9 @@ export class DeviceRealtimeService {
     if (!snapshot.online || !snapshot.healthReport) {
       return;
     }
+
+    this.publishInterfaceEvents(deviceId, deviceName, deviceIdentity, snapshot);
+    this.publishLogEvents(deviceId, deviceName, deviceIdentity, snapshot);
 
     const currentFingerprint = issueFingerprint(snapshot.healthReport.issues);
     const previousFingerprint = this.lastHealthFingerprint.get(deviceId) ?? '';
@@ -313,6 +375,7 @@ export class DeviceRealtimeService {
             score: snapshot.healthReport.score,
             status: snapshot.healthReport.status,
             collectedAt: snapshot.collectedAt,
+            deviceIdentity,
           },
         });
       }
@@ -337,6 +400,91 @@ export class DeviceRealtimeService {
           threshold: issue.threshold,
           unit: issue.unit,
           recommendation: issue.recommendation,
+          collectedAt: snapshot.collectedAt,
+          deviceIdentity,
+        },
+      });
+    }
+  }
+
+  private publishInterfaceEvents(
+    deviceId: string,
+    deviceName: string,
+    deviceIdentity: string,
+    snapshot: DeviceRealtimeSnapshot,
+  ): void {
+    const current = interfaceState(snapshot.interfaces ?? []);
+    const previous = this.lastInterfaceState.get(deviceId);
+    this.lastInterfaceState.set(deviceId, current);
+    if (!previous) return;
+
+    for (const [name, running] of current) {
+      const wasRunning = previous.get(name);
+      if (wasRunning === undefined || wasRunning === running) continue;
+      eventBus.publish({
+        type: running ? 'INTERFACE_UP' : 'INTERFACE_DOWN',
+        severity: 'critical',
+        title: running ? 'Interface changed to Up' : 'Interface changed to Down',
+        message: `${deviceIdentity}: interface ${name} changed from ${wasRunning ? 'Up' : 'Down'} to ${running ? 'Up' : 'Down'}.`,
+        source: 'realtime-engine',
+        deviceId,
+        deviceName,
+        metadata: {
+          deviceIdentity,
+          interfaceName: name,
+          previousRunning: wasRunning,
+          running,
+          collectedAt: snapshot.collectedAt,
+        },
+      });
+    }
+  }
+
+  private publishLogEvents(
+    deviceId: string,
+    deviceName: string,
+    deviceIdentity: string,
+    snapshot: DeviceRealtimeSnapshot,
+  ): void {
+    const logs = snapshot.logs ?? [];
+    const previous = this.seenLogFingerprints.get(deviceId);
+    const current = new Set(logs.map(logFingerprint));
+    this.seenLogFingerprints.set(deviceId, new Set([...current].slice(-500)));
+    if (!previous) return;
+
+    for (const log of logs) {
+      const fingerprint = logFingerprint(log);
+      if (previous.has(fingerprint)) continue;
+      const topics = recordText(log, 'topics').toLowerCase();
+      const message = recordText(log, 'message');
+      const searchable = `${topics} ${message}`.toLowerCase();
+      const loginFailed = /login.*fail|fail.*login|auth(?:entication)?.*fail/.test(searchable);
+      const topicList = topics.split(',').map((topic) => topic.trim());
+      const isError = topicList.includes('error');
+      const isWarning = topicList.includes('warning');
+      if (!loginFailed && !isError && !isWarning) continue;
+
+      eventBus.publish({
+        type: loginFailed
+          ? 'ROUTEROS_LOGIN_FAILED'
+          : isError
+            ? 'ROUTEROS_LOG_ERROR'
+            : 'ROUTEROS_LOG_WARNING',
+        severity: loginFailed || isError ? 'critical' : 'warning',
+        title: loginFailed
+          ? 'RouterOS login failed'
+          : isError
+            ? 'RouterOS error log'
+            : 'RouterOS warning log',
+        message: `${deviceIdentity}: ${message || '(empty RouterOS log message)'}`,
+        source: 'routeros-log',
+        deviceId,
+        deviceName,
+        metadata: {
+          deviceIdentity,
+          routerOsLog: log as Record<string, unknown>,
+          topics,
+          logTime: recordText(log, 'time'),
           collectedAt: snapshot.collectedAt,
         },
       });

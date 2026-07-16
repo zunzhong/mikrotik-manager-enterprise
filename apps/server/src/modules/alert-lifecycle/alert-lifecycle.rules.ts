@@ -9,6 +9,12 @@ const alertEventTypes = new Set<AppEventType>([
   'MEMORY_LOW',
   'DISK_LOW',
   'TEMPERATURE_HIGH',
+  'DEVICE_ONLINE',
+  'INTERFACE_UP',
+  'INTERFACE_DOWN',
+  'ROUTEROS_LOG_ERROR',
+  'ROUTEROS_LOG_WARNING',
+  'ROUTEROS_LOGIN_FAILED',
 ]);
 
 const healthRuleKeys = [
@@ -26,8 +32,10 @@ function normalizeSeverity(severity: AppEvent['severity']): AlertLifecycleSeveri
   return 'info';
 }
 
-function ruleKeyForEventType(type: AppEventType): string {
+export function ruleKeyForEventType(type: AppEventType): string {
   switch (type) {
+    case 'DEVICE_ONLINE':
+      return 'device.online';
     case 'DEVICE_OFFLINE':
       return 'device.offline';
     case 'CPU_HIGH':
@@ -42,6 +50,16 @@ function ruleKeyForEventType(type: AppEventType): string {
       return 'health.device_critical';
     case 'DEVICE_WARNING':
       return 'health.device_warning';
+    case 'INTERFACE_UP':
+      return 'interface.up';
+    case 'INTERFACE_DOWN':
+      return 'interface.down';
+    case 'ROUTEROS_LOG_ERROR':
+      return 'log.error';
+    case 'ROUTEROS_LOG_WARNING':
+      return 'log.warning';
+    case 'ROUTEROS_LOGIN_FAILED':
+      return 'log.login_failed';
     default:
       return 'event.unknown';
   }
@@ -50,6 +68,7 @@ function ruleKeyForEventType(type: AppEventType): string {
 export function alertInputFromEvent(event: AppEvent): OpenAlertInput | null {
   if (!event.deviceId) return null;
   if (!alertEventTypes.has(event.type)) return null;
+  if (event.type === 'DEVICE_ONLINE' && event.source === 'health-engine') return null;
 
   return {
     deviceId: event.deviceId,
@@ -65,6 +84,10 @@ export function alertInputFromEvent(event: AppEvent): OpenAlertInput | null {
       eventCreatedAt: event.createdAt,
       deviceName: event.deviceName,
       eventMetadata: event.metadata,
+      deviceIdentity:
+        typeof event.metadata?.deviceIdentity === 'string'
+          ? event.metadata.deviceIdentity
+          : event.deviceName,
     },
   };
 }
@@ -72,9 +95,10 @@ export function alertInputFromEvent(event: AppEvent): OpenAlertInput | null {
 export function alertRuleKeysToResolve(event: AppEvent): string[] {
   if (!event.deviceId) return [];
 
-  if (event.type !== 'DEVICE_ONLINE') {
-    return [];
-  }
+  if (event.type === 'DEVICE_OFFLINE') return ['device.online'];
+  if (event.type === 'INTERFACE_UP') return ['interface.down'];
+  if (event.type === 'INTERFACE_DOWN') return ['interface.up'];
+  if (event.type !== 'DEVICE_ONLINE') return [];
 
   const keys = ['device.offline'];
 

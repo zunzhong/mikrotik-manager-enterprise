@@ -1182,6 +1182,7 @@ body {
   border-color: var(--border);
   box-shadow: none;
   backdrop-filter: none;
+  border-right: 0;
 }
 .app-shell .brand,
 .app-shell .topbar {
@@ -1190,6 +1191,9 @@ body {
   background: var(--header-bg);
   border-bottom: 1px solid var(--border);
   backdrop-filter: none;
+}
+.app-shell .brand {
+  border-right: 0;
 }
 .app-shell .brand {
   margin: 0 -14px 18px;
@@ -1217,6 +1221,19 @@ body {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  position: relative;
+  padding-right: 48px;
+}
+.app-shell .nav-flyout-arrow {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
 }
 .app-shell .nav-item:hover,
 .app-shell .nav-item.active,
@@ -1226,7 +1243,7 @@ body {
   background: var(--surface-hover);
 }
 .app-shell .nav-entry.expanded .nav-flyout-arrow {
-  transform: rotate(180deg);
+  transform: translateY(-50%) rotate(180deg);
 }
 .app-shell .nav-children {
   animation: mme-nav-open 0.16s ease-out;
@@ -1250,6 +1267,18 @@ body {
   font-style: italic;
   font-weight: 650;
   color: var(--text);
+  font-size: 12px;
+}
+.app-shell .sidebar-collapse {
+  top: 50%;
+  right: -22px;
+  width: 44px;
+  height: 34px;
+  border-radius: 8px;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -2px;
 }
 .app-shell :is(.theme-toggle, .logout-button, .small-button, button, input, textarea, select) {
   font-family: inherit;
@@ -1294,7 +1323,35 @@ body {
 }
 .theme-switch b {
   color: var(--muted);
-  font-size: 13px;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  margin-block: -4px;
+  font-size: 25px;
+  font-weight: 300;
+  line-height: 1;
+  transform: scaleY(1.45);
+}
+.rule-channel-routing {
+  grid-column: 1 / -1;
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.rule-channel-routing strong {
+  width: 100%;
+}
+.rule-channel-routing label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.dashboard-grid--priority {
+  margin-top: 18px;
 }
 .theme-switch[data-active-theme='dark'] .theme-switch__moon,
 .theme-switch[data-active-theme='light'] .theme-switch__sun {

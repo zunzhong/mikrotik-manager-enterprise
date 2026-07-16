@@ -2,7 +2,6 @@ import { AuthSessionDashboardSection } from '../modules/auth-session';
 import { useCallback } from 'react';
 import { usePollingData } from '../hooks/usePollingData';
 import { dashboardApi } from '../modules/dashboard/dashboard.api';
-import { AuditLogPanel } from '../modules/audit/AuditLogPanel';
 import { RbacDashboardSection } from '../modules/rbac';
 import { alertLifecycleApi } from '../modules/alert-lifecycle/alert-lifecycle.api';
 import { AlertLifecyclePanel } from '../modules/alert-lifecycle/AlertLifecyclePanel';
@@ -17,13 +16,12 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export function DashboardPage() {
-  const { formatDateTime, tr } = useLanguage();
+  const { tr } = useLanguage();
   const loadSummary = useCallback(() => dashboardApi.summary(), []);
   const loadDevices = useCallback(() => dashboardApi.devices(), []);
   const loadAlerts = useCallback(() => dashboardApi.alerts(), []);
   const loadCompliance = useCallback(() => dashboardApi.compliance(), []);
   const loadInventory = useCallback(() => dashboardApi.inventory(), []);
-  const loadActivity = useCallback(() => dashboardApi.activity(), []);
   const loadRealtimeOverview = useCallback(() => deviceApi.getRealtimeOverview(), []);
   const loadHealthEvents = useCallback(() => eventApi.list({ limit: 25 }), []);
   const loadAlertLifecycleSummary = useCallback(() => alertLifecycleApi.summary(), []);
@@ -34,7 +32,6 @@ export function DashboardPage() {
   const alerts = usePollingData(loadAlerts, { enabled: true, intervalMs: 30000 });
   const compliance = usePollingData(loadCompliance, { enabled: true, intervalMs: 60000 });
   const inventory = usePollingData(loadInventory, { enabled: true, intervalMs: 60000 });
-  const activity = usePollingData(loadActivity, { enabled: true, intervalMs: 30000 });
   const realtimeOverview = usePollingData(loadRealtimeOverview, {
     enabled: true,
     intervalMs: 30000,
@@ -67,7 +64,6 @@ export function DashboardPage() {
     alerts.refresh();
     compliance.refresh();
     inventory.refresh();
-    activity.refresh();
     realtimeOverview.refresh();
     healthEvents.refresh();
     alertLifecycleSummary.refresh();
@@ -81,8 +77,8 @@ export function DashboardPage() {
           <h2>{tr('Bảng điều khiển Enterprise', 'Enterprise Dashboard')}</h2>
           <p>
             {tr(
-              'Tổng hợp trực tiếp thiết bị, Inventory, Compliance, cảnh báo và hoạt động.',
-              'Live summary for devices, inventory, compliance, alerts and activity.',
+              'Tổng hợp trực tiếp thiết bị, Inventory, Compliance và cảnh báo.',
+              'Live summary for devices, inventory, compliance and alerts.',
             )}
           </p>
         </div>
@@ -96,7 +92,6 @@ export function DashboardPage() {
           alerts.setEnabled(enabled);
           compliance.setEnabled(enabled);
           inventory.setEnabled(enabled);
-          activity.setEnabled(enabled);
           realtimeOverview.setEnabled(enabled);
           healthEvents.setEnabled(enabled);
           alertLifecycleSummary.setEnabled(enabled);
@@ -109,7 +104,6 @@ export function DashboardPage() {
           alerts.setIntervalMs(intervalMs);
           compliance.setIntervalMs(intervalMs);
           inventory.setIntervalMs(intervalMs);
-          activity.setIntervalMs(intervalMs);
           realtimeOverview.setIntervalMs(intervalMs);
           healthEvents.setIntervalMs(intervalMs);
           alertLifecycleSummary.setIntervalMs(intervalMs);
@@ -162,41 +156,19 @@ export function DashboardPage() {
 
       <DashboardCharts summary={data} realtime={realtimeOverview.data} />
 
-      <HealthDashboardSummary
-        overview={realtimeOverview.data}
-        events={healthEvents.data ?? []}
-        loading={realtimeOverview.loading || healthEvents.loading}
-        error={realtimeOverview.error ?? healthEvents.error}
-        onRefresh={() => {
-          realtimeOverview.refresh();
-          healthEvents.refresh();
-        }}
-      />
-
-      <AlertLifecyclePanel
-        summary={alertLifecycleSummary.data}
-        alerts={activeAlerts.data ?? []}
-        loading={alertLifecycleSummary.loading || activeAlerts.loading}
-        error={alertLifecycleSummary.error ?? activeAlerts.error}
-        onChanged={() => {
-          alertLifecycleSummary.refresh();
-          activeAlerts.refresh();
-          alerts.refresh();
-          activity.refresh();
-        }}
-      />
-
-      <AuditLogPanel />
-
-      <RbacDashboardSection />
-      <AuthSessionDashboardSection />
-
-      <div className="dashboard-grid">
+      <div className="dashboard-grid dashboard-grid--priority">
         <WidgetCard
           title={tr('Trạng thái thiết bị', 'Device Status')}
-          description={tr('Trạng thái mới nhất của thiết bị', 'Latest managed device states')}
+          description={tr(
+            `Tổng số ${data?.devices.total ?? 0} thiết bị đang quản lý`,
+            `${data?.devices.total ?? 0} managed devices in total`,
+          )}
         >
           <div className="list">
+            <Link className="list-row" to="/devices/list">
+              <span>{tr('Tổng thiết bị', 'Total devices')}</span>
+              <strong>{data?.devices.total ?? 0}</strong>
+            </Link>
             {(devices.data?.byStatus ?? []).map((item) => (
               <Link
                 className="list-row"
@@ -207,9 +179,6 @@ export function DashboardPage() {
                 <strong>{item.count}</strong>
               </Link>
             ))}
-            {!devices.loading && (devices.data?.byStatus.length ?? 0) === 0 ? (
-              <p className="muted">No device status yet.</p>
-            ) : null}
           </div>
         </WidgetCard>
 
@@ -239,7 +208,34 @@ export function DashboardPage() {
             ) : null}
           </div>
         </WidgetCard>
+      </div>
 
+      <HealthDashboardSummary
+        overview={realtimeOverview.data}
+        events={healthEvents.data ?? []}
+        loading={realtimeOverview.loading || healthEvents.loading}
+        error={realtimeOverview.error ?? healthEvents.error}
+        onRefresh={() => {
+          realtimeOverview.refresh();
+          healthEvents.refresh();
+        }}
+      />
+
+      <AlertLifecyclePanel
+        summary={alertLifecycleSummary.data}
+        alerts={activeAlerts.data ?? []}
+        loading={alertLifecycleSummary.loading || activeAlerts.loading}
+        error={alertLifecycleSummary.error ?? activeAlerts.error}
+        onChanged={() => {
+          alertLifecycleSummary.refresh();
+          activeAlerts.refresh();
+          alerts.refresh();
+        }}
+      />
+
+      <AuthSessionDashboardSection />
+
+      <div className="dashboard-grid">
         <WidgetCard
           title="Compliance"
           description={tr('Kết quả quét compliance gần đây', 'Recent compliance scan results')}
@@ -280,26 +276,9 @@ export function DashboardPage() {
             </div>
           </div>
         </WidgetCard>
-
-        <WidgetCard
-          title={tr('Hoạt động gần đây', 'Recent Activity')}
-          description={tr('Dòng thời gian audit và cảnh báo', 'Audit and alert timeline')}
-        >
-          <div className="list">
-            {(activity.data ?? []).slice(0, 8).map((item) => (
-              <div className="list-row vertical" key={`${item.type}-${item.id}`}>
-                <span>{item.title}</span>
-                <small>
-                  {item.type} • {formatDateTime(item.createdAt)}
-                </small>
-              </div>
-            ))}
-            {!activity.loading && (activity.data?.length ?? 0) === 0 ? (
-              <p className="muted">No activity yet.</p>
-            ) : null}
-          </div>
-        </WidgetCard>
       </div>
+
+      <RbacDashboardSection />
     </div>
   );
 }

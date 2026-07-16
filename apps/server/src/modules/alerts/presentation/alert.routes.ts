@@ -8,7 +8,11 @@ const evaluateAlertsSchema = z.object({
   createAlerts: z.boolean().default(true),
 });
 const deviceRuleParamsSchema = z.object({ id: z.string().min(1), ruleKey: z.string().min(1) });
-const deviceRuleSchema = z.object({ enabled: z.boolean() });
+const deviceRuleSchema = z.object({
+  enabled: z.boolean(),
+  channelIds: z.array(z.string().min(1)).max(100).optional(),
+  notifyAllChannels: z.boolean().optional(),
+});
 const alertParamsSchema = z.object({ id: z.string().min(1) });
 const deleteAlertsQuerySchema = z.object({ deviceId: z.string().min(1).optional() });
 
@@ -25,8 +29,8 @@ export async function alertRoutes(app: FastifyInstance): Promise<void> {
 
   app.put('/api/v1/devices/:id/alerts/rules/:ruleKey', async (request) => {
     const { id, ruleKey } = deviceRuleParamsSchema.parse(request.params);
-    const { enabled } = deviceRuleSchema.parse(request.body);
-    return { success: true, data: await alertService.configureDeviceRule(id, ruleKey, enabled) };
+    const body = deviceRuleSchema.parse(request.body);
+    return { success: true, data: await alertService.configureDeviceRule(id, ruleKey, body) };
   });
 
   app.delete('/api/v1/devices/:id/alerts/rules/:ruleKey', async (request) => {

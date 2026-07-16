@@ -9,6 +9,8 @@ export interface AlertRule {
   enabledByDefault?: boolean;
   enabled?: boolean;
   configured?: boolean;
+  channelIds?: string[];
+  notifyAllChannels?: boolean;
 }
 
 export interface AlertRecord {
@@ -44,8 +46,11 @@ export const alertApi = {
   rules: () => apiGet<AlertRule[]>('/api/v1/alerts/rules'),
   deviceRules: (deviceId: string) =>
     apiGet<AlertRule[]>(`/api/v1/devices/${deviceId}/alerts/rules`),
-  configureDeviceRule: (deviceId: string, ruleKey: string, enabled: boolean) =>
-    apiPut(`/api/v1/devices/${deviceId}/alerts/rules/${encodeURIComponent(ruleKey)}`, { enabled }),
+  configureDeviceRule: (
+    deviceId: string,
+    ruleKey: string,
+    input: { enabled: boolean; channelIds?: string[]; notifyAllChannels?: boolean },
+  ) => apiPut(`/api/v1/devices/${deviceId}/alerts/rules/${encodeURIComponent(ruleKey)}`, input),
   removeDeviceRuleConfig: (deviceId: string, ruleKey: string) =>
     apiDelete(`/api/v1/devices/${deviceId}/alerts/rules/${encodeURIComponent(ruleKey)}`),
   list: () => apiGet<AlertRecord[]>('/api/v1/alerts'),

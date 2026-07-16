@@ -150,6 +150,37 @@ export function AlertLifecyclePanel({
     }
   }
 
+  async function deleteAlert(alert: AlertLifecycleItem) {
+    if (!window.confirm(`Delete alert “${alert.title}” permanently?`)) return;
+    setBusyId(alert.id);
+    setActionError(null);
+    try {
+      await alertLifecycleApi.delete(alert.id);
+      setSelectedIds((current) => current.filter((id) => id !== alert.id));
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot delete alert');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function deleteAllAlerts() {
+    if (alerts.length === 0 || !window.confirm('Delete all alert lifecycle records permanently?'))
+      return;
+    setBulkBusy(true);
+    setActionError(null);
+    try {
+      await alertLifecycleApi.deleteAll();
+      clearSelection();
+      onChanged?.();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Cannot delete all alerts');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   return (
     <section className="alert-lifecycle-panel">
       <div className="alert-lifecycle-panel__header">
@@ -223,6 +254,15 @@ export function AlertLifecyclePanel({
           <button type="button" disabled={selectedCount === 0 || bulkBusy} onClick={clearSelection}>
             Clear
           </button>
+
+          <button
+            type="button"
+            className="danger-button"
+            disabled={alerts.length === 0 || bulkBusy}
+            onClick={() => void deleteAllAlerts()}
+          >
+            Delete all
+          </button>
         </div>
 
         <div className="alert-lifecycle-panel__list">
@@ -283,6 +323,15 @@ export function AlertLifecyclePanel({
                     onClick={() => void resolveDeviceActive(alert)}
                   >
                     Resolve Device
+                  </button>
+
+                  <button
+                    type="button"
+                    className="danger-button"
+                    disabled={busy || bulkBusy}
+                    onClick={() => void deleteAlert(alert)}
+                  >
+                    Delete
                   </button>
                 </div>
               </article>

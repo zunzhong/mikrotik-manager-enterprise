@@ -32,9 +32,15 @@ describe('SQLite migration service', () => {
         `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'DeviceAlertRuleConfig'`,
       )
       .get() as { name: string } | undefined;
+    const alertRuleColumns = database
+      .prepare(`PRAGMA table_info("DeviceAlertRuleConfig")`)
+      .all() as Array<{ name: string }>;
     database.close();
     expect(trafficTable?.name).toBe('TrafficSample');
     expect(alertRuleConfigTable?.name).toBe('DeviceAlertRuleConfig');
+    expect(alertRuleColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(['channelIds', 'notifyAllChannels']),
+    );
   });
 
   it('rejects a database created by a newer application', () => {
@@ -48,4 +54,27 @@ describe('SQLite migration service', () => {
 
     expect(() => ensureSqliteSchemaVersion(databasePath)).toThrow('Không thể downgrade');
   }, 15_000);
+
+  it('accepts a fresh Prisma database that already contains current alert columns', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'mme-sqlite-current-'));
+    directories.push(directory);
+    const databasePath = join(directory, 'mme.db');
+    const database = new DatabaseSync(databasePath);
+    database.exec(`
+      CREATE TABLE "Device" ("id" TEXT NOT NULL PRIMARY KEY);
+      CREATE TABLE "DeviceAlertRuleConfig" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "deviceId" TEXT NOT NULL,
+        "ruleKey" TEXT NOT NULL,
+        "enabled" BOOLEAN NOT NULL DEFAULT true,
+        "channelIds" JSONB,
+        "notifyAllChannels" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      );
+    `);
+    database.close();
+
+    expect(ensureSqliteSchemaVersion(databasePath)).toBe(CURRENT_SQLITE_SCHEMA_VERSION);
+  });
 });

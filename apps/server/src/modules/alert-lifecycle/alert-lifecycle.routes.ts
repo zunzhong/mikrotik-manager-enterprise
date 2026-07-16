@@ -110,6 +110,11 @@ export async function alertLifecycleRoutes(app: FastifyInstance): Promise<void> 
     data: await alertLifecycleService.listActive(),
   }));
 
+  app.delete('/api/v1/alert-lifecycle', { preHandler: alertBulkPreHandler }, async () => ({
+    success: true,
+    data: await alertLifecycleService.deleteAll(),
+  }));
+
   app.post(
     '/api/v1/alert-lifecycle/bulk/acknowledge',
     {
@@ -184,6 +189,17 @@ export async function alertLifecycleRoutes(app: FastifyInstance): Promise<void> 
       data: alert,
     };
   });
+
+  app.delete(
+    '/api/v1/alert-lifecycle/:id',
+    { preHandler: alertBulkPreHandler },
+    async (request) => {
+      const params = alertParamsSchema.parse(request.params);
+      const result = await alertLifecycleService.delete(params.id);
+      if (result.deleted === 0) throw new HttpError(404, 'ALERT_NOT_FOUND', 'Alert not found');
+      return { success: true, data: result };
+    },
+  );
 
   app.post(
     '/api/v1/alert-lifecycle/:id/acknowledge',

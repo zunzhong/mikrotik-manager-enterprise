@@ -72,7 +72,7 @@ export function AppShell() {
           aria-label={sidebarCollapsed ? t('expandMenu') : t('collapseMenu')}
           title={sidebarCollapsed ? t('expandMenu') : t('collapseMenu')}
         >
-          {sidebarCollapsed ? '›' : '‹'}
+          {sidebarCollapsed ? '>>' : '<<'}
         </button>
 
         <nav className="nav">

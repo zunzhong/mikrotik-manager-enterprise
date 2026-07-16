@@ -11,12 +11,18 @@ export function BackupCenter() {
   const [message, setMessage] = useState('');
 
   const activeDeviceId = selectedDeviceId || devices.data?.[0]?.id || '';
+  const allDevicesSelected = activeDeviceId === '__all__';
 
   const backups = useAsyncData(
     useCallback(() => {
       if (!activeDeviceId) return Promise.resolve([]);
+      if (allDevicesSelected) {
+        return Promise.all((devices.data ?? []).map((device) => backupApi.list(device.id))).then(
+          (records) => records.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        );
+      }
       return backupApi.list(activeDeviceId);
-    }, [activeDeviceId]),
+    }, [activeDeviceId, allDevicesSelected, devices.data]),
   );
 
   async function createBackup(type: 'export' | 'binary') {
@@ -28,8 +34,20 @@ export function BackupCenter() {
     setMessage(`Creating ${type} backup...`);
 
     try {
-      const result = await backupApi.create(activeDeviceId, type);
-      setMessage(`Backup ${result.status}: ${result.fileName}`);
+      if (allDevicesSelected) {
+        const targets = devices.data ?? [];
+        const results = await Promise.allSettled(
+          targets.map((device) => backupApi.create(device.id, type)),
+        );
+        const completed = results.filter((result) => result.status === 'fulfilled').length;
+        const failed = results.length - completed;
+        setMessage(
+          `Đã tạo backup cho ${completed}/${results.length} thiết bị${failed ? `; ${failed} thất bại` : ''}.`,
+        );
+      } else {
+        const result = await backupApi.create(activeDeviceId, type);
+        setMessage(`Backup ${result.status}: ${result.fileName}`);
+      }
       backups.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Backup failed');
@@ -76,6 +94,9 @@ export function BackupCenter() {
             value={activeDeviceId}
             onChange={(event) => setSelectedDeviceId(event.target.value)}
           >
+            {(devices.data ?? []).length > 0 ? (
+              <option value="__all__">Tất cả thiết bị ({devices.data?.length ?? 0})</option>
+            ) : null}
             {(devices.data ?? []).map((device) => (
               <option value={device.id} key={device.id}>
                 {device.name} — {device.host}

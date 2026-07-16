@@ -109,6 +109,13 @@ function deviceNameFromMetadata(metadata: Prisma.JsonValue | null): string | und
   return typeof value.deviceName === 'string' ? value.deviceName : undefined;
 }
 
+function deviceIdentityFromMetadata(metadata: Prisma.JsonValue | null): string | undefined {
+  const value = readJsonObject(metadata);
+  return typeof value.deviceIdentity === 'string'
+    ? value.deviceIdentity
+    : deviceNameFromMetadata(metadata);
+}
+
 function publishOpenedEvent(alert: AlertEventLike): void {
   eventBus.publish({
     type: 'ALERT_OPENED',
@@ -118,8 +125,8 @@ function publishOpenedEvent(alert: AlertEventLike): void {
         : alert.severity === 'warning'
           ? 'warning'
           : 'info',
-    title: 'Alert opened',
-    message: alert.title,
+    title: deviceIdentityFromMetadata(alert.metadata) ?? 'MME device alert',
+    message: `${alert.title}\n${alert.message}`,
     source: 'alert-lifecycle',
     deviceId: alert.deviceId ?? undefined,
     deviceName: deviceNameFromMetadata(alert.metadata),
@@ -130,6 +137,8 @@ function publishOpenedEvent(alert: AlertEventLike): void {
       alertSeverity: alert.severity,
       source: alert.source,
       createdAt: alert.createdAt.toISOString(),
+      notificationChannelIds: readJsonObject(alert.metadata).notificationChannelIds,
+      notifyAllChannels: readJsonObject(alert.metadata).notifyAllChannels,
     },
   });
 }
@@ -178,18 +187,22 @@ export class AlertLifecycleService {
   public async openOrUpdate(input: OpenAlertInput) {
     const now = new Date();
 
-    const existing = await prisma.alert.findFirst({
-      where: {
-        deviceId: input.deviceId,
-        ruleKey: input.ruleKey,
-        status: {
-          in: ['open', 'acknowledged'],
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    // Every new RouterOS log entry must generate its own alert and delivery.
+    // Realtime collection already de-duplicates log fingerprints before this point.
+    const existing = input.ruleKey.startsWith('log.')
+      ? null
+      : await prisma.alert.findFirst({
+          where: {
+            deviceId: input.deviceId,
+            ruleKey: input.ruleKey,
+            status: {
+              in: ['open', 'acknowledged'],
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
 
     if (existing) {
       return prisma.alert.update({
@@ -344,6 +357,16 @@ export class AlertLifecycleService {
       missing: uniqueIds.length - alerts.length,
       alerts,
     };
+  }
+
+  public async delete(alertId: string) {
+    const result = await prisma.alert.deleteMany({ where: { id: alertId } });
+    return { deleted: result.count, id: alertId };
+  }
+
+  public async deleteAll() {
+    const result = await prisma.alert.deleteMany({});
+    return { deleted: result.count };
   }
 
   public async resolveForDevice(deviceId: string, ruleKeys: string[], input: AlertResolutionInput) {
