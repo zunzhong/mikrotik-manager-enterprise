@@ -20,13 +20,6 @@ function timestampName(): string {
   return new Date().toISOString().replace('T', '_').replace(/[:.]/g, '-').replace('Z', '');
 }
 
-function rowText(rows: Array<Record<string, string>>, key: string): string {
-  return rows
-    .map((row) => row[key] ?? '')
-    .filter(Boolean)
-    .join('\n');
-}
-
 export class BackupService {
   public async list(deviceId: string) {
     const records = await backupRepository.listByDevice(deviceId);
@@ -93,15 +86,12 @@ export class BackupService {
         await client.command('/export', { file: fileName.replace('.rsc', '') });
       }
 
-      const routerFile =
-        type === 'binary'
-          ? await this.downloadBinaryRouterFile(client, {
-              host: device.host,
-              username: device.username,
-              password: encryptionService.decrypt(device.passwordEncrypted),
-              fileName,
-            })
-          : await this.readTextRouterFile(client, fileName);
+      const routerFile = await this.downloadRouterFile(client, {
+        host: device.host,
+        username: device.username,
+        password: encryptionService.decrypt(device.passwordEncrypted),
+        fileName,
+      });
       await backupStorageService.write(filePath, routerFile.content);
       if (routerFile.id) {
         await client.command('/file/remove', { numbers: routerFile.id }).catch(() => undefined);
@@ -228,48 +218,25 @@ export class BackupService {
     return backupRepository.delete(id);
   }
 
-  private async waitForRouterFile(
-    client: RouterClient,
-    fileName: string,
-    includeContents: boolean,
-  ) {
+  private async waitForRouterFile(client: RouterClient, fileName: string) {
     for (let attempt = 0; attempt < 60; attempt += 1) {
       const response = await client.command(
         '/file/print',
-        { '.proplist': includeContents ? '.id,name,size,contents' : '.id,name,size' },
+        { '.proplist': '.id,name,size' },
         { queries: [`?name=${fileName}`] },
       );
       const file = response.rows[0];
-      if (file && file.size && file.size !== '0') return { file, response };
+      if (file && file.size && file.size !== '0') return file;
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     throw new Error(`RouterOS did not finish creating ${fileName}`);
   }
 
-  private async readTextRouterFile(client: RouterClient, fileName: string) {
-    const { file, response } = await this.waitForRouterFile(client, fileName, true);
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      let contents = file.contents ?? rowText(response.rows, 'contents');
-      if (!contents) {
-        const result = await client.command('/file/get', {
-          number: file['.id'] ?? fileName,
-          'value-name': 'contents',
-        });
-        contents = result.done.ret ?? rowText(result.rows, 'ret');
-      }
-      if (contents) {
-        return { id: file['.id'], content: Buffer.from(contents, 'utf8') };
-      }
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    throw new Error(`RouterOS did not return file contents for ${fileName}`);
-  }
-
-  private async downloadBinaryRouterFile(
+  private async downloadRouterFile(
     client: RouterClient,
     input: { host: string; username: string; password: string; fileName: string },
   ) {
-    const { file } = await this.waitForRouterFile(client, input.fileName, false);
+    const file = await this.waitForRouterFile(client, input.fileName);
     const serviceResponse = await client.command('/ip/service/print', {
       '.proplist': '.id,name,port,disabled',
     });

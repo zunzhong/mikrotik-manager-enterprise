@@ -109,7 +109,7 @@ export class RouterFileTransferService {
 
     const detail = failures.length ? ` Attempts: ${failures.join('; ')}` : '';
     throw new Error(
-      `RouterOS binary backup was created, but MME could not download it. ` +
+      `The RouterOS file was created, but MME could not download it. ` +
         `Check the device account file-transfer permissions and firewall access from the MME host.${detail}`,
     );
   }

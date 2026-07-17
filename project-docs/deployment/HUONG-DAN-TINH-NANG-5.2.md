@@ -1,5 +1,13 @@
 # MikroTik Manager Enterprise 5.2 — Cảnh báo và Backup
 
+## Bản sửa lỗi 5.2.3: tải và đọc trực tiếp file RSC
+
+- MME không còn đọc `.rsc` qua thuộc tính `contents` không ổn định của RouterOS API.
+- Cả `.rsc` và `.backup` đều được tải nguyên file qua SFTP/FTP về vùng lưu trữ bền vững của MME.
+- Luồng bật tạm và khôi phục trạng thái dịch vụ SSH/FTP của 5.2.2 được áp dụng cho cả hai định dạng.
+- Nút **Đọc trên web** mở nội dung file `.rsc` đã lưu trong MME; không chạy lại lệnh export trên thiết bị.
+- Nút **Tải xuống** trả đúng file cục bộ đã được MME xác nhận tồn tại.
+
 ## Bản sửa lỗi 5.2.2: tự khôi phục dịch vụ truyền backup
 
 - MME đọc cổng và trạng thái hiện tại của `ssh`/`ftp` trên từng RouterOS.
