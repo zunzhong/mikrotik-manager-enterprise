@@ -43,11 +43,15 @@ describe('SQLite migration service', () => {
     const backupScheduleTable = database
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'BackupSchedule'`)
       .get() as { name: string } | undefined;
+    const backupScheduleColumns = database
+      .prepare(`PRAGMA table_info("BackupSchedule")`)
+      .all() as Array<{ name: string }>;
     database.close();
     expect(trafficTable?.name).toBe('TrafficSample');
     expect(alertRuleConfigTable?.name).toBe('DeviceAlertRuleConfig');
     expect(logFingerprintTable?.name).toBe('RouterOsLogFingerprint');
     expect(backupScheduleTable?.name).toBe('BackupSchedule');
+    expect(backupScheduleColumns.map((column) => column.name)).toContain('scheduledTime');
     expect(alertRuleColumns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['channelIds', 'notifyAllChannels']),
     );
@@ -70,7 +74,7 @@ describe('SQLite migration service', () => {
     `);
     database.close();
 
-    expect(ensureSqliteSchemaVersion(databasePath)).toBe(6);
+    expect(ensureSqliteSchemaVersion(databasePath)).toBe(7);
 
     const upgraded = new DatabaseSync(databasePath);
     const table = upgraded
@@ -79,10 +83,14 @@ describe('SQLite migration service', () => {
     const version = upgraded
       .prepare('SELECT "version" FROM "MME_SchemaVersion" WHERE "id" = 1')
       .get() as { version: number };
+    const columns = upgraded.prepare(`PRAGMA table_info("BackupSchedule")`).all() as Array<{
+      name: string;
+    }>;
     upgraded.close();
 
     expect(table?.name).toBe('BackupSchedule');
-    expect(version.version).toBe(6);
+    expect(columns.map((column) => column.name)).toContain('scheduledTime');
+    expect(version.version).toBe(7);
   });
 
   it('rejects a database created by a newer application', () => {

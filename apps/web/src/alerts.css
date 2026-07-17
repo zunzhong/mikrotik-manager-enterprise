@@ -357,7 +357,3 @@
 .alert-state-time.status-resolved {
   color: #22c55e;
 }
-
-.alert-center .alert-grid {
-  grid-template-columns: minmax(0, 1fr);
-}

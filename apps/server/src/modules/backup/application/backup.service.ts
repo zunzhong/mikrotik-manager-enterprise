@@ -8,6 +8,7 @@ import { backupRepository } from '../infrastructure/backup.repository.js';
 import { backupStorageService } from './backup-storage.service.js';
 import { restoreValidationService } from './restore-validation.service.js';
 import type { BackupType } from '../domain/backup.types.js';
+import { nextScheduledRun } from './backup-schedule.js';
 
 function timestampName(): string {
   return new Date().toISOString().replace('T', '_').replace(/[:.]/g, '-').replace('Z', '');
@@ -84,30 +85,32 @@ export class BackupService {
         await client.command('/system/backup/save', { name: fileName.replace('.backup', '') });
       } else {
         await client.command('/export', { file: fileName.replace('.rsc', '') });
-        const routerFile = await client.command(
-          '/file/print',
-          { '.proplist': 'name,contents,size' },
-          { queries: [`?name=${fileName}`] },
-        );
-        const contents = rowText(routerFile.rows, 'contents');
-        if (!contents) {
-          throw new Error('RouterOS did not return export contents for local storage');
-        }
-        await backupStorageService.writeText(filePath, contents);
+      }
+
+      const routerFile = await this.readRouterFile(client, fileName);
+      await backupStorageService.write(filePath, routerFile.content);
+      if (routerFile.id) {
+        await client.command('/file/remove', { numbers: routerFile.id }).catch(() => undefined);
       }
 
       await client.close();
+      const storedFile = await backupStorageService.getFileInfo(filePath);
+      if (!storedFile.exists || !storedFile.sizeBytes) {
+        throw new Error('MME did not persist the RouterOS backup file');
+      }
       const completed = await backupRepository.update(record.id, {
         status: 'completed',
         completedAt: new Date(),
         filePath,
+        sizeBytes: storedFile.sizeBytes,
+        checksum: backupStorageService.checksum(routerFile.content),
         metadata: {
           host: device.host,
           identity,
           type,
           routerFileName: fileName,
           localPath: filePath,
-          locallyAvailable: type === 'export',
+          locallyAvailable: true,
         },
       });
       await eventBus.emit('backup.completed', {
@@ -164,18 +167,29 @@ export class BackupService {
 
   public async configureSchedule(
     deviceId: string,
-    input: { enabled: boolean; type: BackupType; intervalHours: number },
+    input: {
+      enabled: boolean;
+      type: BackupType;
+      intervalHours: number;
+      scheduledTime: string;
+    },
   ) {
     const device = await deviceRepository.findById(deviceId);
     if (!device) throw new HttpError(404, 'DEVICE_NOT_FOUND', 'Device not found');
     const nextRunAt = input.enabled
-      ? new Date(Date.now() + input.intervalHours * 60 * 60 * 1000)
+      ? nextScheduledRun(input.scheduledTime, input.intervalHours)
       : null;
     return prisma.backupSchedule.upsert({
       where: { deviceId },
       create: { deviceId, ...input, nextRunAt },
       update: { ...input, nextRunAt },
     });
+  }
+
+  public async deleteSchedule(id: string) {
+    const schedule = await prisma.backupSchedule.findUnique({ where: { id } });
+    if (!schedule) throw new HttpError(404, 'BACKUP_SCHEDULE_NOT_FOUND', 'Schedule not found');
+    return prisma.backupSchedule.delete({ where: { id } });
   }
 
   public async runDueSchedules() {
@@ -188,7 +202,7 @@ export class BackupService {
         where: { id: schedule.id },
         data: {
           lastRunAt: startedAt,
-          nextRunAt: new Date(startedAt.getTime() + schedule.intervalHours * 60 * 60 * 1000),
+          nextRunAt: nextScheduledRun(schedule.scheduledTime, schedule.intervalHours, startedAt),
         },
       });
       await this.create(schedule.deviceId, schedule.type as BackupType).catch(() => undefined);
@@ -198,6 +212,32 @@ export class BackupService {
 
   public delete(id: string) {
     return backupRepository.delete(id);
+  }
+
+  private async readRouterFile(client: RouterClient, fileName: string) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const response = await client.command(
+        '/file/print',
+        { '.proplist': '.id,name,size,contents' },
+        { queries: [`?name=${fileName}`] },
+      );
+      const file = response.rows[0];
+      if (file) {
+        let contents = file.contents ?? rowText(response.rows, 'contents');
+        if (!contents) {
+          const result = await client.command('/file/get', {
+            number: file['.id'] ?? fileName,
+            'value-name': 'contents',
+          });
+          contents = result.done.ret ?? rowText(result.rows, 'ret');
+        }
+        if (contents) {
+          return { id: file['.id'], content: Buffer.from(contents, 'utf8') };
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new Error(`RouterOS did not return file contents for ${fileName}`);
   }
 }
 

@@ -34,7 +34,7 @@ describe('CommandExecutor', () => {
     transport.pushIncoming(
       Buffer.concat([
         encodeSentence(['!re', '=version=7.15.3', '=uptime=1d', '=cpu-load=4', '.tag=test-1']),
-        encodeSentence(['!done', '.tag=test-1']),
+        encodeSentence(['!done', '=ret=finished', '.tag=test-1']),
       ]),
     );
 
@@ -48,6 +48,7 @@ describe('CommandExecutor', () => {
         'cpu-load': '4',
       },
     ]);
+    expect(response.done).toEqual({ ret: 'finished' });
   });
 
   it('throws on !trap', async () => {

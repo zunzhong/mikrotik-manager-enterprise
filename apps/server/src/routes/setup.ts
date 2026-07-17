@@ -26,7 +26,9 @@ export async function setupRoutes(app: FastifyInstance): Promise<void> {
 
     let freeStorageBytes = 0;
     try {
-      const storage = await statfs(process.env.BACKUP_STORAGE_PATH ?? process.cwd());
+      const storage = await statfs(
+        process.env.BACKUP_STORAGE_DIR ?? process.env.BACKUP_STORAGE_PATH ?? process.cwd(),
+      );
       freeStorageBytes = storage.bavail * storage.bsize;
     } catch {
       freeStorageBytes = 0;

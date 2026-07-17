@@ -29,8 +29,10 @@ export interface BackupSchedule {
   enabled: boolean;
   type: 'export' | 'binary';
   intervalHours: number;
+  scheduledTime: string;
   lastRunAt?: string;
   nextRunAt?: string;
+  device?: { id: string; name: string; host: string };
 }
 
 export const backupApi = {
@@ -49,17 +51,34 @@ export const backupApi = {
     const response = await fetch(buildApiUrl(`/api/v1/backups/${backupId}/download`), {
       headers: mergeHeaders(undefined),
     });
-    if (!response.ok) throw new Error(`Download failed (${response.status})`);
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: { message?: string };
+        message?: string;
+      } | null;
+      throw new Error(
+        payload?.error?.message ?? payload?.message ?? `Download failed (${response.status})`,
+      );
+    }
     const url = URL.createObjectURL(await response.blob());
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = fileName;
+    document.body.append(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   },
   schedules: () => apiGet<BackupSchedule[]>('/api/v1/backup/schedules'),
   configureSchedule: (
     deviceId: string,
-    input: { enabled: boolean; type: 'export' | 'binary'; intervalHours: number },
+    input: {
+      enabled: boolean;
+      type: 'export' | 'binary';
+      intervalHours: number;
+      scheduledTime: string;
+    },
   ) => apiPut<BackupSchedule>(`/api/v1/devices/${deviceId}/backup/schedule`, input),
+  deleteSchedule: (scheduleId: string) =>
+    apiDelete<BackupSchedule>(`/api/v1/backup/schedules/${scheduleId}`),
 };

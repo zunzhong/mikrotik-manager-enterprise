@@ -14,6 +14,7 @@ const backupScheduleSchema = z.object({
     .int()
     .min(1)
     .max(24 * 365),
+  scheduledTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
 });
 
 export async function backupRoutes(app: FastifyInstance) {
@@ -72,6 +73,11 @@ export async function backupRoutes(app: FastifyInstance) {
     const params = request.params as { id: string };
     const body = backupScheduleSchema.parse(request.body ?? {});
     return { success: true, data: await backupService.configureSchedule(params.id, body) };
+  });
+
+  app.delete('/api/v1/backup/schedules/:id', async (request) => {
+    const params = request.params as { id: string };
+    return { success: true, data: await backupService.deleteSchedule(params.id) };
   });
 
   app.post('/api/v1/backups/:id/validate', async (request) => {

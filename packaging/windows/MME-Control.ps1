@@ -71,12 +71,28 @@ function Read-Environment {
 
 function Initialize-Environment {
   New-Item -ItemType Directory -Force (Split-Path $ConfigFile), (Split-Path $Database), $BackupDir, $LogDir | Out-Null
+  $legacyBackupDir = Join-Path $AppDir 'data\backups'
+  if (Test-Path $legacyBackupDir) {
+    Copy-Item (Join-Path $legacyBackupDir '*') $BackupDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-BootstrapLog 'Đã chuyển file backup cũ sang vùng dữ liệu bền vững.'
+  }
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.1.1')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.2.0')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.1.1`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.2.0`r`n"
+    }
+    $persistentBackupPath = $BackupDir.Replace('\','/')
+    if ($existingConfig -match '(?m)^BACKUP_STORAGE_DIR=') {
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^BACKUP_STORAGE_DIR=.*$', "BACKUP_STORAGE_DIR=$persistentBackupPath")
+    } else {
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nBACKUP_STORAGE_DIR=$persistentBackupPath`r`n"
+    }
+    if ($existingConfig -match '(?m)^BACKUP_STORAGE_PATH=') {
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^BACKUP_STORAGE_PATH=.*$', "BACKUP_STORAGE_PATH=$persistentBackupPath")
+    } else {
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nBACKUP_STORAGE_PATH=$persistentBackupPath`r`n"
     }
     [IO.File]::WriteAllText($ConfigFile, $existingConfig, (New-Object Text.UTF8Encoding($false)))
     return
@@ -85,7 +101,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.1.1
+APP_VERSION=5.2.0
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$Port
 DATABASE_URL=file:$($Database.Replace('\','/'))
@@ -93,6 +109,7 @@ JWT_SECRET=$(New-Secret 32)
 ENCRYPTION_KEY=$(New-Secret 32)
 DEFAULT_ADMIN_EMAIL=admin@example.com
 DEFAULT_ADMIN_PASSWORD=$adminPassword
+BACKUP_STORAGE_DIR=$($BackupDir.Replace('\','/'))
 BACKUP_STORAGE_PATH=$($BackupDir.Replace('\','/'))
 WEB_DIST_PATH=$((Join-Path $AppDir 'web').Replace('\','/'))
 SQLITE_SCHEMA_SQL=$((Join-Path $AppDir 'prisma\schema.sqlite.sql').Replace('\','/'))

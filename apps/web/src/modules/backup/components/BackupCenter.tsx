@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { deviceApi } from '../../devices/device.api';
-import { backupApi, type BackupRecord } from '../backup.api';
+import { backupApi, type BackupRecord, type BackupSchedule } from '../backup.api';
 import { useLanguage } from '../../../i18n/LanguageContext';
 
 export function BackupCenter() {
@@ -17,6 +17,9 @@ export function BackupCenter() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleType, setScheduleType] = useState<'export' | 'binary'>('export');
   const [intervalHours, setIntervalHours] = useState(24);
+  const [scheduledTime, setScheduledTime] = useState('02:00');
+  const [editingScheduleId, setEditingScheduleId] = useState('');
+  const [previewLoadingId, setPreviewLoadingId] = useState('');
 
   const activeDeviceId = selectedDeviceId || devices.data?.[0]?.id || '';
   const allDevicesSelected = activeDeviceId === '__all__';
@@ -54,7 +57,9 @@ export function BackupCenter() {
         ? (devices.data ?? []).map((item) => item.id)
         : [activeDeviceId];
       const results = await Promise.allSettled(targets.map((id) => backupApi.create(id, type)));
-      const completed = results.filter((result) => result.status === 'fulfilled').length;
+      const completed = results.filter(
+        (result) => result.status === 'fulfilled' && result.value.status === 'completed',
+      ).length;
       setMessage(
         tr(
           `Đã xử lý ${completed}/${targets.length} thiết bị.`,
@@ -80,12 +85,26 @@ export function BackupCenter() {
   }
 
   async function openBackup(backup: BackupRecord) {
+    setPreviewLoadingId(backup.id);
     try {
       const result = await backupApi.content(backup.id);
       setPreview({ fileName: result.fileName, content: result.content });
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : tr('Không thể đọc file.', 'Cannot read file.'),
+      );
+    } finally {
+      setPreviewLoadingId('');
+    }
+  }
+
+  async function downloadBackup(backup: BackupRecord) {
+    try {
+      await backupApi.download(backup.id, backup.fileName);
+      setMessage(tr(`Đang tải ${backup.fileName}.`, `Downloading ${backup.fileName}.`));
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : tr('Không thể tải file.', 'Cannot download file.'),
       );
     }
   }
@@ -102,6 +121,7 @@ export function BackupCenter() {
             enabled: scheduleEnabled,
             type: scheduleType,
             intervalHours,
+            scheduledTime,
           }),
         ),
       );
@@ -112,9 +132,47 @@ export function BackupCenter() {
         ),
       );
       schedules.refresh();
+      resetScheduleForm();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : tr('Không thể lưu lịch.', 'Cannot save schedule.'),
+      );
+    }
+  }
+
+  function editSchedule(schedule: BackupSchedule) {
+    setSelectedDeviceId(schedule.deviceId);
+    setScheduleEnabled(schedule.enabled);
+    setScheduleType(schedule.type);
+    setIntervalHours(schedule.intervalHours);
+    setScheduledTime(schedule.scheduledTime);
+    setEditingScheduleId(schedule.id);
+  }
+
+  function resetScheduleForm() {
+    setScheduleEnabled(false);
+    setScheduleType('export');
+    setIntervalHours(24);
+    setScheduledTime('02:00');
+    setEditingScheduleId('');
+  }
+
+  async function deleteSchedule(schedule: BackupSchedule) {
+    const deviceName = schedule.device?.name ?? schedule.deviceId;
+    if (
+      !window.confirm(tr(`Xóa lịch sao lưu của ${deviceName}?`, `Delete ${deviceName} schedule?`))
+    )
+      return;
+    try {
+      await backupApi.deleteSchedule(schedule.id);
+      if (editingScheduleId === schedule.id) resetScheduleForm();
+      setMessage(tr('Đã xóa lịch sao lưu.', 'Backup schedule deleted.'));
+      schedules.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : tr('Không thể xóa lịch.', 'Cannot delete schedule.'),
       );
     }
   }
@@ -184,9 +242,64 @@ export function BackupCenter() {
               onChange={(event) => setIntervalHours(Number(event.target.value))}
             />
           </label>
+          <label>
+            {tr('Giờ bắt đầu chạy', 'Start time')}
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={(event) => setScheduledTime(event.target.value)}
+            />
+          </label>
           <button className="small-button" onClick={() => void saveSchedule()}>
-            {tr('Lưu lịch', 'Save schedule')}
+            {editingScheduleId
+              ? tr('Cập nhật lịch', 'Update schedule')
+              : tr('Lưu lịch', 'Save schedule')}
           </button>
+          {editingScheduleId ? (
+            <button className="small-button" onClick={resetScheduleForm}>
+              {tr('Hủy chỉnh sửa', 'Cancel editing')}
+            </button>
+          ) : null}
+        </div>
+
+        <div className="backup-schedule-list">
+          {(schedules.data ?? []).map((schedule) => (
+            <article className="backup-schedule-card" key={schedule.id}>
+              <div>
+                <strong>{schedule.device?.name ?? schedule.deviceId}</strong>
+                <span>
+                  {schedule.type === 'export' ? '.rsc' : '.backup'} · {schedule.scheduledTime} ·{' '}
+                  {tr(`mỗi ${schedule.intervalHours} giờ`, `every ${schedule.intervalHours} hours`)}
+                </span>
+                <small>
+                  {schedule.enabled
+                    ? schedule.nextRunAt
+                      ? tr(
+                          `Lần chạy tới: ${formatDateTime(schedule.nextRunAt)}`,
+                          `Next run: ${formatDateTime(schedule.nextRunAt)}`,
+                        )
+                      : tr('Đang chờ tính lịch chạy', 'Waiting for next run')
+                    : tr('Lịch đang tắt', 'Schedule disabled')}
+                </small>
+              </div>
+              <div className="backup-schedule-actions">
+                <button className="small-button" onClick={() => editSchedule(schedule)}>
+                  {tr('Chỉnh sửa', 'Edit')}
+                </button>
+                <button
+                  className="small-button danger"
+                  onClick={() => void deleteSchedule(schedule)}
+                >
+                  {tr('Xóa lịch', 'Delete schedule')}
+                </button>
+              </div>
+            </article>
+          ))}
+          {!schedules.loading && (schedules.data ?? []).length === 0 ? (
+            <div className="empty-state">
+              <strong>{tr('Chưa có lịch tự động', 'No automatic schedules')}</strong>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -235,13 +348,19 @@ export function BackupCenter() {
                       )
                     : undefined
                 }
-                onClick={() => void backupApi.download(backup.id, backup.fileName)}
+                onClick={() => void downloadBackup(backup)}
               >
                 {tr('Tải xuống', 'Download')}
               </button>
               {backup.fileName.toLowerCase().endsWith('.rsc') ? (
-                <button className="small-button" onClick={() => void openBackup(backup)}>
-                  {tr('Đọc', 'Read')}
+                <button
+                  className="small-button"
+                  disabled={!backup.storage?.exists || previewLoadingId === backup.id}
+                  onClick={() => void openBackup(backup)}
+                >
+                  {previewLoadingId === backup.id
+                    ? tr('Đang đọc...', 'Reading...')
+                    : tr('Đọc trên web', 'Read on web')}
                 </button>
               ) : null}
               <button className="small-button danger" onClick={() => void deleteBackup(backup)}>

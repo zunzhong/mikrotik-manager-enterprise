@@ -283,15 +283,16 @@ model BackupRecord {
 }
 
 model BackupSchedule {
-  id            String   @id @default(cuid())
-  deviceId      String   @unique
-  enabled       Boolean  @default(false)
-  type          String   @default("export")
-  intervalHours Int      @default(24)
+  id            String    @id @default(cuid())
+  deviceId      String    @unique
+  enabled       Boolean   @default(false)
+  type          String    @default("export")
+  intervalHours Int       @default(24)
+  scheduledTime String    @default("02:00")
   lastRunAt     DateTime?
   nextRunAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 

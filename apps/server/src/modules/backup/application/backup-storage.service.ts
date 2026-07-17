@@ -1,9 +1,15 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { join, normalize } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export class BackupStorageService {
-  private readonly rootDir = normalize(process.env.BACKUP_STORAGE_DIR ?? './data/backups');
+  private readonly rootDir: string;
+
+  public constructor(
+    rootDir = process.env.BACKUP_STORAGE_DIR ?? process.env.BACKUP_STORAGE_PATH ?? './data/backups',
+  ) {
+    this.rootDir = resolve(rootDir);
+  }
 
   public async ensureRoot(): Promise<void> {
     await mkdir(this.rootDir, { recursive: true });
@@ -30,7 +36,8 @@ export class BackupStorageService {
     }
 
     try {
-      const info = await stat(filePath);
+      const resolvedPath = await this.resolveExistingPath(filePath);
+      const info = await stat(resolvedPath);
       return {
         exists: true,
         sizeBytes: info.size,
@@ -47,12 +54,50 @@ export class BackupStorageService {
     return writeFile(filePath, content, 'utf8');
   }
 
-  public read(filePath: string): Promise<Buffer> {
-    return readFile(filePath);
+  public write(filePath: string, content: Buffer): Promise<void> {
+    return writeFile(filePath, content);
+  }
+
+  public async read(filePath: string): Promise<Buffer> {
+    return readFile(await this.resolveExistingPath(filePath));
   }
 
   public checksumText(value: string): string {
     return createHash('sha256').update(value).digest('hex');
+  }
+
+  public checksum(content: Buffer): string {
+    return createHash('sha256').update(content).digest('hex');
+  }
+
+  private async resolveExistingPath(filePath: string): Promise<string> {
+    const directPath = resolve(filePath);
+    if (await this.exists(directPath)) return directPath;
+
+    const normalized = filePath.replace(/\\/g, '/');
+    const marker = '/backups/';
+    const markerIndex = `/${normalized}`.toLowerCase().indexOf(marker);
+    if (markerIndex >= 0) {
+      const suffix = `/${normalized}`.slice(markerIndex + marker.length);
+      const migratedPath = resolve(this.rootDir, suffix);
+      if (this.isInsideRoot(migratedPath) && (await this.exists(migratedPath))) return migratedPath;
+    }
+
+    throw new Error(`Backup file not found: ${filePath}`);
+  }
+
+  private async exists(filePath: string): Promise<boolean> {
+    try {
+      await stat(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private isInsideRoot(filePath: string): boolean {
+    const child = relative(this.rootDir, filePath);
+    return child === '' || (!child.startsWith(`..${sep}`) && child !== '..' && !isAbsolute(child));
   }
 }
 

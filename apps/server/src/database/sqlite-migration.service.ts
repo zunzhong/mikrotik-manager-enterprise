@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 6;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 7;
 
 interface Migration {
   version: number;
@@ -87,6 +87,12 @@ const migrations: Migration[] = [
       )`,
       'CREATE UNIQUE INDEX IF NOT EXISTS "BackupSchedule_deviceId_key" ON "BackupSchedule"("deviceId")',
       'CREATE INDEX IF NOT EXISTS "BackupSchedule_enabled_nextRunAt_idx" ON "BackupSchedule"("enabled", "nextRunAt")',
+    ],
+  },
+  {
+    version: 7,
+    statements: [
+      `ALTER TABLE "BackupSchedule" ADD COLUMN "scheduledTime" TEXT NOT NULL DEFAULT '02:00'`,
     ],
   },
 ];

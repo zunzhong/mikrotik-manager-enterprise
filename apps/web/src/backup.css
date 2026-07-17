@@ -31,6 +31,7 @@
   align-items: center;
 }
 .backup-filter-row input[type='number'],
+.backup-filter-row input[type='time'],
 .backup-filter-row select,
 .backup-filters input {
   border: 1px solid var(--border);
@@ -38,6 +39,35 @@
   padding: 8px 10px;
   color: var(--text);
   background: var(--surface-soft);
+}
+.backup-schedule-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.backup-schedule-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-soft);
+}
+.backup-schedule-card > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+.backup-schedule-card span,
+.backup-schedule-card small {
+  color: var(--muted);
+}
+.backup-schedule-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .backup-filters > input:first-child {
   flex: 1 1 260px;
@@ -197,5 +227,9 @@
   }
   .backup-grid {
     grid-template-columns: 1fr;
+  }
+  .backup-schedule-card {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
