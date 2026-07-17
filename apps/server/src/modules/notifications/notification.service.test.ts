@@ -54,6 +54,23 @@ describe('NotificationService delivery routing', () => {
     expect(notificationStore.listDeliveries()).toHaveLength(1);
   });
 
+  it('includes the selected device in a two-step channel test', async () => {
+    const channel = notificationStore.createChannel({
+      name: 'Device test channel',
+      type: 'in_app',
+      config: {},
+    });
+
+    await notificationService.testChannel(channel.id, {
+      deviceId: 'device-1',
+      deviceName: 'Branch Router',
+    });
+
+    const delivery = notificationStore.listDeliveries()[0];
+    expect(delivery?.payload.deviceId).toBe('device-1');
+    expect(delivery?.payload.title).toBe('Branch Router');
+  });
+
   it('routes a device rule only to its explicitly selected channels', () => {
     const selected = notificationStore.createChannel({
       name: 'Selected',

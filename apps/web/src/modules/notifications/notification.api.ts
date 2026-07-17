@@ -62,8 +62,10 @@ export const notificationApi = {
   retryDelivery: (id: string) =>
     apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/deliveries/${id}/retry`, {}),
 
-  testChannel: (id: string) =>
-    apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/channels/${id}/test`, {}),
+  testChannel: (id: string, deviceId?: string) =>
+    apiPost<NotificationDeliveryWorkerResult>(`/api/v1/notifications/channels/${id}/test`, {
+      deviceId,
+    }),
 
   testAllChannels: () =>
     apiPost<NotificationDeliveryWorkerResult>('/api/v1/notifications/channels/test-all', {}),

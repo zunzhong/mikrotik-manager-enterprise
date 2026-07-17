@@ -19,7 +19,7 @@ function roleHasPermission(role: Role, permissionKey: string): boolean {
 }
 
 export function RbacPanel() {
-  const { formatDateTime } = useLanguage();
+  const { formatDateTime, tr } = useLanguage();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userId, setUserId] = useState('demo-user');
@@ -148,16 +148,21 @@ export function RbacPanel() {
       <div className="rbac-panel__header">
         <div>
           <p className="rbac-panel__eyebrow">Enterprise RBAC</p>
-          <h3>Access Control</h3>
-          <p>Manage roles, user assignments, and permission checks.</p>
+          <h3>{tr('Kiểm soát truy cập', 'Access Control')}</h3>
+          <p>
+            {tr(
+              'Quản lý vai trò, gán người dùng và kiểm tra quyền.',
+              'Manage roles, user assignments, and permission checks.',
+            )}
+          </p>
         </div>
 
         <div className="rbac-panel__actions">
           <button type="button" disabled={loading || busy} onClick={() => void loadCatalog()}>
-            Refresh Catalog
+            {tr('Làm mới danh mục', 'Refresh Catalog')}
           </button>
           <button type="button" disabled={loading || busy} onClick={() => void loadUser()}>
-            Refresh User
+            {tr('Làm mới người dùng', 'Refresh User')}
           </button>
         </div>
       </div>
@@ -165,17 +170,32 @@ export function RbacPanel() {
       {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="rbac-panel__cards">
-        <SummaryCard label="Roles" value={roles.length} hint="enterprise roles" />
-        <SummaryCard label="Permissions" value={permissions.length} hint="catalog entries" />
-        <SummaryCard label="Wildcard Roles" value={wildcardRoles} hint="super admin access" />
         <SummaryCard
-          label="User Roles"
+          label={tr('Vai trò', 'Roles')}
+          value={roles.length}
+          hint={tr('vai trò enterprise', 'enterprise roles')}
+        />
+        <SummaryCard
+          label={tr('Quyền hạn', 'Permissions')}
+          value={permissions.length}
+          hint={tr('mục trong danh mục', 'catalog entries')}
+        />
+        <SummaryCard
+          label={tr('Vai trò toàn quyền', 'Wildcard Roles')}
+          value={wildcardRoles}
+          hint={tr('quyền super admin', 'super admin access')}
+        />
+        <SummaryCard
+          label={tr('Vai trò người dùng', 'User Roles')}
           value={assignments.length}
           hint={userId || 'selected user'}
         />
       </div>
 
-      <WidgetCard title="User Role Assignment" description="Assign or remove roles for a user">
+      <WidgetCard
+        title={tr('Gán vai trò người dùng', 'User Role Assignment')}
+        description={tr('Gán hoặc gỡ vai trò cho người dùng', 'Assign or remove roles for a user')}
+      >
         <div className="rbac-panel__form">
           <label>
             User ID
@@ -197,7 +217,7 @@ export function RbacPanel() {
           </label>
 
           <button type="button" disabled={busy || loading} onClick={() => void assignRole()}>
-            Assign Role
+            {tr('Gán vai trò', 'Assign Role')}
           </button>
         </div>
 
@@ -216,18 +236,26 @@ export function RbacPanel() {
                 disabled={busy}
                 onClick={() => void removeRole(assignment.roleId)}
               >
-                Remove
+                {tr('Gỡ', 'Remove')}
               </button>
             </article>
           ))}
 
           {!loading && assignments.length === 0 ? (
-            <p className="muted">No roles assigned for this user.</p>
+            <p className="muted">
+              {tr('Người dùng chưa được gán vai trò.', 'No roles assigned for this user.')}
+            </p>
           ) : null}
         </div>
       </WidgetCard>
 
-      <WidgetCard title="Permission Check" description="Validate an effective user permission">
+      <WidgetCard
+        title={tr('Kiểm tra quyền', 'Permission Check')}
+        description={tr(
+          'Xác minh quyền hiệu lực của người dùng',
+          'Validate an effective user permission',
+        )}
+      >
         <div className="rbac-panel__form">
           <label>
             Permission
@@ -238,32 +266,48 @@ export function RbacPanel() {
           </label>
 
           <button type="button" disabled={busy || loading} onClick={() => void checkPermission()}>
-            Check
+            {tr('Kiểm tra', 'Check')}
           </button>
         </div>
 
         {checkResult ? (
           <div className="rbac-panel__check" data-allowed={checkResult.allowed}>
-            <strong>{checkResult.allowed ? 'Allowed' : 'Denied'}</strong>
+            <strong>
+              {checkResult.allowed ? tr('Được phép', 'Allowed') : tr('Bị từ chối', 'Denied')}
+            </strong>
             <span>Permission: {checkResult.permission}</span>
             <span>Matched by: {checkResult.matchedBy ?? 'none'}</span>
           </div>
         ) : null}
       </WidgetCard>
 
-      <WidgetCard title="Effective Permissions" description={`Permissions resolved for ${userId}`}>
+      <WidgetCard
+        title={tr('Quyền hiệu lực', 'Effective Permissions')}
+        description={tr(`Quyền đã phân giải cho ${userId}`, `Permissions resolved for ${userId}`)}
+      >
         <div className="rbac-panel__permissions">
           {(userPermissions?.permissions ?? []).map((permission: string) => (
             <span key={permission}>{permission}</span>
           ))}
 
           {!loading && (userPermissions?.permissions.length ?? 0) === 0 ? (
-            <p className="muted">No permissions resolved for this user.</p>
+            <p className="muted">
+              {tr(
+                'Không có quyền hiệu lực cho người dùng này.',
+                'No permissions resolved for this user.',
+              )}
+            </p>
           ) : null}
         </div>
       </WidgetCard>
 
-      <WidgetCard title="Role Catalog" description="Default enterprise roles and their permissions">
+      <WidgetCard
+        title={tr('Danh mục vai trò', 'Role Catalog')}
+        description={tr(
+          'Vai trò enterprise và quyền tương ứng',
+          'Enterprise roles and their permissions',
+        )}
+      >
         <div className="rbac-panel__roles">
           {roles.map((role: Role) => (
             <article key={role.id} className="rbac-panel__role">

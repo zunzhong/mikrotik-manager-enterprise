@@ -87,19 +87,23 @@ export class AlertRepository {
   }
 
   public async acknowledge(id: string) {
+    const existing = await prisma.alert.findUnique({ where: { id } });
+    if (!existing) return null;
     return prisma.alert.update({
       where: { id },
       data: {
         status: 'acknowledged',
-        acknowledgedAt: new Date(),
+        acknowledgedAt: existing.acknowledgedAt ?? new Date(),
       },
     });
   }
 
   public async resolve(id: string) {
+    const existing = await prisma.alert.findUnique({ where: { id } });
+    if (!existing) return null;
     return prisma.alert.update({
       where: { id },
-      data: { status: 'resolved', resolvedAt: new Date() },
+      data: { status: 'resolved', resolvedAt: existing.resolvedAt ?? new Date() },
     });
   }
 

@@ -51,7 +51,7 @@ export interface DeviceRealtimeView extends DeviceRealtimeSnapshot {
 }
 
 const DEFAULT_TTL_MS = 5000;
-const ROUTEROS_LOG_POLL_INTERVAL_MS = 60000;
+const ROUTEROS_LOG_POLL_INTERVAL_MS = 10000;
 
 async function safePrint<T extends object = object>(
   client: RouterOsClient,
@@ -152,11 +152,13 @@ function logsWithRouterDate(logs: object[], clock: object | undefined): object[]
 }
 
 export function routerOsLogFingerprint(log: object): string {
-  const stableValue = [
-    routerOsLogTime(log).toLowerCase(),
-    recordText(log, 'topics').toLowerCase(),
-    recordText(log, 'message').replace(/\s+/g, ' ').trim().toLowerCase(),
-  ].join('|');
+  const stableValue = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(log)
+        .filter(([key]) => key !== '.id' && !key.startsWith('_mme'))
+        .sort(([left], [right]) => left.localeCompare(right)),
+    ),
+  );
   return createHash('sha256').update(stableValue).digest('hex');
 }
 

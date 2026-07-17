@@ -38,11 +38,14 @@ function scoreForSnapshot(snapshot: DeviceRealtimeSnapshot): number | null {
   return typeof snapshot.healthReport?.score === 'number' ? snapshot.healthReport.score : null;
 }
 
-function healthStatusLabel(status: HealthStatus | 'unknown'): string {
-  if (status === 'healthy') return 'Healthy';
-  if (status === 'warning') return 'Warning';
-  if (status === 'critical') return 'Critical';
-  return 'Unknown';
+function healthStatusLabel(
+  status: HealthStatus | 'unknown',
+  tr: (vi: string, en: string) => string,
+): string {
+  if (status === 'healthy') return tr('Khỏe mạnh', 'Healthy');
+  if (status === 'warning') return tr('Cảnh báo', 'Warning');
+  if (status === 'critical') return tr('Nghiêm trọng', 'Critical');
+  return tr('Không xác định', 'Unknown');
 }
 
 function buildSummary(devices: DeviceRealtimeSnapshot[]) {
@@ -96,7 +99,7 @@ export function HealthDashboardSummary({
   error,
   onRefresh,
 }: HealthDashboardSummaryProps) {
-  const { formatDateTime } = useLanguage();
+  const { formatDateTime, tr } = useLanguage();
   const devices = overview?.devices ?? [];
   const summary = buildSummary(devices);
   const averageScore = summary.scored > 0 ? Math.round(summary.totalScore / summary.scored) : 0;
@@ -106,17 +109,21 @@ export function HealthDashboardSummary({
     <section className="health-dashboard-summary">
       <div className="health-dashboard-summary__header">
         <div>
-          <p className="health-dashboard-summary__eyebrow">Health Engine</p>
-          <h3>Realtime Health Summary</h3>
+          <p className="health-dashboard-summary__eyebrow">
+            {tr('Bộ máy sức khỏe', 'Health Engine')}
+          </p>
+          <h3>{tr('Tổng quan sức khỏe thời gian thực', 'Realtime Health Summary')}</h3>
           <p>
-            Calculated from cached realtime snapshots and health events published by the realtime
-            engine.
+            {tr(
+              'Tính từ dữ liệu thời gian thực và các sự kiện sức khỏe của thiết bị.',
+              'Calculated from realtime snapshots and device health events.',
+            )}
           </p>
         </div>
 
         {onRefresh ? (
           <button className="small-button" type="button" onClick={onRefresh}>
-            Refresh Health
+            {tr('Làm mới sức khỏe', 'Refresh Health')}
           </button>
         ) : null}
       </div>
@@ -124,18 +131,36 @@ export function HealthDashboardSummary({
       {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="health-dashboard-summary__cards">
-        <SummaryCard label="Healthy Devices" value={summary.healthy} hint="no active issues" />
-        <SummaryCard label="Warning Devices" value={summary.warning} hint="needs review" />
-        <SummaryCard label="Critical Devices" value={summary.critical} hint="needs action" />
         <SummaryCard
-          label="Average Health"
+          label={tr('Thiết bị khỏe mạnh', 'Healthy Devices')}
+          value={summary.healthy}
+          hint={tr('không có vấn đề', 'no active issues')}
+        />
+        <SummaryCard
+          label={tr('Thiết bị cảnh báo', 'Warning Devices')}
+          value={summary.warning}
+          hint={tr('cần kiểm tra', 'needs review')}
+        />
+        <SummaryCard
+          label={tr('Thiết bị nghiêm trọng', 'Critical Devices')}
+          value={summary.critical}
+          hint={tr('cần xử lý', 'needs action')}
+        />
+        <SummaryCard
+          label={tr('Sức khỏe trung bình', 'Average Health')}
           value={summary.scored > 0 ? `${averageScore}%` : 'N/A'}
-          hint={`${summary.scored}/${devices.length} devices scored`}
+          hint={tr(
+            `${summary.scored}/${devices.length} thiết bị đã chấm điểm`,
+            `${summary.scored}/${devices.length} devices scored`,
+          )}
         />
       </div>
 
       <div className="health-dashboard-summary__grid">
-        <WidgetCard title="Device Health" description="Cached realtime health state">
+        <WidgetCard
+          title={tr('Sức khỏe thiết bị', 'Device Health')}
+          description={tr('Trạng thái sức khỏe thời gian thực', 'Realtime health state')}
+        >
           <div className="health-dashboard-summary__device-list">
             {devices.slice(0, 8).map((device) => {
               const status = statusForSnapshot(device);
@@ -151,7 +176,8 @@ export function HealthDashboardSummary({
                   <div>
                     <strong>{device.deviceName ?? device.deviceId}</strong>
                     <small>
-                      {healthStatusLabel(status)} · {device.online ? 'Online' : 'Offline'}
+                      {healthStatusLabel(status, tr)} ·{' '}
+                      {device.online ? tr('Trực tuyến', 'Online') : tr('Ngoại tuyến', 'Offline')}
                     </small>
                     <small className="health-dashboard-summary__metrics">
                       CPU {resourceValue(device.resource, 'cpuLoad', 'cpu-load')}% · RAM trống{' '}
@@ -167,15 +193,28 @@ export function HealthDashboardSummary({
 
             {!loading && devices.length === 0 ? (
               <p className="muted">
-                No realtime health snapshots yet. Start scheduler or refresh devices.
+                {tr(
+                  'Chưa có dữ liệu sức khỏe thời gian thực.',
+                  'No realtime health snapshots yet.',
+                )}
               </p>
             ) : null}
 
-            {loading ? <p className="muted">Loading health summary...</p> : null}
+            {loading ? (
+              <p className="muted">
+                {tr('Đang tải tổng quan sức khỏe...', 'Loading health summary...')}
+              </p>
+            ) : null}
           </div>
         </WidgetCard>
 
-        <WidgetCard title="Recent Health Events" description="Realtime health and device events">
+        <WidgetCard
+          title={tr('Sự kiện sức khỏe gần đây', 'Recent Health Events')}
+          description={tr(
+            'Sự kiện sức khỏe và thiết bị thời gian thực',
+            'Realtime health and device events',
+          )}
+        >
           <div className="health-dashboard-summary__event-list">
             {healthEvents.map((event) => (
               <Link
@@ -194,7 +233,7 @@ export function HealthDashboardSummary({
                     {metricText(event)}
                   </small>
                   <small>
-                    {event.deviceName ?? event.deviceId ?? 'System'} ·{' '}
+                    {event.deviceName ?? event.deviceId ?? tr('Hệ thống', 'System')} ·{' '}
                     {formatDateTime(event.createdAt)}
                   </small>
                 </div>
@@ -204,10 +243,14 @@ export function HealthDashboardSummary({
             ))}
 
             {!loading && healthEvents.length === 0 ? (
-              <p className="muted">No health events yet.</p>
+              <p className="muted">{tr('Chưa có sự kiện sức khỏe.', 'No health events yet.')}</p>
             ) : null}
 
-            {loading ? <p className="muted">Loading health events...</p> : null}
+            {loading ? (
+              <p className="muted">
+                {tr('Đang tải sự kiện sức khỏe...', 'Loading health events...')}
+              </p>
+            ) : null}
           </div>
         </WidgetCard>
       </div>

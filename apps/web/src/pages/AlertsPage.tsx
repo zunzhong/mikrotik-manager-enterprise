@@ -1,29 +1,39 @@
+import { useState } from 'react';
 import { AlertCenter } from '../modules/alerts/components/AlertCenter';
 import { AlertNotificationChannels } from '../modules/alerts/components/AlertNotificationChannels';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export function AlertsPage() {
-  const { t } = useLanguage();
+  const { t, tr } = useLanguage();
+  const [section, setSection] = useState<'system' | 'center'>('system');
   return (
     <div className="page">
       <div className="page-header">
         <h2>{t('alertCenter')}</h2>
-        <p>{t('alertDescription')}</p>
       </div>
 
-      <div className="alert-notification-section">
-        <div className="section-heading">
-          <span>DELIVERY ENGINE</span>
-          <h2>{t('notificationChannels')}</h2>
-          <p>Cấu hình, kiểm thử và theo dõi lịch sử gửi cảnh báo từ cùng một nơi.</p>
-          <a className="notification-guide-link" href="/HUONG-DAN-KENH-THONG-BAO-MME.txt" download>
-            ↓ {t('notificationGuide')} (.txt)
-          </a>
-        </div>
-        <AlertNotificationChannels>
-          <AlertCenter />
-        </AlertNotificationChannels>
+      <div className="alert-section-tabs" role="tablist" aria-label={t('alertCenter')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'system'}
+          className={section === 'system' ? 'active' : ''}
+          onClick={() => setSection('system')}
+        >
+          {tr('Hệ thống', 'System')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === 'center'}
+          className={section === 'center' ? 'active' : ''}
+          onClick={() => setSection('center')}
+        >
+          {tr('Trung tâm cảnh báo', 'Alert Center')}
+        </button>
       </div>
+
+      {section === 'system' ? <AlertNotificationChannels /> : <AlertCenter />}
     </div>
   );
 }

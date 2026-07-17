@@ -1,5 +1,6 @@
 import type { DeviceRealtimeOverview } from '../../devices/device-realtime.types';
 import type { DashboardSummary } from '../dashboard.api';
+import { useLanguage } from '../../../i18n/LanguageContext';
 
 function numeric(value: unknown): number {
   const result = Number(value ?? 0);
@@ -13,6 +14,7 @@ export function DashboardCharts({
   summary?: DashboardSummary;
   realtime?: DeviceRealtimeOverview;
 }) {
+  const { tr } = useLanguage();
   const total = Math.max(1, summary?.devices.total ?? 0);
   const online = summary?.devices.online ?? 0;
   const degraded = summary?.devices.degraded ?? 0;
@@ -24,8 +26,8 @@ export function DashboardCharts({
     <section className="dashboard-charts">
       <article className="dashboard-chart-card">
         <div>
-          <p className="device-dashboard__eyebrow">Trạng thái hệ thống</p>
-          <h3>Phân bố thiết bị</h3>
+          <p className="device-dashboard__eyebrow">{tr('Trạng thái hệ thống', 'System status')}</p>
+          <h3>{tr('Phân bố thiết bị', 'Device distribution')}</h3>
         </div>
         <div className="status-donut-wrap">
           <div
@@ -36,7 +38,7 @@ export function DashboardCharts({
           >
             <span>
               <strong>{summary?.devices.total ?? 0}</strong>
-              <small>Tổng</small>
+              <small>{tr('Tổng', 'Total')}</small>
             </span>
           </div>
           <div className="chart-legend">
@@ -44,7 +46,7 @@ export function DashboardCharts({
               Online <strong>{online}</strong>
             </span>
             <span className="warning">
-              Cảnh báo <strong>{degraded}</strong>
+              {tr('Cảnh báo', 'Warning')} <strong>{degraded}</strong>
             </span>
             <span className="offline">
               Offline <strong>{offline}</strong>
@@ -55,8 +57,10 @@ export function DashboardCharts({
 
       <article className="dashboard-chart-card">
         <div>
-          <p className="device-dashboard__eyebrow">Tài nguyên realtime</p>
-          <h3>CPU theo thiết bị</h3>
+          <p className="device-dashboard__eyebrow">
+            {tr('Tài nguyên realtime', 'Realtime resources')}
+          </p>
+          <h3>{tr('CPU theo thiết bị', 'CPU by device')}</h3>
         </div>
         <div className="device-cpu-bars">
           {(realtime?.devices ?? []).slice(0, 12).map((device) => {
@@ -78,7 +82,7 @@ export function DashboardCharts({
             );
           })}
           {(realtime?.devices.length ?? 0) === 0 ? (
-            <p className="muted">Chưa có dữ liệu realtime.</p>
+            <p className="muted">{tr('Chưa có dữ liệu realtime.', 'No realtime data yet.')}</p>
           ) : null}
         </div>
       </article>

@@ -8,7 +8,7 @@ const envDevAuthRoles = import.meta.env.VITE_AUTH_DEV_ROLES as string | undefine
 const envDevAuthPermissions = import.meta.env.VITE_AUTH_DEV_PERMISSIONS as string | undefined;
 const envDevAuthSuperAdmin = import.meta.env.VITE_AUTH_DEV_SUPER_ADMIN as string | undefined;
 
-function buildApiUrl(path: string): string {
+export function buildApiUrl(path: string): string {
   if (explicitApiBaseUrl && explicitApiBaseUrl.length > 0) {
     return `${explicitApiBaseUrl}${path}`;
   }
@@ -72,7 +72,7 @@ function getDevAuthHeaders(): Record<string, string> {
   return headers;
 }
 
-function mergeHeaders(headers: HeadersInit | undefined): HeadersInit {
+export function mergeHeaders(headers: HeadersInit | undefined): HeadersInit {
   const token = readLocalStorage('mme-token');
 
   return {

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 
 export class BackupStorageService {
@@ -41,6 +41,14 @@ export class BackupStorageService {
         exists: false,
       };
     }
+  }
+
+  public writeText(filePath: string, content: string): Promise<void> {
+    return writeFile(filePath, content, 'utf8');
+  }
+
+  public read(filePath: string): Promise<Buffer> {
+    return readFile(filePath);
   }
 
   public checksumText(value: string): string {

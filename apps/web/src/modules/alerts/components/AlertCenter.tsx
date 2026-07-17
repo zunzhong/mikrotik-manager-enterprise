@@ -351,14 +351,24 @@ export function AlertCenter() {
                       {alert.device?.name ?? 'Hệ thống'} · {alert.source} ·{' '}
                       {formatDateTime(alert.createdAt)}
                     </small>
+                    {alert.status === 'acknowledged' && alert.acknowledgedAt ? (
+                      <small className="alert-state-time status-acknowledged">
+                        {tr('Đã xác nhận', 'Acknowledged')} - {formatDateTime(alert.acknowledgedAt)}
+                      </small>
+                    ) : null}
+                    {alert.status === 'resolved' && alert.resolvedAt ? (
+                      <small className="alert-state-time status-resolved">
+                        {tr('Đã xử lý', 'Resolved')} - {formatDateTime(alert.resolvedAt)}
+                      </small>
+                    ) : null}
                     <AlertMetadata metadata={alert.metadata} />
                   </div>
                   <div className="alert-badges">
                     <span className={`alert-severity sev-${alert.severity}`}>
-                      {severityLabel(alert.severity)}
+                      {severityLabel(alert.severity, tr)}
                     </span>
                     <span className={`alert-status status-${alert.status}`}>
-                      {statusLabel(alert.status)}
+                      {statusLabel(alert.status, tr)}
                     </span>
                   </div>
                 </div>
@@ -404,17 +414,17 @@ export function AlertCenter() {
   );
 }
 
-function statusLabel(status: string): string {
-  if (status === 'open') return 'Đang kích hoạt';
-  if (status === 'acknowledged') return 'Đã xác nhận';
-  if (status === 'resolved') return 'Đã xử lý';
+function statusLabel(status: string, tr: (vi: string, en: string) => string): string {
+  if (status === 'open') return tr('Đang kích hoạt', 'Open');
+  if (status === 'acknowledged') return tr('Đã xác nhận', 'Acknowledged');
+  if (status === 'resolved') return tr('Đã xử lý', 'Resolved');
   return status;
 }
 
-function severityLabel(severity: string): string {
-  if (severity === 'critical') return 'Nghiêm trọng';
-  if (severity === 'warning') return 'Cảnh báo';
-  if (severity === 'info') return 'Thông tin';
+function severityLabel(severity: string, tr: (vi: string, en: string) => string): string {
+  if (severity === 'critical') return tr('Nghiêm trọng', 'Critical');
+  if (severity === 'warning') return tr('Cảnh báo', 'Warning');
+  if (severity === 'info') return tr('Thông tin', 'Information');
   return severity;
 }
 

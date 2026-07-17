@@ -1,4 +1,5 @@
 import { RouterClient } from '@mme/routeros-core';
+import { prisma } from '../../../database/index.js';
 import { HttpError } from '../../../errors/http-error.js';
 import { eventBus } from '../../../core/index.js';
 import { encryptionService } from '../../../security/encryption.service.js';
@@ -9,23 +10,31 @@ import { restoreValidationService } from './restore-validation.service.js';
 import type { BackupType } from '../domain/backup.types.js';
 
 function timestampName(): string {
-  return new Date().toISOString().replace(/[:.]/g, '-');
+  return new Date().toISOString().replace('T', '_').replace(/[:.]/g, '-').replace('Z', '');
+}
+
+function rowText(rows: Array<Record<string, string>>, key: string): string {
+  return rows
+    .map((row) => row[key] ?? '')
+    .filter(Boolean)
+    .join('\n');
 }
 
 export class BackupService {
-  public list(deviceId: string) {
-    return backupRepository.listByDevice(deviceId);
+  public async list(deviceId: string) {
+    const records = await backupRepository.listByDevice(deviceId);
+    return Promise.all(
+      records.map(async (backup) => ({
+        ...backup,
+        storage: await backupStorageService.getFileInfo(backup.filePath),
+      })),
+    );
   }
 
   public async get(id: string) {
     const backup = await backupRepository.findById(id);
-
-    if (!backup) {
-      throw new HttpError(404, 'BACKUP_NOT_FOUND', 'Backup not found');
-    }
-
+    if (!backup) throw new HttpError(404, 'BACKUP_NOT_FOUND', 'Backup not found');
     const fileInfo = await backupStorageService.getFileInfo(backup.filePath);
-
     return {
       ...backup,
       storage: fileInfo,
@@ -39,29 +48,7 @@ export class BackupService {
 
   public async create(deviceId: string, type: BackupType = 'export') {
     const device = await deviceRepository.findById(deviceId);
-
-    if (!device) {
-      throw new Error('Device not found');
-    }
-
-    const extension = type === 'binary' ? 'backup' : 'rsc';
-    const fileName = backupStorageService.sanitizeFileName(
-      `${device.name.replace(/\s+/g, '-')}-${timestampName()}.${extension}`,
-    );
-    const filePath = await backupStorageService.buildPath(deviceId, fileName);
-
-    const record = await backupRepository.create({
-      deviceId,
-      type,
-      status: 'running',
-      fileName,
-      filePath,
-      metadata: {
-        host: device.host,
-        type,
-        storage: 'local',
-      },
-    });
+    if (!device) throw new HttpError(404, 'DEVICE_NOT_FOUND', 'Device not found');
 
     const client = new RouterClient({
       host: device.host,
@@ -73,71 +60,140 @@ export class BackupService {
       timeoutMs: 15000,
     });
 
+    let record: Awaited<ReturnType<typeof backupRepository.create>> | null = null;
     try {
       await client.connect();
+      const identityResponse = await client.command('/system/identity/print');
+      const identity = identityResponse.rows[0]?.name?.trim() || device.name;
+      const extension = type === 'binary' ? 'backup' : 'rsc';
+      const fileName = backupStorageService.sanitizeFileName(
+        `MME_${identity.replace(/\s+/g, '-')}_${timestampName()}.${extension}`,
+      );
+      const filePath = await backupStorageService.buildPath(deviceId, fileName);
+
+      record = await backupRepository.create({
+        deviceId,
+        type,
+        status: 'running',
+        fileName,
+        filePath,
+        metadata: { host: device.host, identity, type, storage: 'local' },
+      });
 
       if (type === 'binary') {
-        await client.command('/system/backup/save', {
-          name: fileName.replace('.backup', ''),
-        });
+        await client.command('/system/backup/save', { name: fileName.replace('.backup', '') });
       } else {
-        await client.command('/export', {
-          file: fileName.replace('.rsc', ''),
-        });
+        await client.command('/export', { file: fileName.replace('.rsc', '') });
+        const routerFile = await client.command(
+          '/file/print',
+          { '.proplist': 'name,contents,size' },
+          { queries: [`?name=${fileName}`] },
+        );
+        const contents = rowText(routerFile.rows, 'contents');
+        if (!contents) {
+          throw new Error('RouterOS did not return export contents for local storage');
+        }
+        await backupStorageService.writeText(filePath, contents);
       }
 
       await client.close();
-
       const completed = await backupRepository.update(record.id, {
         status: 'completed',
         completedAt: new Date(),
         filePath,
-        checksum: backupStorageService.checksumText(`${deviceId}:${fileName}`),
         metadata: {
           host: device.host,
+          identity,
           type,
           routerFileName: fileName,
           localPath: filePath,
-          note: 'RouterOS command completed. Physical file transfer will be added later.',
+          locallyAvailable: type === 'export',
         },
       });
-
       await eventBus.emit('backup.completed', {
         deviceId,
         backupId: completed.id,
         type,
         fileName,
       });
-
       return completed;
     } catch (error) {
       await client.close().catch(() => undefined);
-
+      if (!record) throw error;
       const failed = await backupRepository.update(record.id, {
         status: 'failed',
         completedAt: new Date(),
         error: error instanceof Error ? error.message : 'Unknown backup error',
       });
-
       await eventBus.emit('backup.failed', {
         deviceId,
         backupId: failed.id,
         type,
         error: failed.error,
       });
-
       return failed;
     }
   }
 
   public async validate(id: string) {
     const backup = await this.get(id);
-
     return restoreValidationService.validateMetadata({
       type: backup.type,
       fileName: backup.fileName,
       status: backup.status,
     });
+  }
+
+  public async readFile(id: string, textOnly = false) {
+    const backup = await this.get(id);
+    if (!backup.filePath || !backup.storage.exists) {
+      throw new HttpError(409, 'BACKUP_FILE_UNAVAILABLE', 'Backup file is not available locally');
+    }
+    if (textOnly && !backup.fileName.toLowerCase().endsWith('.rsc')) {
+      throw new HttpError(415, 'BACKUP_NOT_TEXT', 'Only .rsc files can be opened as text');
+    }
+    return { backup, content: await backupStorageService.read(backup.filePath) };
+  }
+
+  public listSchedules() {
+    return prisma.backupSchedule.findMany({
+      orderBy: { updatedAt: 'desc' },
+      include: { device: { select: { id: true, name: true, host: true } } },
+    });
+  }
+
+  public async configureSchedule(
+    deviceId: string,
+    input: { enabled: boolean; type: BackupType; intervalHours: number },
+  ) {
+    const device = await deviceRepository.findById(deviceId);
+    if (!device) throw new HttpError(404, 'DEVICE_NOT_FOUND', 'Device not found');
+    const nextRunAt = input.enabled
+      ? new Date(Date.now() + input.intervalHours * 60 * 60 * 1000)
+      : null;
+    return prisma.backupSchedule.upsert({
+      where: { deviceId },
+      create: { deviceId, ...input, nextRunAt },
+      update: { ...input, nextRunAt },
+    });
+  }
+
+  public async runDueSchedules() {
+    const due = await prisma.backupSchedule.findMany({
+      where: { enabled: true, OR: [{ nextRunAt: null }, { nextRunAt: { lte: new Date() } }] },
+    });
+    for (const schedule of due) {
+      const startedAt = new Date();
+      await prisma.backupSchedule.update({
+        where: { id: schedule.id },
+        data: {
+          lastRunAt: startedAt,
+          nextRunAt: new Date(startedAt.getTime() + schedule.intervalHours * 60 * 60 * 1000),
+        },
+      });
+      await this.create(schedule.deviceId, schedule.type as BackupType).catch(() => undefined);
+    }
+    return due.length;
   }
 
   public delete(id: string) {

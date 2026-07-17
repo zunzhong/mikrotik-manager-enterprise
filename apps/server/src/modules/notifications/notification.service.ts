@@ -497,7 +497,7 @@ export class NotificationService {
     return result;
   }
 
-  public async testChannel(channelId: string) {
+  public async testChannel(channelId: string, target?: { deviceId: string; deviceName: string }) {
     const channel = notificationStore.getChannel(channelId);
     if (!channel) return null;
     const requirements = channelRequirements(channel);
@@ -508,9 +508,13 @@ export class NotificationService {
       payload: {
         eventType: 'CHANNEL_TEST',
         severity: 'info',
-        title: 'MME kiểm thử kênh thông báo',
-        message: `Kênh “${channel.name}” đã nhận được thông báo kiểm thử từ MME.`,
+        title: target?.deviceName ?? 'Toàn bộ thiết bị MME',
+        message: target
+          ? `Kiểm thử kênh “${channel.name}” cho thiết bị ${target.deviceName}.`
+          : `Kiểm thử kênh “${channel.name}” cho toàn bộ hệ thống MME.`,
         source: 'notification-channel-test',
+        deviceId: target?.deviceId,
+        deviceName: target?.deviceName,
         createdAt: new Date().toISOString(),
       },
     });

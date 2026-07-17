@@ -4,6 +4,7 @@ import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js'
 import { rbacAnyGuard, rbacGuard } from '../rbac/rbac.guard.js';
 import type { RbacPermission } from '../rbac/rbac.types.js';
 import { notificationService } from './notification.service.js';
+import { deviceRepository } from '../device/infrastructure/device.repository.js';
 
 const channelTypeValues = ['email', 'webhook', 'slack', 'telegram', 'in_app'] as const;
 const severityValues = ['info', 'success', 'warning', 'critical'] as const;
@@ -39,6 +40,10 @@ const notificationTestPreHandler = [
 
 const idParamsSchema = z.object({
   id: z.string().min(1),
+});
+
+const testChannelSchema = z.object({
+  deviceId: z.string().min(1).optional(),
 });
 
 const createChannelSchema = z.object({
@@ -239,7 +244,16 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: notificationTestPreHandler },
     async (request, reply) => {
       const params = idParamsSchema.parse(request.params);
-      const result = await notificationService.testChannel(params.id);
+      const body = testChannelSchema.parse(request.body ?? {});
+      const device = body.deviceId ? await deviceRepository.findById(body.deviceId) : null;
+      if (body.deviceId && !device) {
+        reply.code(404);
+        return { success: false, error: 'Device not found' };
+      }
+      const result = await notificationService.testChannel(
+        params.id,
+        device ? { deviceId: device.id, deviceName: device.name } : undefined,
+      );
       if (!result) {
         reply.code(404);
         return { success: false, error: 'Notification channel not found' };

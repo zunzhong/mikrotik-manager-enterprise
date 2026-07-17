@@ -15,13 +15,14 @@ export function DashboardRefreshBar({
   lastUpdatedAt?: Date;
   onRefresh: () => void;
 }) {
-  const { formatDateTime } = useLanguage();
+  const { formatDateTime, tr } = useLanguage();
   return (
     <div className="dashboard-refresh-bar">
       <div>
-        <strong>Dashboard Refresh</strong>
+        <strong>{tr('Làm mới Dashboard', 'Dashboard Refresh')}</strong>
         <span>
-          Last updated: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'not updated yet'}
+          {tr('Cập nhật lần cuối', 'Last updated')}:{' '}
+          {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : tr('chưa cập nhật', 'not updated yet')}
         </span>
       </div>
 
@@ -32,7 +33,7 @@ export function DashboardRefreshBar({
             checked={enabled}
             onChange={(event) => setEnabled(event.target.checked)}
           />
-          Auto refresh
+          {tr('Tự động làm mới', 'Auto refresh')}
         </label>
 
         <select value={intervalMs} onChange={(event) => setIntervalMs(Number(event.target.value))}>
@@ -43,7 +44,7 @@ export function DashboardRefreshBar({
         </select>
 
         <button className="small-button" onClick={onRefresh}>
-          Refresh Now
+          {tr('Làm mới ngay', 'Refresh Now')}
         </button>
       </div>
     </div>

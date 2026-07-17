@@ -1,5 +1,6 @@
 import { useAuthSession } from './useAuthSession';
 import './auth-session.css';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 function joinList(items: string[] | undefined): string {
   if (!items || items.length === 0) {
@@ -10,6 +11,7 @@ function joinList(items: string[] | undefined): string {
 }
 
 export function AuthSessionStatusCard() {
+  const { tr } = useLanguage();
   const { current, rbacPrincipal, loading, error, refresh } = useAuthSession();
 
   const user = current?.user;
@@ -18,13 +20,22 @@ export function AuthSessionStatusCard() {
     <section className="auth-session-card">
       <div className="auth-session-card__header">
         <div>
-          <p className="auth-session-card__eyebrow">Auth Session</p>
-          <h3>{current?.authenticated ? 'Authenticated' : 'Anonymous'}</h3>
-          <p>Current server-side auth session and RBAC principal preview.</p>
+          <p className="auth-session-card__eyebrow">{tr('Phiên đăng nhập', 'Auth Session')}</p>
+          <h3>
+            {current?.authenticated
+              ? tr('Đã xác thực', 'Authenticated')
+              : tr('Ẩn danh', 'Anonymous')}
+          </h3>
+          <p>
+            {tr(
+              'Phiên máy chủ hiện tại và thông tin RBAC.',
+              'Current server session and RBAC principal.',
+            )}
+          </p>
         </div>
 
         <button type="button" disabled={loading} onClick={() => void refresh()}>
-          {loading ? 'Loading...' : 'Refresh'}
+          {loading ? tr('Đang tải...', 'Loading...') : tr('Làm mới', 'Refresh')}
         </button>
       </div>
 
@@ -32,7 +43,7 @@ export function AuthSessionStatusCard() {
 
       <div className="auth-session-card__grid">
         <div>
-          <span>User ID</span>
+          <span>{tr('Mã người dùng', 'User ID')}</span>
           <strong>{user?.id ?? 'anonymous'}</strong>
         </div>
         <div>
@@ -40,17 +51,17 @@ export function AuthSessionStatusCard() {
           <strong>{user?.email ?? 'none'}</strong>
         </div>
         <div>
-          <span>Roles</span>
+          <span>{tr('Vai trò', 'Roles')}</span>
           <strong>{joinList(user?.roleIds)}</strong>
         </div>
         <div>
-          <span>Super Admin</span>
-          <strong>{user?.isSuperAdmin ? 'yes' : 'no'}</strong>
+          <span>{tr('Quản trị cao nhất', 'Super Admin')}</span>
+          <strong>{user?.isSuperAdmin ? tr('có', 'yes') : tr('không', 'no')}</strong>
         </div>
       </div>
 
       <div className="auth-session-card__section">
-        <h4>Permissions</h4>
+        <h4>{tr('Quyền hạn', 'Permissions')}</h4>
         <div className="auth-session-card__chips">
           {(user?.permissions ?? []).map((permission) => (
             <span key={permission}>{permission}</span>
@@ -61,7 +72,7 @@ export function AuthSessionStatusCard() {
       </div>
 
       <div className="auth-session-card__section">
-        <h4>RBAC Principal</h4>
+        <h4>{tr('Định danh RBAC', 'RBAC Principal')}</h4>
         <pre>
           {JSON.stringify(
             rbacPrincipal ?? {

@@ -123,13 +123,13 @@ export function DashboardPage() {
           to="/devices/list"
         />
         <SummaryCard
-          label="Online"
+          label={tr('Trực tuyến', 'Online')}
           value={data?.devices.online ?? 0}
           hint={tr('đang kết nối', 'currently reachable')}
           to={deviceLink('online')}
         />
         <SummaryCard
-          label="Offline"
+          label={tr('Ngoại tuyến', 'Offline')}
           value={data?.devices.offline ?? 0}
           hint={tr('cần kiểm tra', 'requires attention')}
           to={deviceLink('offline')}
@@ -147,7 +147,7 @@ export function DashboardPage() {
           to="/alerts"
         />
         <SummaryCard
-          label="Compliance"
+          label={tr('Tuân thủ', 'Compliance')}
           value={`${data?.compliance.averageScore ?? 0}%`}
           hint={tr('điểm trung bình', 'average score')}
           to="/compliance"
@@ -204,7 +204,7 @@ export function DashboardPage() {
               </Link>
             ))}
             {!alerts.loading && (alerts.data?.recent.length ?? 0) === 0 ? (
-              <p className="muted">No alerts yet.</p>
+              <p className="muted">{tr('Chưa có cảnh báo.', 'No alerts yet.')}</p>
             ) : null}
           </div>
         </WidgetCard>
@@ -237,7 +237,7 @@ export function DashboardPage() {
 
       <div className="dashboard-grid">
         <WidgetCard
-          title="Compliance"
+          title={tr('Tuân thủ', 'Compliance')}
           description={tr('Kết quả quét compliance gần đây', 'Recent compliance scan results')}
         >
           <div className="list">
@@ -247,31 +247,33 @@ export function DashboardPage() {
                 key={item.id}
                 to={item.device?.id ? `/devices/${item.device.id}?tab=compliance` : '/compliance'}
               >
-                <span>{item.device?.name ?? 'Unknown device'}</span>
+                <span>{item.device?.name ?? tr('Thiết bị không xác định', 'Unknown device')}</span>
                 <strong>{item.score}%</strong>
               </Link>
             ))}
             {!compliance.loading && (compliance.data?.recent.length ?? 0) === 0 ? (
-              <p className="muted">No compliance reports yet.</p>
+              <p className="muted">
+                {tr('Chưa có báo cáo tuân thủ.', 'No compliance reports yet.')}
+              </p>
             ) : null}
           </div>
         </WidgetCard>
 
         <WidgetCard
-          title="Inventory"
+          title={tr('Kho dữ liệu thiết bị', 'Inventory')}
           description={tr('Thống kê dữ liệu đã thu thập', 'Collected inventory statistics')}
         >
           <div className="mini-stats">
             <div>
-              <span>Sections</span>
+              <span>{tr('Phân mục', 'Sections')}</span>
               <strong>{inventory.data?.totals.sections ?? 0}</strong>
             </div>
             <div>
-              <span>Items</span>
+              <span>{tr('Mục dữ liệu', 'Items')}</span>
               <strong>{inventory.data?.totals.items ?? 0}</strong>
             </div>
             <div>
-              <span>Diffs</span>
+              <span>{tr('Thay đổi', 'Diffs')}</span>
               <strong>{inventory.data?.totals.diffs ?? 0}</strong>
             </div>
           </div>

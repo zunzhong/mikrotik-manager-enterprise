@@ -31,7 +31,7 @@ export function AlertLifecyclePanel({
   error,
   onChanged,
 }: AlertLifecyclePanelProps) {
-  const { formatDateTime } = useLanguage();
+  const { formatDateTime, tr } = useLanguage();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -185,11 +185,15 @@ export function AlertLifecyclePanel({
     <section className="alert-lifecycle-panel">
       <div className="alert-lifecycle-panel__header">
         <div>
-          <p className="alert-lifecycle-panel__eyebrow">Alert Lifecycle</p>
-          <h3>Open / Acknowledge / Resolve</h3>
+          <p className="alert-lifecycle-panel__eyebrow">
+            {tr('Vòng đời cảnh báo', 'Alert Lifecycle')}
+          </p>
+          <h3>{tr('Mở / Xác nhận / Xử lý', 'Open / Acknowledge / Resolve')}</h3>
           <p>
-            Enterprise alert lifecycle generated from realtime health events and device state
-            changes.
+            {tr(
+              'Theo dõi cảnh báo từ sự kiện sức khỏe và thay đổi trạng thái thiết bị.',
+              'Alerts generated from health events and device state changes.',
+            )}
           </p>
         </div>
 
@@ -200,27 +204,34 @@ export function AlertLifecyclePanel({
       {actionError ? <div className="error-banner">{actionError}</div> : null}
 
       <div className="alert-lifecycle-panel__cards">
-        <SummaryCard label="Open Alerts" value={summary?.status.open ?? 0} hint="needs triage" />
         <SummaryCard
-          label="Acknowledged"
+          label={tr('Cảnh báo mở', 'Open Alerts')}
+          value={summary?.status.open ?? 0}
+          hint={tr('cần phân loại', 'needs triage')}
+        />
+        <SummaryCard
+          label={tr('Đã xác nhận', 'Acknowledged')}
           value={summary?.status.acknowledged ?? 0}
-          hint="accepted by operator"
+          hint={tr('đã được tiếp nhận', 'accepted by operator')}
         />
         <SummaryCard
-          label="Critical Active"
+          label={tr('Nghiêm trọng đang mở', 'Critical Active')}
           value={summary?.activeSeverity.critical ?? 0}
-          hint="highest priority"
+          hint={tr('ưu tiên cao nhất', 'highest priority')}
         />
         <SummaryCard
-          label="Warning Active"
+          label={tr('Cảnh báo đang mở', 'Warning Active')}
           value={summary?.activeSeverity.warning ?? 0}
-          hint="watch closely"
+          hint={tr('cần theo dõi', 'watch closely')}
         />
       </div>
 
       <WidgetCard
-        title="Active Alert Lifecycle"
-        description="Acknowledge or resolve current alerts"
+        title={tr('Danh sách cảnh báo đang hoạt động', 'Active Alert Lifecycle')}
+        description={tr(
+          'Xác nhận hoặc xử lý cảnh báo hiện tại',
+          'Acknowledge or resolve current alerts',
+        )}
       >
         <div className="alert-lifecycle-panel__toolbar">
           <label>
@@ -230,17 +241,17 @@ export function AlertLifecyclePanel({
               disabled={alerts.length === 0 || bulkBusy}
               onChange={toggleAll}
             />
-            Select all
+            {tr('Chọn tất cả', 'Select all')}
           </label>
 
-          <span>{selectedCount} selected</span>
+          <span>{tr(`${selectedCount} đã chọn`, `${selectedCount} selected`)}</span>
 
           <button
             type="button"
             disabled={selectedCount === 0 || bulkBusy}
             onClick={() => void acknowledgeSelected()}
           >
-            Bulk Acknowledge
+            {tr('Xác nhận đã chọn', 'Bulk Acknowledge')}
           </button>
 
           <button
@@ -248,11 +259,11 @@ export function AlertLifecyclePanel({
             disabled={selectedCount === 0 || bulkBusy}
             onClick={() => void resolveSelected()}
           >
-            Bulk Resolve
+            {tr('Xử lý đã chọn', 'Bulk Resolve')}
           </button>
 
           <button type="button" disabled={selectedCount === 0 || bulkBusy} onClick={clearSelection}>
-            Clear
+            {tr('Bỏ chọn', 'Clear')}
           </button>
 
           <button
@@ -261,7 +272,7 @@ export function AlertLifecyclePanel({
             disabled={alerts.length === 0 || bulkBusy}
             onClick={() => void deleteAllAlerts()}
           >
-            Delete all
+            {tr('Xóa tất cả', 'Delete all')}
           </button>
         </div>
 
@@ -306,7 +317,9 @@ export function AlertLifecyclePanel({
                     disabled={busy || bulkBusy || alert.status === 'acknowledged'}
                     onClick={() => void acknowledge(alert)}
                   >
-                    {alert.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge'}
+                    {alert.status === 'acknowledged'
+                      ? tr('Đã xác nhận', 'Acknowledged')
+                      : tr('Xác nhận', 'Acknowledge')}
                   </button>
 
                   <button
@@ -314,7 +327,7 @@ export function AlertLifecyclePanel({
                     disabled={busy || bulkBusy}
                     onClick={() => void resolve(alert)}
                   >
-                    Resolve
+                    {tr('Đã xử lý', 'Resolve')}
                   </button>
 
                   <button
@@ -322,7 +335,7 @@ export function AlertLifecyclePanel({
                     disabled={busy || bulkBusy || !alert.deviceId}
                     onClick={() => void resolveDeviceActive(alert)}
                   >
-                    Resolve Device
+                    {tr('Xử lý theo thiết bị', 'Resolve Device')}
                   </button>
 
                   <button
@@ -331,7 +344,7 @@ export function AlertLifecyclePanel({
                     disabled={busy || bulkBusy}
                     onClick={() => void deleteAlert(alert)}
                   >
-                    Delete
+                    {tr('Xóa', 'Delete')}
                   </button>
                 </div>
               </article>
@@ -339,10 +352,12 @@ export function AlertLifecyclePanel({
           })}
 
           {!loading && alerts.length === 0 ? (
-            <p className="muted">No active alerts. Health lifecycle is clear.</p>
+            <p className="muted">{tr('Không có cảnh báo đang hoạt động.', 'No active alerts.')}</p>
           ) : null}
 
-          {loading ? <p className="muted">Loading alert lifecycle...</p> : null}
+          {loading ? (
+            <p className="muted">{tr('Đang tải cảnh báo...', 'Loading alert lifecycle...')}</p>
+          ) : null}
         </div>
       </WidgetCard>
     </section>

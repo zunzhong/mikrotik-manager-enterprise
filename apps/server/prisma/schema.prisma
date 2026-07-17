@@ -115,6 +115,7 @@ model Device {
   complianceReports       ComplianceReport[]
   alerts                  Alert[]
   backups                 BackupRecord[]
+  backupSchedule          BackupSchedule?
   trafficSamples          TrafficSample[]
   alertRuleConfigs        DeviceAlertRuleConfig[]
   routerOsLogFingerprints RouterOsLogFingerprint[]
@@ -279,6 +280,22 @@ model BackupRecord {
   @@index([type])
   @@index([status])
   @@index([createdAt])
+}
+
+model BackupSchedule {
+  id            String   @id @default(cuid())
+  deviceId      String   @unique
+  enabled       Boolean  @default(false)
+  type          String   @default("export")
+  intervalHours Int      @default(24)
+  lastRunAt     DateTime?
+  nextRunAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, nextRunAt])
 }
 
 model Alert {

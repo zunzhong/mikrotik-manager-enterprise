@@ -6,6 +6,16 @@ const createBackupSchema = z.object({
   type: z.enum(['binary', 'export']).default('export'),
 });
 
+const backupScheduleSchema = z.object({
+  enabled: z.boolean(),
+  type: z.enum(['binary', 'export']).default('export'),
+  intervalHours: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 365),
+});
+
 export async function backupRoutes(app: FastifyInstance) {
   app.get('/api/v1/devices/:id/backups', async (request) => {
     const params = request.params as { id: string };
@@ -37,17 +47,31 @@ export async function backupRoutes(app: FastifyInstance) {
 
   app.get('/api/v1/backups/:id/download', async (request, reply) => {
     const params = request.params as { id: string };
-    const backup = await backupService.get(params.id);
+    const { backup, content } = await backupService.readFile(params.id);
+    return reply
+      .header('Content-Disposition', `attachment; filename="${backup.fileName}"`)
+      .type('application/octet-stream')
+      .send(content);
+  });
 
-    return reply.code(202).send({
+  app.get('/api/v1/backups/:id/content', async (request) => {
+    const params = request.params as { id: string };
+    const { backup, content } = await backupService.readFile(params.id, true);
+    return {
       success: true,
-      data: {
-        backupId: backup.id,
-        fileName: backup.fileName,
-        available: backup.storage.exists,
-        note: 'Physical file transfer from RouterOS storage is not enabled yet.',
-      },
-    });
+      data: { id: backup.id, fileName: backup.fileName, content: content.toString('utf8') },
+    };
+  });
+
+  app.get('/api/v1/backup/schedules', async () => ({
+    success: true,
+    data: await backupService.listSchedules(),
+  }));
+
+  app.put('/api/v1/devices/:id/backup/schedule', async (request) => {
+    const params = request.params as { id: string };
+    const body = backupScheduleSchema.parse(request.body ?? {});
+    return { success: true, data: await backupService.configureSchedule(params.id, body) };
   });
 
   app.post('/api/v1/backups/:id/validate', async (request) => {
