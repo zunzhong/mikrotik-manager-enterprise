@@ -11,7 +11,9 @@ import type { BackupType } from '../domain/backup.types.js';
 import { nextScheduledRun } from './backup-schedule.js';
 import {
   buildRouterFileTransferCandidates,
+  RouterServiceRestoreError,
   routerFileTransferService,
+  withTemporaryRouterService,
 } from './router-file-transfer.service.js';
 
 function timestampName(): string {
@@ -269,13 +271,47 @@ export class BackupService {
   ) {
     const { file } = await this.waitForRouterFile(client, input.fileName, false);
     const serviceResponse = await client.command('/ip/service/print', {
-      '.proplist': 'name,port,disabled',
+      '.proplist': '.id,name,port,disabled',
     });
-    const transfer = await routerFileTransferService.download({
-      ...input,
-      candidates: buildRouterFileTransferCandidates(serviceResponse.rows),
-    });
-    return { id: file['.id'], content: transfer.content };
+    const candidates = buildRouterFileTransferCandidates(serviceResponse.rows);
+    if (!candidates.length) {
+      throw new Error('RouterOS did not expose SSH or FTP service information to MME');
+    }
+
+    const failures: string[] = [];
+    for (const candidate of candidates) {
+      try {
+        const transfer = await withTemporaryRouterService(
+          candidate,
+          async (disabled) => {
+            await client.command('/ip/service/set', {
+              numbers: candidate.serviceId,
+              disabled: disabled ? 'yes' : 'no',
+            });
+            if (!disabled) await new Promise((resolve) => setTimeout(resolve, 500));
+          },
+          () =>
+            routerFileTransferService.download({
+              ...input,
+              candidates: [candidate],
+            }),
+        );
+        return { id: file['.id'], content: transfer.content };
+      } catch (error) {
+        if (error instanceof RouterServiceRestoreError) throw error;
+        failures.push(
+          `${candidate.serviceName}:${candidate.port} - ${
+            error instanceof Error ? error.message : 'transfer failed'
+          }`,
+        );
+      }
+    }
+
+    throw new Error(
+      `MME could not transfer ${input.fileName}; RouterOS service state was restored. ${failures.join(
+        '; ',
+      )}`,
+    );
   }
 }
 

@@ -5,7 +5,21 @@ import SftpClient from 'ssh2-sftp-client';
 export type RouterFileTransferCandidate = {
   protocol: 'sftp' | 'ftp';
   port: number;
+  serviceId: string;
+  serviceName: 'ssh' | 'ftp';
+  initiallyDisabled: boolean;
 };
+
+export class RouterServiceRestoreError extends Error {
+  public constructor(serviceName: string, cause: unknown) {
+    super(
+      `MME could not restore RouterOS ${serviceName} to its original disabled state: ${
+        cause instanceof Error ? cause.message : 'unknown RouterOS error'
+      }`,
+    );
+    this.name = 'RouterServiceRestoreError';
+  }
+}
 
 type RouterServiceRow = Record<string, string>;
 
@@ -20,16 +34,57 @@ type DownloadInput = {
 export function buildRouterFileTransferCandidates(
   services: RouterServiceRow[],
 ): RouterFileTransferCandidate[] {
-  const candidates: RouterFileTransferCandidate[] = [];
-  const ssh = services.find((service) => service.name === 'ssh');
-  const ftp = services.find((service) => service.name === 'ftp');
-  if (ssh && ssh.disabled !== 'true' && ssh.disabled !== 'yes') {
-    candidates.push({ protocol: 'sftp', port: Number(ssh.port) || 22 });
+  const candidates = services.flatMap((service): RouterFileTransferCandidate[] => {
+    if ((service.name !== 'ssh' && service.name !== 'ftp') || !service['.id']) return [];
+    const initiallyDisabled = service.disabled === 'true' || service.disabled === 'yes';
+    return [
+      {
+        protocol: service.name === 'ssh' ? 'sftp' : 'ftp',
+        port: Number(service.port) || (service.name === 'ssh' ? 22 : 21),
+        serviceId: service['.id'],
+        serviceName: service.name,
+        initiallyDisabled,
+      },
+    ];
+  });
+  return candidates.sort((left, right) => {
+    if (left.initiallyDisabled !== right.initiallyDisabled) {
+      return Number(left.initiallyDisabled) - Number(right.initiallyDisabled);
+    }
+    return left.protocol === 'sftp' ? -1 : right.protocol === 'sftp' ? 1 : 0;
+  });
+}
+
+export async function withTemporaryRouterService<T>(
+  candidate: RouterFileTransferCandidate,
+  setDisabled: (disabled: boolean) => Promise<void>,
+  operation: () => Promise<T>,
+): Promise<T> {
+  let restoreRequired = false;
+  let operationFailed = false;
+  let operationError: unknown;
+  let result: T | undefined;
+  try {
+    if (candidate.initiallyDisabled) {
+      restoreRequired = true;
+      await setDisabled(false);
+    }
+    result = await operation();
+  } catch (error) {
+    operationFailed = true;
+    operationError = error;
   }
-  if (ftp && ftp.disabled !== 'true' && ftp.disabled !== 'yes') {
-    candidates.push({ protocol: 'ftp', port: Number(ftp.port) || 21 });
+
+  if (restoreRequired) {
+    try {
+      await setDisabled(true);
+    } catch (error) {
+      throw new RouterServiceRestoreError(candidate.serviceName, error);
+    }
   }
-  return candidates;
+
+  if (operationFailed) throw operationError;
+  return result as T;
 }
 
 export class RouterFileTransferService {
@@ -55,7 +110,7 @@ export class RouterFileTransferService {
     const detail = failures.length ? ` Attempts: ${failures.join('; ')}` : '';
     throw new Error(
       `RouterOS binary backup was created, but MME could not download it. ` +
-        `Enable SSH/SFTP or FTP for the device account and allow it from the MME host.${detail}`,
+        `Check the device account file-transfer permissions and firewall access from the MME host.${detail}`,
     );
   }
 

@@ -1,5 +1,13 @@
 # MikroTik Manager Enterprise 5.2 — Cảnh báo và Backup
 
+## Bản sửa lỗi 5.2.2: tự khôi phục dịch vụ truyền backup
+
+- MME đọc cổng và trạng thái hiện tại của `ssh`/`ftp` trên từng RouterOS.
+- MME ưu tiên dịch vụ đang bật để không thay đổi cấu hình không cần thiết; nếu cả hai đang tắt, MME bật tạm SSH/SFTP trước và FTP sau nếu cần.
+- Dịch vụ do MME bật tạm luôn được tắt lại trong bước `finally`, kể cả khi tải backup lỗi.
+- Dịch vụ vốn đã bật trước khi backup được giữ nguyên trạng thái bật.
+- Nếu RouterOS không cho phép MME khôi phục trạng thái tắt, tác vụ dừng và hiển thị lỗi rõ ràng để quản trị viên kiểm tra ngay.
+
 ## Bản sửa lỗi 5.2.1: tải binary backup
 
 - File `.backup` là dữ liệu nhị phân nên không được đọc bằng thuộc tính `contents` của RouterOS API.
