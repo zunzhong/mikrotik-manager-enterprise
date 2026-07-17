@@ -3,9 +3,11 @@ import { backupService } from './backup.service.js';
 class BackupSchedulerService {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private onError: (error: unknown) => void = () => undefined;
 
-  public start(): void {
+  public start(onError?: (error: unknown) => void): void {
     if (this.timer) return;
+    if (onError) this.onError = onError;
     this.timer = setInterval(() => void this.tick(), 60_000);
     void this.tick();
   }
@@ -20,6 +22,8 @@ class BackupSchedulerService {
     this.running = true;
     try {
       await backupService.runDueSchedules();
+    } catch (error) {
+      this.onError(error);
     } finally {
       this.running = false;
     }

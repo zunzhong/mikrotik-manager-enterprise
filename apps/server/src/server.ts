@@ -28,7 +28,9 @@ try {
 
   app.log.info(`MME server running at ${config.server.publicUrl}`);
   deviceRealtimeSchedulerService.start({ intervalMs: 10000, ttlMs: 15000 });
-  backupSchedulerService.start();
+  backupSchedulerService.start((error) => {
+    app.log.error(error, 'Automatic backup scheduler failed');
+  });
   app.log.info('RouterOS realtime synchronization scheduler started');
 } catch (error) {
   app.log.error(error, 'Failed to start server');

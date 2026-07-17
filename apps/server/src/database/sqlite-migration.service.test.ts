@@ -40,13 +40,49 @@ describe('SQLite migration service', () => {
         `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'RouterOsLogFingerprint'`,
       )
       .get() as { name: string } | undefined;
+    const backupScheduleTable = database
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'BackupSchedule'`)
+      .get() as { name: string } | undefined;
     database.close();
     expect(trafficTable?.name).toBe('TrafficSample');
     expect(alertRuleConfigTable?.name).toBe('DeviceAlertRuleConfig');
     expect(logFingerprintTable?.name).toBe('RouterOsLogFingerprint');
+    expect(backupScheduleTable?.name).toBe('BackupSchedule');
     expect(alertRuleColumns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['channelIds', 'notifyAllChannels']),
     );
+  });
+
+  it('upgrades a 5.1.0 database from schema v5 with the backup scheduler table', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'mme-sqlite-v5-'));
+    directories.push(directory);
+    const databasePath = join(directory, 'mme.db');
+    const database = new DatabaseSync(databasePath);
+    database.exec(`
+      CREATE TABLE "Device" ("id" TEXT NOT NULL PRIMARY KEY);
+      CREATE TABLE "MME_SchemaVersion" (
+        "id" INTEGER NOT NULL PRIMARY KEY CHECK ("id" = 1),
+        "version" INTEGER NOT NULL,
+        "appliedAt" TEXT NOT NULL
+      );
+      INSERT INTO "MME_SchemaVersion" ("id", "version", "appliedAt")
+      VALUES (1, 5, CURRENT_TIMESTAMP);
+    `);
+    database.close();
+
+    expect(ensureSqliteSchemaVersion(databasePath)).toBe(6);
+
+    const upgraded = new DatabaseSync(databasePath);
+    const table = upgraded
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'BackupSchedule'`)
+      .get() as { name: string } | undefined;
+    const version = upgraded
+      .prepare('SELECT "version" FROM "MME_SchemaVersion" WHERE "id" = 1')
+      .get() as { version: number };
+    upgraded.close();
+
+    expect(table?.name).toBe('BackupSchedule');
+    expect(version.version).toBe(6);
   });
 
   it('rejects a database created by a newer application', () => {

@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 5;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 6;
 
 interface Migration {
   version: number;
@@ -68,6 +68,25 @@ const migrations: Migration[] = [
       )`,
       'CREATE UNIQUE INDEX IF NOT EXISTS "RouterOsLogFingerprint_deviceId_fingerprint_key" ON "RouterOsLogFingerprint"("deviceId", "fingerprint")',
       'CREATE INDEX IF NOT EXISTS "RouterOsLogFingerprint_deviceId_firstSeenAt_idx" ON "RouterOsLogFingerprint"("deviceId", "firstSeenAt")',
+    ],
+  },
+  {
+    version: 6,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "BackupSchedule" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "deviceId" TEXT NOT NULL,
+        "enabled" BOOLEAN NOT NULL DEFAULT false,
+        "type" TEXT NOT NULL DEFAULT 'export',
+        "intervalHours" INTEGER NOT NULL DEFAULT 24,
+        "lastRunAt" DATETIME,
+        "nextRunAt" DATETIME,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        CONSTRAINT "BackupSchedule_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS "BackupSchedule_deviceId_key" ON "BackupSchedule"("deviceId")',
+      'CREATE INDEX IF NOT EXISTS "BackupSchedule_enabled_nextRunAt_idx" ON "BackupSchedule"("enabled", "nextRunAt")',
     ],
   },
 ];
