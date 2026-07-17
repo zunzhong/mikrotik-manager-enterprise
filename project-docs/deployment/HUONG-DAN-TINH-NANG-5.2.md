@@ -1,5 +1,13 @@
 # MikroTik Manager Enterprise 5.2 — Cảnh báo và Backup
 
+## Bản sửa lỗi 5.2.1: tải binary backup
+
+- File `.backup` là dữ liệu nhị phân nên không được đọc bằng thuộc tính `contents` của RouterOS API.
+- MME 5.2.1 ưu tiên tải file qua SSH/SFTP và tự dự phòng qua FTP, sử dụng đúng cổng đang cấu hình trong **IP → Services**.
+- Trên thiết bị cần bật ít nhất một trong hai dịch vụ `ssh` hoặc `ftp`; tài khoản thiết bị lưu trong MME phải có quyền truy cập file.
+- Chỉ cho phép dịch vụ từ địa chỉ máy MME bằng firewall hoặc trường **Available From** trên RouterOS. Nên ưu tiên SSH/SFTP vì được mã hóa.
+- MME chỉ xóa bản tạm trên RouterOS sau khi file đã được tải và ghi thành công vào vùng dữ liệu bền vững của MME.
+
 ## Trung tâm cảnh báo
 
 - Quy tắc cảnh báo nằm ở cột bên trái.

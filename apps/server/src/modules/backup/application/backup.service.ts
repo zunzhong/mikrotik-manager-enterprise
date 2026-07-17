@@ -9,6 +9,10 @@ import { backupStorageService } from './backup-storage.service.js';
 import { restoreValidationService } from './restore-validation.service.js';
 import type { BackupType } from '../domain/backup.types.js';
 import { nextScheduledRun } from './backup-schedule.js';
+import {
+  buildRouterFileTransferCandidates,
+  routerFileTransferService,
+} from './router-file-transfer.service.js';
 
 function timestampName(): string {
   return new Date().toISOString().replace('T', '_').replace(/[:.]/g, '-').replace('Z', '');
@@ -87,7 +91,15 @@ export class BackupService {
         await client.command('/export', { file: fileName.replace('.rsc', '') });
       }
 
-      const routerFile = await this.readRouterFile(client, fileName);
+      const routerFile =
+        type === 'binary'
+          ? await this.downloadBinaryRouterFile(client, {
+              host: device.host,
+              username: device.username,
+              password: encryptionService.decrypt(device.passwordEncrypted),
+              fileName,
+            })
+          : await this.readTextRouterFile(client, fileName);
       await backupStorageService.write(filePath, routerFile.content);
       if (routerFile.id) {
         await client.command('/file/remove', { numbers: routerFile.id }).catch(() => undefined);
@@ -214,30 +226,56 @@ export class BackupService {
     return backupRepository.delete(id);
   }
 
-  private async readRouterFile(client: RouterClient, fileName: string) {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+  private async waitForRouterFile(
+    client: RouterClient,
+    fileName: string,
+    includeContents: boolean,
+  ) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
       const response = await client.command(
         '/file/print',
-        { '.proplist': '.id,name,size,contents' },
+        { '.proplist': includeContents ? '.id,name,size,contents' : '.id,name,size' },
         { queries: [`?name=${fileName}`] },
       );
       const file = response.rows[0];
-      if (file) {
-        let contents = file.contents ?? rowText(response.rows, 'contents');
-        if (!contents) {
-          const result = await client.command('/file/get', {
-            number: file['.id'] ?? fileName,
-            'value-name': 'contents',
-          });
-          contents = result.done.ret ?? rowText(result.rows, 'ret');
-        }
-        if (contents) {
-          return { id: file['.id'], content: Buffer.from(contents, 'utf8') };
-        }
+      if (file && file.size && file.size !== '0') return { file, response };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error(`RouterOS did not finish creating ${fileName}`);
+  }
+
+  private async readTextRouterFile(client: RouterClient, fileName: string) {
+    const { file, response } = await this.waitForRouterFile(client, fileName, true);
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      let contents = file.contents ?? rowText(response.rows, 'contents');
+      if (!contents) {
+        const result = await client.command('/file/get', {
+          number: file['.id'] ?? fileName,
+          'value-name': 'contents',
+        });
+        contents = result.done.ret ?? rowText(result.rows, 'ret');
       }
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      if (contents) {
+        return { id: file['.id'], content: Buffer.from(contents, 'utf8') };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
     throw new Error(`RouterOS did not return file contents for ${fileName}`);
+  }
+
+  private async downloadBinaryRouterFile(
+    client: RouterClient,
+    input: { host: string; username: string; password: string; fileName: string },
+  ) {
+    const { file } = await this.waitForRouterFile(client, input.fileName, false);
+    const serviceResponse = await client.command('/ip/service/print', {
+      '.proplist': 'name,port,disabled',
+    });
+    const transfer = await routerFileTransferService.download({
+      ...input,
+      candidates: buildRouterFileTransferCandidates(serviceResponse.rows),
+    });
+    return { id: file['.id'], content: transfer.content };
   }
 }
 
