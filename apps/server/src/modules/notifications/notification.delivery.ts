@@ -204,6 +204,7 @@ function formatDeliveryTime(value: string): string {
 }
 
 function textPayload(delivery: NotificationDelivery): string {
+  if (delivery.payload.eventType === 'PERIODIC_REPORT') return delivery.payload.message;
   return `[${delivery.payload.severity.toUpperCase()}] ${delivery.payload.title}\n${delivery.payload.message}\n${formatDeliveryTime(delivery.payload.createdAt)} (${systemPreferencesService.get().timeZone})`;
 }
 

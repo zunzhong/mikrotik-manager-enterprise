@@ -43,7 +43,6 @@ export function AccountProfilePanel() {
       <div className="settings-toolbar">
         <div>
           <h3>Thông tin tài khoản</h3>
-          <p>Xem tên đăng nhập, vai trò và cập nhật hồ sơ của tài khoản hiện tại.</p>
         </div>
         <span className={`account-state ${profile?.isActive === false ? 'inactive' : ''}`}>
           {profile?.isActive === false ? 'Đã vô hiệu hóa' : 'Đang hoạt động'}

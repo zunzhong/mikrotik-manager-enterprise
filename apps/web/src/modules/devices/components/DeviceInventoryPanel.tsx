@@ -49,12 +49,6 @@ export function DeviceInventoryPanel({ deviceId }: { deviceId: string }) {
       <div className="inventory-action-row">
         <div>
           <h3>{tr('Tổng quan Inventory', 'Inventory Overview')}</h3>
-          <p>
-            {tr(
-              'Dữ liệu RouterOS mới nhất, phân nhóm rõ ràng theo từng khu vực.',
-              'Latest RouterOS data, clearly grouped by area.',
-            )}
-          </p>
         </div>
         <div className="toolbar-actions">
           <button className="small-button" onClick={collectInventory}>

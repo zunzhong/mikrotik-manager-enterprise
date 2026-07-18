@@ -198,12 +198,6 @@ export function AlertCenter() {
       <div className="alert-toolbar">
         <div>
           <h3>{tr('Trung tâm cảnh báo', 'Alert Center')}</h3>
-          <p>
-            {tr(
-              'Cảnh báo được gom theo thiết bị và quy tắc; một quy tắc đang hoạt động không tạo bản ghi trùng lặp.',
-              'Alerts are grouped by device and rule; an active rule never creates duplicate records.',
-            )}
-          </p>
         </div>
 
         <div className="toolbar-actions">

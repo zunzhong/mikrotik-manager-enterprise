@@ -1,15 +1,14 @@
-import { TopologyView } from '../modules/topology/components/TopologyView';
 import { useLanguage } from '../i18n/LanguageContext';
+import { ReportCenter } from '../modules/report/ReportCenter';
 
-export function TopologyPage() {
+export function ReportPage() {
   const { tr } = useLanguage();
   return (
     <div className="page">
       <div className="page-header">
-        <h2>{tr('Sơ đồ mạng', 'Topology')}</h2>
+        <h2>{tr('Báo cáo', 'Reports')}</h2>
       </div>
-
-      <TopologyView />
+      <ReportCenter />
     </div>
   );
 }

@@ -63,11 +63,6 @@ export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; dev
           <h3>RouterOS CLI — {deviceName}</h3>
         </div>
       </header>
-      <p className="muted">
-        API hỗ trợ <code>/log</code>, <code>/interface print</code> và tham số có dấu ngoặc kép.
-        REST Script gửi nguyên cú pháp CLI qua <code>/rest/execute</code>, phù hợp cho{' '}
-        <code>/log print where message~&quot;error&quot;</code>.
-      </p>
       <div className="terminal-mode-row">
         <label>
           Chế độ thực thi

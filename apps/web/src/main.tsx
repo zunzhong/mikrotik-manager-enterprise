@@ -13,6 +13,7 @@ import { DeviceDetailPage } from './pages/DeviceDetailPage';
 import { DeviceListPage } from './pages/DeviceListPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
+import { ReportPage } from './pages/ReportPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SetupPage } from './pages/SetupPage';
 import { TopologyPage } from './pages/TopologyPage';
@@ -30,6 +31,7 @@ import './backup.css';
 import './alerts.css';
 import './dashboard-refresh.css';
 import './topology.css';
+import './report.css';
 import './settings.css';
 import './login.css';
 import './password-security.css';
@@ -56,6 +58,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/reports" element={<ReportPage />} />
             <Route path="/backup-center" element={<BackupCenterPage />} />
             <Route path="/topology" element={<TopologyPage />} />
             <Route path="/administration" element={<AdministrationPage />} />

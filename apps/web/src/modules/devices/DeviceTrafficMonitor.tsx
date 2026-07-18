@@ -98,12 +98,6 @@ export function DeviceTrafficMonitor({ deviceId }: { deviceId: string }) {
         <div>
           <p className="device-dashboard__eyebrow">TRAFFIC DATABASE MONITOR</p>
           <h3>{tr('Giám sát lưu lượng Interface', 'Interface Traffic Monitor')}</h3>
-          <p>
-            {tr(
-              'Dữ liệu RX/TX được thu thập tự động, lưu trong database và tổng hợp theo thời gian.',
-              'RX/TX data is collected automatically, stored in the database, and aggregated over time.',
-            )}
-          </p>
         </div>
         <span className="traffic-monitor__database">● DATABASE</span>
       </header>

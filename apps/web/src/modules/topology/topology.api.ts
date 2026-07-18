@@ -1,4 +1,4 @@
-import { apiGet } from '../../lib/api';
+import { apiGet, apiPost } from '../../lib/api';
 
 export interface TopologyNode {
   id: string;
@@ -25,8 +25,18 @@ export interface TopologyData {
     links: number;
     devices: number;
   };
+  inventoryScheduler: {
+    running: boolean;
+    intervalMs: number;
+    inFlight: boolean;
+    deviceCount: number;
+    lastRunAt?: string;
+    nextRunAt?: string;
+    lastError?: string;
+  };
 }
 
 export const topologyApi = {
   get: () => apiGet<TopologyData>('/api/v1/topology'),
+  refresh: () => apiPost<TopologyData>('/api/v1/topology/refresh'),
 };

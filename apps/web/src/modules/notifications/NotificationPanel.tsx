@@ -409,12 +409,6 @@ export function NotificationPanel({
                       placeholder="-1001234567890"
                     />
                   </label>
-                  <p className="notification-field-help">
-                    Người dùng phải nhắn <code>/start</code> cho bot trước. Với group/channel, thêm
-                    bot và cấp quyền gửi tin nhắn. Chat ID phải lấy từ{' '}
-                    <code>result[].message.chat.id</code>, không dùng <code>update_id</code> ở bên
-                    ngoài.
-                  </p>
                 </div>
               ) : null}
 

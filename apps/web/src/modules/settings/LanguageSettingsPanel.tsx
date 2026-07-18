@@ -51,7 +51,6 @@ export function LanguageSettingsPanel() {
           </button>
         ))}
       </div>
-      <p className="settings-note">{t('savedAutomatically')}</p>
       {error ? <p className="settings-error">{error}</p> : null}
     </section>
   );

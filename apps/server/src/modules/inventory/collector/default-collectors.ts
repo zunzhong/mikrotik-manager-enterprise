@@ -141,6 +141,12 @@ export const defaultInventoryCollectors = [
     path: '/ip/dns/print',
   }),
   new RouterOsPrintCollector({
+    key: 'discovery.neighbors',
+    category: 'discovery',
+    label: 'RouterOS Neighbors',
+    path: '/ip/neighbor/print',
+  }),
+  new RouterOsPrintCollector({
     key: 'routing.routes',
     category: 'routing',
     label: 'Route List',

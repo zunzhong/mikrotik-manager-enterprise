@@ -38,7 +38,6 @@ export function TimezoneSettingsPanel() {
       <div className="settings-toolbar">
         <div>
           <h3>{t('timezoneTitle')}</h3>
-          <p>{t('timezoneDescription')}</p>
         </div>
       </div>
       <div className="settings-grid timezone-settings">
@@ -61,7 +60,6 @@ export function TimezoneSettingsPanel() {
           <strong>{formatDateTime(new Date())}</strong>
         </div>
       </div>
-      <small>{t('savedAutomatically')}</small>
       {error ? <p className="settings-error">{error}</p> : null}
     </section>
   );

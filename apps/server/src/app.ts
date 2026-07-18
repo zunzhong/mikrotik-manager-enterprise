@@ -30,6 +30,7 @@ import {
   registerNotificationEventBridge,
 } from './modules/notifications/index.js';
 import { routerosRoutes } from './modules/routeros/index.js';
+import { reportRoutes } from './modules/report/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -69,6 +70,7 @@ export async function buildApp() {
   await app.register(complianceRoutes);
   await app.register(collectorRoutes);
   await app.register(alertRoutes);
+  await app.register(reportRoutes);
   await app.register(dashboardRoutes);
   await app.register(backupRoutes);
   await app.register(topologyRoutes);

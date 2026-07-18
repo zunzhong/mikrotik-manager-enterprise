@@ -4,8 +4,13 @@ import { inventoryCollectorService } from '../application/inventory-collector.se
 import { inventoryDiffService } from '../application/inventory-diff.service.js';
 import { inventoryService } from '../application/inventory.service.js';
 import { inventorySnapshotService } from '../application/inventory-snapshot.service.js';
+import { inventorySchedulerService } from '../application/inventory-scheduler.service.js';
 
 export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/v1/inventory/scheduler/status', async () => ({
+    success: true,
+    data: inventorySchedulerService.status(),
+  }));
   app.get('/api/v1/inventory/sections', async () => {
     return {
       success: true,

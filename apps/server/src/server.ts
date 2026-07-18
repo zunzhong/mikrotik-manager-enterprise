@@ -3,6 +3,8 @@ import { config } from './config/config.service.js';
 import { moduleRegistry } from './core/index.js';
 import { deviceRealtimeSchedulerService } from './modules/device/application/device-realtime-scheduler.service.js';
 import { backupSchedulerService } from './modules/backup/application/backup-scheduler.service.js';
+import { inventorySchedulerService } from './modules/inventory/application/inventory-scheduler.service.js';
+import { reportSchedulerService } from './modules/report/index.js';
 
 const app = await buildApp();
 
@@ -11,6 +13,8 @@ const shutdown = async () => {
 
   deviceRealtimeSchedulerService.stop();
   backupSchedulerService.stop();
+  inventorySchedulerService.stop();
+  reportSchedulerService.stop();
   await moduleRegistry.shutdownAll();
   await app.close();
 
@@ -31,7 +35,15 @@ try {
   backupSchedulerService.start((error) => {
     app.log.error(error, 'Automatic backup scheduler failed');
   });
+  inventorySchedulerService.start((error) => {
+    app.log.error(error, 'Automatic inventory scheduler failed');
+  });
+  reportSchedulerService.start((error) => {
+    app.log.error(error, 'Periodic Telegram report scheduler failed');
+  });
   app.log.info('RouterOS realtime synchronization scheduler started');
+  app.log.info('Automatic inventory scheduler started with a 30-minute interval');
+  app.log.info('Periodic Telegram report scheduler started');
 } catch (error) {
   app.log.error(error, 'Failed to start server');
   process.exit(1);

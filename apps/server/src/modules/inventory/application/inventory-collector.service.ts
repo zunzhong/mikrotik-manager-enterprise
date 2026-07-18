@@ -9,7 +9,7 @@ if (collectorRegistry.list().length === 0) {
 }
 
 export class InventoryCollectorService {
-  public async collect(deviceId: string) {
+  public async collect(deviceId: string, source: 'manual' | 'scheduler' | 'topology' = 'manual') {
     const device = await deviceRepository.findById(deviceId);
 
     if (!device) {
@@ -31,7 +31,7 @@ export class InventoryCollectorService {
 
     const snapshot = await inventoryRepository.createSnapshot({
       deviceId,
-      source: 'manual',
+      source,
       status: 'running',
       summary: { collectorsPlanned: collectors.length },
     });

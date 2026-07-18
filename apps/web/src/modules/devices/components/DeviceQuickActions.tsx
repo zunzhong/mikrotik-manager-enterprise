@@ -98,7 +98,6 @@ export function DeviceQuickActions({ device, onInventoryCollected }: DeviceQuick
       <div className="device-quick-actions__header">
         <div>
           <h3>Thao tác nhanh</h3>
-          <p>Thao tác trực tiếp trên {device.name}; mọi kết quả đều kèm thời gian hoàn tất.</p>
         </div>
       </div>
       <div className="device-quick-actions__grid">
