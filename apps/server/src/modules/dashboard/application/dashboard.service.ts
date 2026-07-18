@@ -2,29 +2,19 @@ import { prisma } from '../../../database/index.js';
 
 export class DashboardService {
   public async summary() {
-    const [
-      totalDevices,
-      onlineDevices,
-      offlineDevices,
-      degradedDevices,
-      openAlerts,
-      criticalAlerts,
-      latestCompliance,
-      snapshots,
-    ] = await Promise.all([
-      prisma.device.count(),
-      prisma.device.count({ where: { status: 'online' } }),
-      prisma.device.count({ where: { status: 'offline' } }),
-      prisma.device.count({ where: { status: 'degraded' } }),
-      prisma.alert.count({ where: { status: 'open' } }),
-      prisma.alert.count({ where: { status: 'open', severity: 'critical' } }),
-      prisma.complianceReport.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        select: { score: true },
-      }),
-      prisma.inventorySnapshot.count(),
-    ]);
+    const [totalDevices, onlineDevices, openAlerts, criticalAlerts, latestCompliance, snapshots] =
+      await Promise.all([
+        prisma.device.count(),
+        prisma.device.count({ where: { status: { in: ['online', 'degraded'] } } }),
+        prisma.alert.count({ where: { status: 'open' } }),
+        prisma.alert.count({ where: { status: 'open', severity: 'critical' } }),
+        prisma.complianceReport.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: { score: true },
+        }),
+        prisma.inventorySnapshot.count(),
+      ]);
 
     const averageCompliance =
       latestCompliance.length === 0
@@ -38,9 +28,7 @@ export class DashboardService {
       devices: {
         total: totalDevices,
         online: onlineDevices,
-        offline: offlineDevices,
-        degraded: degradedDevices,
-        unknown: Math.max(totalDevices - onlineDevices - offlineDevices - degradedDevices, 0),
+        offline: Math.max(totalDevices - onlineDevices, 0),
       },
       alerts: {
         open: openAlerts,
@@ -77,12 +65,20 @@ export class DashboardService {
       },
     });
 
+    const online = statuses
+      .filter((item) => item.status === 'online' || item.status === 'degraded')
+      .reduce((total, item) => total + item._count.status, 0);
+    const total = statuses.reduce((count, item) => count + item._count.status, 0);
+
     return {
-      byStatus: statuses.map((item) => ({
-        status: item.status,
-        count: item._count.status,
+      byStatus: [
+        { status: 'online', count: online },
+        { status: 'offline', count: Math.max(total - online, 0) },
+      ],
+      recent: recentDevices.map((device) => ({
+        ...device,
+        status: device.status === 'online' || device.status === 'degraded' ? 'online' : 'offline',
       })),
-      recent: recentDevices,
     };
   }
 

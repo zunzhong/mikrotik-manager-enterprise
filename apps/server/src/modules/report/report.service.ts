@@ -83,12 +83,12 @@ export function buildPeriodicReport(input: {
     ? input.interfaceTotals
         .map(
           (item, index) =>
-            `${interfaceIcons[index % interfaceIcons.length]} ${item.name}: ${formatBytes(item.txBytes)} / ${formatBytes(item.rxBytes)}`,
+            `   ${interfaceIcons[index % interfaceIcons.length]} ${item.name}: ${formatBytes(item.txBytes)} / ${formatBytes(item.rxBytes)}`,
         )
         .join('\n')
     : input.language === 'en'
-      ? '⚪ No traffic data in this period'
-      : '⚪ Chưa có dữ liệu lưu lượng trong chu kỳ này';
+      ? '   ⚪ No traffic data in this period'
+      : '   ⚪ Chưa có dữ liệu lưu lượng trong chu kỳ này';
   const cpu = input.cpu === undefined ? '—' : `${input.cpu.toFixed(0)}%`;
   const ram = input.ram === undefined ? '—' : `${input.ram.toFixed(1)}%`;
   const temperature = input.temperature === undefined ? '—' : `${input.temperature.toFixed(0)}°C`;
@@ -122,6 +122,8 @@ export function buildPeriodicReport(input: {
 }
 
 export class ReportService {
+  private readonly activeScheduleIds = new Set<string>();
+
   public async overview() {
     return {
       schedules: reportStore.listSchedules(),
@@ -214,17 +216,7 @@ export class ReportService {
     return { id, deleted: reportStore.deleteSchedule(id) };
   }
 
-  private async sendDueSchedule(id: string, dueAt: Date) {
-    const schedule = reportStore.getSchedule(id);
-    const nextRunAt = schedule?.nextRunAt ? new Date(schedule.nextRunAt).getTime() : Number.NaN;
-    if (
-      !schedule ||
-      !schedule.enabled ||
-      !Number.isFinite(nextRunAt) ||
-      nextRunAt > dueAt.getTime()
-    ) {
-      return [];
-    }
+  private async deliverSchedule(schedule: ReportSchedule) {
     const allDevices = await deviceRepository.findMany();
     const devices = schedule.allDevices
       ? allDevices
@@ -324,7 +316,50 @@ export class ReportService {
         );
       }
     }
-    reportStore.markRun(schedule.id);
+    return results;
+  }
+
+  private async deliverScheduleOnce(schedule: ReportSchedule) {
+    if (this.activeScheduleIds.has(schedule.id)) {
+      throw new HttpError(
+        409,
+        'REPORT_SCHEDULE_ALREADY_SENDING',
+        'Lịch báo cáo này đang được gửi. Vui lòng đợi lần gửi hiện tại hoàn tất.',
+      );
+    }
+    this.activeScheduleIds.add(schedule.id);
+    try {
+      return await this.deliverSchedule(schedule);
+    } finally {
+      this.activeScheduleIds.delete(schedule.id);
+    }
+  }
+
+  public async sendScheduleNow(id: string) {
+    const schedule = reportStore.getSchedule(id);
+    if (!schedule) {
+      throw new HttpError(404, 'REPORT_SCHEDULE_NOT_FOUND', 'Report schedule not found');
+    }
+
+    // Gửi thủ công là một lần gửi độc lập. Không thay đổi lastRunAt/nextRunAt của lịch,
+    // nhờ đó nút "Gửi ngay" không làm lệch chu kỳ đã cấu hình.
+    return this.deliverScheduleOnce(schedule);
+  }
+
+  private async sendDueSchedule(id: string, dueAt: Date) {
+    const schedule = reportStore.getSchedule(id);
+    const nextRunAt = schedule?.nextRunAt ? new Date(schedule.nextRunAt).getTime() : Number.NaN;
+    if (
+      !schedule ||
+      !schedule.enabled ||
+      !Number.isFinite(nextRunAt) ||
+      nextRunAt > dueAt.getTime()
+    ) {
+      return [];
+    }
+
+    const results = await this.deliverScheduleOnce(schedule);
+    reportStore.markRun(schedule.id, dueAt);
     return results;
   }
 

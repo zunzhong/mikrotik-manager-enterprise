@@ -117,6 +117,41 @@ describe('SQLite migration service', () => {
     expect(() => ensureSqliteSchemaVersion(databasePath)).toThrow('Không thể downgrade');
   }, 15_000);
 
+  it('normalizes legacy device connection states to online or offline', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'mme-sqlite-status-v9-'));
+    directories.push(directory);
+    const databasePath = join(directory, 'mme.db');
+    const database = new DatabaseSync(databasePath);
+    database.exec(`
+      CREATE TABLE "Device" ("id" TEXT NOT NULL PRIMARY KEY, "status" TEXT NOT NULL);
+      INSERT INTO "Device" ("id", "status") VALUES
+        ('reachable', 'degraded'),
+        ('not-polled', 'unknown'),
+        ('unreachable', 'offline');
+      CREATE TABLE "MME_SchemaVersion" (
+        "id" INTEGER NOT NULL PRIMARY KEY CHECK ("id" = 1),
+        "version" INTEGER NOT NULL,
+        "appliedAt" TEXT NOT NULL
+      );
+      INSERT INTO "MME_SchemaVersion" ("id", "version", "appliedAt")
+      VALUES (1, 9, CURRENT_TIMESTAMP);
+    `);
+    database.close();
+
+    expect(ensureSqliteSchemaVersion(databasePath)).toBe(CURRENT_SQLITE_SCHEMA_VERSION);
+    const upgraded = new DatabaseSync(databasePath);
+    const statuses = upgraded
+      .prepare('SELECT "id", "status" FROM "Device" ORDER BY "id"')
+      .all() as Array<{ id: string; status: string }>;
+    upgraded.close();
+
+    expect(statuses).toEqual([
+      { id: 'not-polled', status: 'offline' },
+      { id: 'reachable', status: 'online' },
+      { id: 'unreachable', status: 'offline' },
+    ]);
+  });
+
   it('accepts a fresh Prisma database that already contains current alert columns', () => {
     const directory = mkdtempSync(join(tmpdir(), 'mme-sqlite-current-'));
     directories.push(directory);

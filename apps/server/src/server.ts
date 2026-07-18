@@ -5,6 +5,7 @@ import { deviceRealtimeSchedulerService } from './modules/device/application/dev
 import { backupSchedulerService } from './modules/backup/application/backup-scheduler.service.js';
 import { inventorySchedulerService } from './modules/inventory/application/inventory-scheduler.service.js';
 import { reportSchedulerService } from './modules/report/index.js';
+import { deviceRepository } from './modules/device/infrastructure/device.repository.js';
 
 const app = await buildApp();
 
@@ -25,6 +26,10 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 try {
+  const normalizedStatuses = await deviceRepository.normalizeConnectionStatuses();
+  if (normalizedStatuses.reachable + normalizedStatuses.unreachable > 0) {
+    app.log.info(normalizedStatuses, 'Normalized legacy device connection statuses');
+  }
   await app.listen({
     host: config.server.host,
     port: config.server.port,

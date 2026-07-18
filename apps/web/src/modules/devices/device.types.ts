@@ -1,4 +1,4 @@
-export type DeviceStatus = 'online' | 'offline' | 'unknown' | 'degraded';
+export type DeviceStatus = 'online' | 'offline';
 
 export interface Device {
   id: string;

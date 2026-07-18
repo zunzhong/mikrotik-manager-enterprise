@@ -9,4 +9,6 @@ export const reportApi = {
     apiPut<ReportSchedule>(`/api/v1/reports/schedules/${id}`, input),
   delete: (id: string) =>
     apiDelete<{ id: string; deleted: boolean }>(`/api/v1/reports/schedules/${id}`),
+  send: (id: string) =>
+    apiPost<Array<{ status: 'sent' | 'failed' }>>(`/api/v1/reports/schedules/${id}/send`, {}),
 };

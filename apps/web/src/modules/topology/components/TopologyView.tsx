@@ -45,6 +45,10 @@ function automaticLayout(nodes: TopologyNode[], links: TopologyLink[]): Record<s
   const center = { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT / 2 };
   const managedRadius = Math.min(245, Math.max(130, managed.length * 42));
   managed.forEach((node, index) => {
+    if (managed.length === 1) {
+      result[node.id] = center;
+      return;
+    }
     const angle = (Math.PI * 2 * index) / Math.max(1, managed.length) - Math.PI / 2;
     result[node.id] = {
       x: center.x + Math.cos(angle) * managedRadius,
@@ -67,11 +71,15 @@ function automaticLayout(nodes: TopologyNode[], links: TopologyLink[]): Record<s
   for (const [anchorId, group] of grouped) {
     const anchor = result[anchorId] ?? center;
     group.forEach((node, index) => {
-      const angle = (Math.PI * 2 * index) / Math.max(1, group.length) + Math.PI / 4;
-      const ring = 105 + Math.floor(index / 10) * 55;
+      const perRing = 8;
+      const ringIndex = Math.floor(index / perRing);
+      const itemIndex = index % perRing;
+      const itemsInRing = Math.min(perRing, group.length - ringIndex * perRing);
+      const angle = (Math.PI * 2 * itemIndex) / Math.max(1, itemsInRing) - Math.PI / 2;
+      const ring = 145 + ringIndex * 115;
       result[node.id] = {
-        x: clamp(anchor.x + Math.cos(angle) * ring, 45, VIEW_WIDTH - 45),
-        y: clamp(anchor.y + Math.sin(angle) * ring, 45, VIEW_HEIGHT - 45),
+        x: clamp(anchor.x + Math.cos(angle) * ring, 70, VIEW_WIDTH - 70),
+        y: clamp(anchor.y + Math.sin(angle) * ring, 70, VIEW_HEIGHT - 70),
       };
     });
   }
@@ -388,7 +396,6 @@ export function TopologyView() {
     const labels: Record<string, [string, string]> = {
       online: ['Trực tuyến', 'Online'],
       offline: ['Ngoại tuyến', 'Offline'],
-      degraded: ['Suy giảm', 'Degraded'],
       discovered: ['Đã phát hiện', 'Discovered'],
       manual: ['Thủ công', 'Manual'],
       unknown: ['Chưa rõ', 'Unknown'],
@@ -551,7 +558,6 @@ export function TopologyView() {
             <option value="all">{tr('Mọi trạng thái', 'All statuses')}</option>
             <option value="online">{tr('Trực tuyến', 'Online')}</option>
             <option value="offline">{tr('Ngoại tuyến', 'Offline')}</option>
-            <option value="degraded">{tr('Suy giảm', 'Degraded')}</option>
             <option value="discovered">{tr('Đã phát hiện', 'Discovered')}</option>
           </select>
           <select
@@ -619,6 +625,7 @@ export function TopologyView() {
                           setDetailTab('connections');
                         }}
                       >
+                        <title>{`${link.label} · ${confidenceLabel(link.confidence)} · ${link.confidenceScore}%`}</title>
                         <line
                           className="topology-link-hit"
                           x1={source.x}

@@ -17,10 +17,8 @@ export function DashboardCharts({
   const { tr } = useLanguage();
   const total = Math.max(1, summary?.devices.total ?? 0);
   const online = summary?.devices.online ?? 0;
-  const degraded = summary?.devices.degraded ?? 0;
   const offline = summary?.devices.offline ?? 0;
   const onlineDeg = (online / total) * 360;
-  const degradedDeg = onlineDeg + (degraded / total) * 360;
 
   return (
     <section className="dashboard-charts">
@@ -33,7 +31,7 @@ export function DashboardCharts({
           <div
             className="status-donut"
             style={{
-              background: `conic-gradient(#22c55e 0deg ${onlineDeg}deg, #f59e0b ${onlineDeg}deg ${degradedDeg}deg, #ef4444 ${degradedDeg}deg 360deg)`,
+              background: `conic-gradient(#22c55e 0deg ${onlineDeg}deg, #ef4444 ${onlineDeg}deg 360deg)`,
             }}
           >
             <span>
@@ -44,9 +42,6 @@ export function DashboardCharts({
           <div className="chart-legend">
             <span className="online">
               Online <strong>{online}</strong>
-            </span>
-            <span className="warning">
-              {tr('Cảnh báo', 'Warning')} <strong>{degraded}</strong>
             </span>
             <span className="offline">
               Offline <strong>{offline}</strong>

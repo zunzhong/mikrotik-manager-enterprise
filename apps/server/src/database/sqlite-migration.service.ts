@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 9;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 10;
 
 interface Migration {
   version: number;
@@ -137,6 +137,10 @@ const migrations: Migration[] = [
       'CREATE INDEX IF NOT EXISTS "TopologyNodeLayout_scope_idx" ON "TopologyNodeLayout"("scope")',
     ],
   },
+  {
+    version: 10,
+    statements: [],
+  },
 ];
 
 export function ensureSqliteSchemaVersion(databasePath: string): number {
@@ -186,6 +190,21 @@ export function ensureSqliteSchemaVersion(databasePath: string): number {
         database.exec('ROLLBACK');
         throw error;
       }
+    }
+
+    const deviceTable = database
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'Device'`)
+      .get() as { name: string } | undefined;
+    const deviceHasStatus = deviceTable
+      ? (database.prepare('PRAGMA table_info("Device")').all() as Array<{ name: string }>).some(
+          (column) => column.name === 'status',
+        )
+      : false;
+    if (deviceHasStatus) {
+      database.exec(`
+        UPDATE "Device" SET "status" = 'online' WHERE "status" = 'degraded';
+        UPDATE "Device" SET "status" = 'offline' WHERE "status" NOT IN ('online', 'offline');
+      `);
     }
 
     if (version === 0) {

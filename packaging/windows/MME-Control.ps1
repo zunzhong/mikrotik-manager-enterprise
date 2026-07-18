@@ -86,9 +86,9 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.4.1')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.4.2')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.4.1`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.4.2`r`n"
     }
     $persistentBackupPath = $BackupDir.Replace('\','/')
     if ($existingConfig -match '(?m)^BACKUP_STORAGE_DIR=') {
@@ -120,7 +120,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.4.1
+APP_VERSION=5.4.2
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$Port
 DATABASE_URL=file:$($Database.Replace('\','/'))

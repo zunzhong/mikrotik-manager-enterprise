@@ -43,4 +43,9 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     const params = paramsSchema.parse(request.params);
     return { success: true, data: reportService.deleteSchedule(params.id) };
   });
+
+  app.post('/api/v1/reports/schedules/:id/send', async (request) => {
+    const params = paramsSchema.parse(request.params);
+    return { success: true, data: await reportService.sendScheduleNow(params.id) };
+  });
 }

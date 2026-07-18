@@ -311,7 +311,9 @@ export class DeviceRealtimeService {
       }
 
       await deviceRepository.update(deviceId, {
-        status: healthReport.status === 'healthy' ? 'online' : 'degraded',
+        // Connection state is binary. Health warnings remain available through
+        // healthReport/alerts and must never make a reachable router "degraded".
+        status: 'online',
         lastSeenAt: new Date(),
         lastError: null,
       });

@@ -1143,7 +1143,7 @@ body {
   --surface-hover: #1b2d46;
   --border: #2a3c55;
   --text: #e8eef7;
-  --muted: #9bacc1;
+  --muted: #b6c4d6;
   --accent: #36c7e8;
   --accent-strong: #4f8df7;
   --focus-ring: rgba(54, 199, 232, 0.28);
@@ -1160,9 +1160,9 @@ body {
   --surface-solid: #f1f4f7;
   --surface-soft: #e5eaf0;
   --surface-hover: #dbe3eb;
-  --border: #bcc8d5;
-  --text: #172033;
-  --muted: #607086;
+  --border: #a9b7c7;
+  --text: #101827;
+  --muted: #475569;
   --accent: #087ca7;
   --accent-strong: #315fc5;
   --focus-ring: rgba(49, 95, 197, 0.2);

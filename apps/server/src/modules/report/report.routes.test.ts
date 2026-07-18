@@ -1,9 +1,13 @@
 import Fastify from 'fastify';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { reportRoutes } from './report.routes.js';
+import { reportService } from './report.service.js';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('report routes', () => {
-  it('does not expose an unscheduled send-now endpoint', async () => {
+  it('sends a saved schedule through the explicit send-now endpoint', async () => {
+    const send = vi.spyOn(reportService, 'sendScheduleNow').mockResolvedValue([]);
     const app = Fastify();
     await app.register(reportRoutes);
 
@@ -13,7 +17,8 @@ describe('report routes', () => {
       payload: {},
     });
 
-    expect(response.statusCode).toBe(404);
+    expect(response.statusCode).toBe(200);
+    expect(send).toHaveBeenCalledWith('report-1');
     await app.close();
   });
 });

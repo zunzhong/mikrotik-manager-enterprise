@@ -6,10 +6,20 @@ function normalizeTags(value: unknown): string[] {
     : [];
 }
 
-function normalizeDevice<T extends { tags: unknown }>(
+export function normalizeConnectionStatus(status: string): 'online' | 'offline' {
+  // "degraded" historically meant that RouterOS was reachable but a health
+  // threshold was exceeded. Connectivity is now deliberately binary.
+  return status === 'online' || status === 'degraded' ? 'online' : 'offline';
+}
+
+function normalizeDevice<T extends { tags: unknown; status: string }>(
   device: T,
-): Omit<T, 'tags'> & { tags: string[] } {
-  return { ...device, tags: normalizeTags(device.tags) };
+): Omit<T, 'tags' | 'status'> & { tags: string[]; status: 'online' | 'offline' } {
+  return {
+    ...device,
+    tags: normalizeTags(device.tags),
+    status: normalizeConnectionStatus(device.status),
+  };
 }
 
 export interface DeviceCreateRecord {
@@ -41,7 +51,18 @@ export interface DeviceUpdateRecord {
 
 export class DeviceRepository {
   public async create(data: DeviceCreateRecord) {
-    return normalizeDevice(await prisma.device.create({ data }));
+    return normalizeDevice(await prisma.device.create({ data: { ...data, status: 'offline' } }));
+  }
+
+  public async normalizeConnectionStatuses() {
+    const [reachable, unreachable] = await prisma.$transaction([
+      prisma.device.updateMany({ where: { status: 'degraded' }, data: { status: 'online' } }),
+      prisma.device.updateMany({
+        where: { status: { notIn: ['online', 'offline', 'degraded'] } },
+        data: { status: 'offline' },
+      }),
+    ]);
+    return { reachable: reachable.count, unreachable: unreachable.count };
   }
 
   public async findMany() {

@@ -135,12 +135,6 @@ export function DashboardPage() {
           to={deviceLink('offline')}
         />
         <SummaryCard
-          label={tr('Cảnh báo', 'Warning')}
-          value={data?.devices.degraded ?? 0}
-          hint={tr('vượt ngưỡng sức khỏe', 'health threshold exceeded')}
-          to={deviceLink('warning')}
-        />
-        <SummaryCard
           label={tr('Cảnh báo đang mở', 'Open Alerts')}
           value={data?.alerts.open ?? 0}
           hint={`${data?.alerts.critical ?? 0} critical`}

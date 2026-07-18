@@ -100,7 +100,7 @@ model Device {
   passwordEncrypted String
   useTls            Boolean   @default(false)
   loginMode         String    @default("auto")
-  status            String    @default("unknown")
+  status            String    @default("offline")
   lastSeenAt        DateTime?
   lastError         String?
   tags              Json      @default("[]")

@@ -156,6 +156,32 @@ export function ReportCenter() {
     }
   }
 
+  async function sendNow(schedule: ReportSchedule) {
+    const busyKey = `send:${schedule.id}`;
+    setBusy(busyKey);
+    setError(null);
+    setSuccess(null);
+    try {
+      const results = await reportApi.send(schedule.id);
+      const sent = results.filter((item) => item.status === 'sent').length;
+      setSuccess(
+        tr(
+          `Đã gửi ${sent}/${results.length} báo cáo. Lịch kế tiếp không thay đổi.`,
+          `Sent ${sent}/${results.length} reports. The next scheduled run is unchanged.`,
+        ),
+      );
+      await load();
+    } catch (sendError) {
+      setError(
+        sendError instanceof Error
+          ? sendError.message
+          : tr('Không gửi được báo cáo.', 'Unable to send report.'),
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="report-center">
       {error ? <div className="error-banner">{error}</div> : null}
@@ -344,6 +370,16 @@ export function ReportCenter() {
                 </small>
               </div>
               <div className="report-actions">
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={busy === `send:${schedule.id}`}
+                  onClick={() => void sendNow(schedule)}
+                >
+                  {busy === `send:${schedule.id}`
+                    ? tr('Đang gửi...', 'Sending...')
+                    : tr('Gửi ngay', 'Send now')}
+                </button>
                 <button
                   className="secondary-button"
                   type="button"

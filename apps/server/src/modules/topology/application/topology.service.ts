@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../database/index.js';
+import { normalizeConnectionStatus } from '../../device/infrastructure/device.repository.js';
 import {
   resolveTopology,
   TOPOLOGY_INVENTORY_PATHS,
@@ -231,6 +232,7 @@ export class TopologyService {
         )[0];
         return {
           ...device,
+          status: normalizeConnectionStatus(device.status),
           traffic: primaryTraffic,
           snapshot: snapshot
             ? {
