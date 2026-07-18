@@ -30,6 +30,7 @@ export interface BackupSchedule {
   type: 'export' | 'binary';
   intervalHours: number;
   scheduledTime: string;
+  maxFiles: number;
   lastRunAt?: string;
   nextRunAt?: string;
   device?: { id: string; name: string; host: string };
@@ -69,6 +70,32 @@ export const backupApi = {
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   },
+  downloadSelected: async (ids: string[]) => {
+    const response = await fetch(buildApiUrl('/api/v1/backups/download-selected'), {
+      method: 'POST',
+      headers: mergeHeaders({ Accept: 'application/zip', 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: { message?: string } | string;
+      } | null;
+      const message = typeof payload?.error === 'string' ? payload.error : payload?.error?.message;
+      throw new Error(message ?? `Download failed (${response.status})`);
+    }
+    const disposition = response.headers.get('Content-Disposition') ?? '';
+    const fileName = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? 'MME-backups.zip';
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  },
+  deleteSelected: (ids: string[]) =>
+    apiPost<{ requested: number; deleted: number }>('/api/v1/backups/delete-selected', { ids }),
   schedules: () => apiGet<BackupSchedule[]>('/api/v1/backup/schedules'),
   configureSchedule: (
     deviceId: string,
@@ -77,6 +104,7 @@ export const backupApi = {
       type: 'export' | 'binary';
       intervalHours: number;
       scheduledTime: string;
+      maxFiles: number;
     },
   ) => apiPut<BackupSchedule>(`/api/v1/devices/${deviceId}/backup/schedule`, input),
   deleteSchedule: (scheduleId: string) =>

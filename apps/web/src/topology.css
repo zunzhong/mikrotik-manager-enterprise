@@ -17,6 +17,26 @@
   display: grid;
   gap: 5px;
 }
+.topology-scan-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  align-items: end;
+  gap: 12px !important;
+}
+.topology-scan-actions label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.topology-scan-actions select {
+  min-width: 240px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 11px;
+  color: var(--text);
+  background: var(--surface-soft);
+}
 .topology-toolbar span,
 .topology-panel-heading span {
   color: #94a3b8;
@@ -24,8 +44,24 @@
 }
 .topology-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+}
+.topology-device-result {
+  margin-top: 16px;
+  padding: 13px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 14px;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.1);
+}
+.topology-device-result.is-linked {
+  border-color: rgba(34, 197, 94, 0.32);
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.1);
 }
 .topology-grid {
   margin-top: 18px;
@@ -49,6 +85,33 @@
 .topology-map-panel {
   margin-top: 18px;
 }
+.topology-map-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.topology-map-heading > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+.topology-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.topology-zoom-controls button {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  min-width: 34px;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--surface-soft);
+}
+.topology-zoom-controls span {
+  min-width: 48px;
+  text-align: center;
+}
 .topology-map-scroll {
   margin-top: 16px;
   min-height: 420px;
@@ -61,11 +124,17 @@
   width: 100%;
   min-width: 660px;
   min-height: 420px;
+  touch-action: none;
 }
 .topology-map line {
   stroke: #60a5fa;
   stroke-width: 2;
   stroke-dasharray: 7 5;
+}
+.topology-map .topology-managed-link line {
+  stroke: #22c55e;
+  stroke-width: 3;
+  stroke-dasharray: none;
 }
 .topology-map > g > text:not(.topology-map-icon):not(.topology-map-label) {
   fill: #94a3b8;
@@ -75,6 +144,16 @@
   fill: #13233b;
   stroke: #38bdf8;
   stroke-width: 3;
+}
+.topology-map-node {
+  cursor: grab;
+  user-select: none;
+}
+.topology-map-node.is-dragging {
+  cursor: grabbing;
+}
+.topology-map-node.is-dragging circle {
+  stroke-width: 5;
 }
 .topology-map-node-neighbor circle {
   fill: #172554;
@@ -133,6 +212,12 @@
     grid-template-columns: 1fr;
   }
   .topology-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .topology-scan-actions,
+  .topology-map-heading {
+    display: flex !important;
     align-items: stretch;
     flex-direction: column;
   }

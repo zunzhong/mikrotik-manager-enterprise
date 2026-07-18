@@ -64,6 +64,7 @@ describe('backup file and schedule routes', () => {
       type: 'export',
       intervalHours: 24,
       scheduledTime: '02:00',
+      maxFiles: 30,
       lastRunAt: null,
       nextRunAt: null,
       createdAt: new Date('2026-07-17T00:00:00Z'),
@@ -79,6 +80,51 @@ describe('backup file and schedule routes', () => {
 
     expect(response.statusCode).toBe(200);
     expect(remove).toHaveBeenCalledWith('schedule-1');
+    await app.close();
+  });
+
+  it('downloads selected backups as one ZIP archive', async () => {
+    const content = Buffer.from('PK selected backups');
+    const archive = vi.spyOn(backupService, 'createArchive').mockResolvedValue({
+      fileName: 'MME-backups-test.zip',
+      content,
+      count: 2,
+    });
+    const app = Fastify();
+    await app.register(backupRoutes);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/backups/download-selected',
+      payload: { ids: ['backup-1', 'backup-2'] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('application/zip');
+    expect(response.headers['content-disposition']).toContain('MME-backups-test.zip');
+    expect(response.headers['x-mme-backup-count']).toBe('2');
+    expect(response.rawPayload).toEqual(content);
+    expect(archive).toHaveBeenCalledWith(['backup-1', 'backup-2']);
+    await app.close();
+  });
+
+  it('deletes selected backup records and physical files through the service', async () => {
+    const remove = vi.spyOn(backupService, 'deleteMany').mockResolvedValue({
+      requested: 2,
+      deleted: 2,
+    });
+    const app = Fastify();
+    await app.register(backupRoutes);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/backups/delete-selected',
+      payload: { ids: ['backup-1', 'backup-2'] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual({ requested: 2, deleted: 2 });
+    expect(remove).toHaveBeenCalledWith(['backup-1', 'backup-2']);
     await app.close();
   });
 });

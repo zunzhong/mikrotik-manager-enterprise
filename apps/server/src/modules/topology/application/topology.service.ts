@@ -81,6 +81,7 @@ export class TopologyService {
         source: string;
         target: string;
         label: string;
+        managed: boolean;
         metadata: Record<string, unknown>;
       }
     >();
@@ -124,6 +125,7 @@ export class TopologyService {
             source: item.device.id,
             target: neighborId,
             label: localInterface,
+            managed: Boolean(managedTarget),
             metadata: raw,
           });
         } else if (!existing.label.split(' ↔ ').includes(localInterface)) {
@@ -132,10 +134,25 @@ export class TopologyService {
       }
     }
 
+    const resolvedLinks = [...links.values()];
+    const connectedManagedIds = new Set<string>();
+    for (const link of resolvedLinks) {
+      if (!link.managed) continue;
+      connectedManagedIds.add(link.source);
+      connectedManagedIds.add(link.target);
+    }
+
     return {
       nodes,
-      links: [...links.values()],
-      summary: { nodes: nodes.length, links: links.size, devices: devices.length },
+      links: resolvedLinks,
+      summary: {
+        nodes: nodes.length,
+        links: links.size,
+        devices: devices.length,
+        managedLinks: resolvedLinks.filter((link) => link.managed).length,
+        connectedDevices: connectedManagedIds.size,
+        isolatedDevices: Math.max(0, devices.length - connectedManagedIds.size),
+      },
     };
   }
 }

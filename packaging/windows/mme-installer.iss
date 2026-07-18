@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.2.0"
+  #define MyAppVersion "5.3.1"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -26,6 +26,7 @@ MinVersion=10.0.19045
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
+SetupIconFile=mme-logo.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -41,13 +42,13 @@ Name: "{commonappdata}\MikroTik Manager Enterprise\backups"
 Name: "{commonappdata}\MikroTik Manager Enterprise\logs"
 
 [Icons]
-Name: "{group}\Open Dashboard"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"
-Name: "{group}\Start MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" start"
-Name: "{group}\Stop MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" stop"
-Name: "{group}\Service Status"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" status"
-Name: "{group}\Backup Data"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" backup"
-Name: "{group}\Open Data Folder"; Filename: "explorer.exe"; Parameters: """{commonappdata}\MikroTik Manager Enterprise"""
-Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"
+Name: "{group}\Open Dashboard"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{group}\Start MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" start"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{group}\Stop MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" stop"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{group}\Service Status"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" status"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{group}\Backup Data"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" backup"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{group}\Open Data Folder"; Filename: "explorer.exe"; Parameters: """{commonappdata}\MikroTik Manager Enterprise"""; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
 
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated

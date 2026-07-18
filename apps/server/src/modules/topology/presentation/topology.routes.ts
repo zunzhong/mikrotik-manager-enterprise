@@ -21,4 +21,16 @@ export async function topologyRoutes(app: FastifyInstance): Promise<void> {
       },
     };
   });
+
+  app.post('/api/v1/topology/devices/:deviceId/refresh', async (request) => {
+    const { deviceId } = request.params as { deviceId: string };
+    await inventorySchedulerService.runDevice(deviceId, 'topology');
+    return {
+      success: true,
+      data: {
+        ...(await topologyService.getTopology()),
+        inventoryScheduler: inventorySchedulerService.status(),
+      },
+    };
+  });
 }

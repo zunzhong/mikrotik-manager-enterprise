@@ -9,6 +9,7 @@ import { backupStorageService } from './backup-storage.service.js';
 import { restoreValidationService } from './restore-validation.service.js';
 import type { BackupType } from '../domain/backup.types.js';
 import { nextScheduledRun } from './backup-schedule.js';
+import { backupArchiveService } from './backup-archive.service.js';
 import {
   buildRouterFileTransferCandidates,
   RouterServiceRestoreError,
@@ -123,6 +124,7 @@ export class BackupService {
         type,
         fileName,
       });
+      await this.enforceRetention(deviceId);
       return completed;
     } catch (error) {
       await client.close().catch(() => undefined);
@@ -176,6 +178,7 @@ export class BackupService {
       type: BackupType;
       intervalHours: number;
       scheduledTime: string;
+      maxFiles: number;
     },
   ) {
     const device = await deviceRepository.findById(deviceId);
@@ -183,11 +186,13 @@ export class BackupService {
     const nextRunAt = input.enabled
       ? nextScheduledRun(input.scheduledTime, input.intervalHours)
       : null;
-    return prisma.backupSchedule.upsert({
+    const schedule = await prisma.backupSchedule.upsert({
       where: { deviceId },
       create: { deviceId, ...input, nextRunAt },
       update: { ...input, nextRunAt },
     });
+    await this.enforceRetention(deviceId);
+    return schedule;
   }
 
   public async deleteSchedule(id: string) {
@@ -214,8 +219,65 @@ export class BackupService {
     return due.length;
   }
 
-  public delete(id: string) {
+  public async delete(id: string) {
+    const backup = await backupRepository.findById(id);
+    if (!backup) throw new HttpError(404, 'BACKUP_NOT_FOUND', 'Backup not found');
+    await backupStorageService.delete(backup.filePath);
     return backupRepository.delete(id);
+  }
+
+  public async deleteMany(ids: string[]) {
+    const records = await backupRepository.findManyByIds(ids);
+    for (const record of records) {
+      await backupStorageService.delete(record.filePath);
+      await backupRepository.delete(record.id);
+    }
+    return { requested: ids.length, deleted: records.length };
+  }
+
+  public async createArchive(ids: string[]) {
+    const records = await backupRepository.findManyByIds(ids);
+    const entries: Array<{ fileName: string; content: Buffer; modifiedAt?: Date }> = [];
+    let totalSize = 0;
+    for (const record of records) {
+      const fileInfo = await backupStorageService.getFileInfo(record.filePath);
+      if (!fileInfo.exists || !record.filePath) continue;
+      const content = await backupStorageService.read(record.filePath);
+      totalSize += content.length;
+      if (totalSize > 512 * 1024 * 1024) {
+        throw new HttpError(413, 'BACKUP_ARCHIVE_TOO_LARGE', 'Selected backups exceed 512 MB');
+      }
+      entries.push({ fileName: record.fileName, content, modifiedAt: fileInfo.modifiedAt });
+    }
+    if (!entries.length) {
+      throw new HttpError(
+        409,
+        'BACKUP_FILES_UNAVAILABLE',
+        'No selected backup file is available locally',
+      );
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return {
+      fileName: `MME-backups-${timestamp}.zip`,
+      content: backupArchiveService.create(entries),
+      count: entries.length,
+    };
+  }
+
+  private async enforceRetention(deviceId: string) {
+    const schedule = await prisma.backupSchedule.findUnique({ where: { deviceId } });
+    const maxFiles = Math.max(1, schedule?.maxFiles ?? 30);
+    const records = await backupRepository.listByDevice(deviceId);
+    const stored = [];
+    for (const record of records) {
+      if (record.status !== 'completed') continue;
+      const fileInfo = await backupStorageService.getFileInfo(record.filePath);
+      if (fileInfo.exists) stored.push(record);
+    }
+    for (const record of stored.slice(maxFiles)) {
+      await backupStorageService.delete(record.filePath);
+      await backupRepository.delete(record.id);
+    }
   }
 
   private async waitForRouterFile(client: RouterClient, fileName: string) {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAsyncData } from '../../../hooks/useAsyncData';
 import { deviceApi } from '../../devices/device.api';
 import { backupApi, type BackupRecord, type BackupSchedule } from '../backup.api';
@@ -18,8 +18,11 @@ export function BackupCenter() {
   const [scheduleType, setScheduleType] = useState<'export' | 'binary'>('export');
   const [intervalHours, setIntervalHours] = useState(24);
   const [scheduledTime, setScheduledTime] = useState('02:00');
+  const [maxFiles, setMaxFiles] = useState(30);
   const [editingScheduleId, setEditingScheduleId] = useState('');
   const [previewLoadingId, setPreviewLoadingId] = useState('');
+  const [selectedBackupIds, setSelectedBackupIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const activeDeviceId = selectedDeviceId || devices.data?.[0]?.id || '';
   const allDevicesSelected = activeDeviceId === '__all__';
@@ -48,6 +51,25 @@ export function BackupCenter() {
       );
     });
   }, [backups.data, fromDate, nameFilter, toDate]);
+  const selectedAvailableIds = useMemo(
+    () =>
+      visibleBackups
+        .filter((backup) => selectedBackupIds.includes(backup.id) && backup.storage?.exists)
+        .map((backup) => backup.id),
+    [selectedBackupIds, visibleBackups],
+  );
+  const allVisibleSelected =
+    visibleBackups.length > 0 &&
+    visibleBackups.every((backup) => selectedBackupIds.includes(backup.id));
+
+  useEffect(() => {
+    setSelectedBackupIds([]);
+  }, [activeDeviceId]);
+
+  useEffect(() => {
+    const available = new Set((backups.data ?? []).map((backup) => backup.id));
+    setSelectedBackupIds((current) => current.filter((id) => available.has(id)));
+  }, [backups.data]);
 
   async function createBackup(type: 'export' | 'binary') {
     if (!activeDeviceId) return setMessage(tr('Chưa chọn thiết bị.', 'No device selected.'));
@@ -109,6 +131,61 @@ export function BackupCenter() {
     }
   }
 
+  function toggleSelectAll() {
+    const visibleIds = visibleBackups.map((backup) => backup.id);
+    setSelectedBackupIds((current) =>
+      allVisibleSelected
+        ? current.filter((id) => !visibleIds.includes(id))
+        : [...new Set([...current, ...visibleIds])],
+    );
+  }
+
+  async function downloadSelected() {
+    if (!selectedAvailableIds.length) return;
+    setBulkBusy(true);
+    try {
+      await backupApi.downloadSelected(selectedAvailableIds);
+      setMessage(
+        tr(
+          `Đã đóng gói ${selectedAvailableIds.length} file để tải xuống.`,
+          `Packaged ${selectedAvailableIds.length} file(s) for download.`,
+        ),
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : tr('Tải file thất bại.', 'Download failed.'),
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function deleteSelected() {
+    if (!selectedBackupIds.length) return;
+    if (
+      !window.confirm(
+        tr(
+          `Xác nhận xóa vĩnh viễn ${selectedBackupIds.length} bản sao lưu đã chọn?`,
+          `Permanently delete ${selectedBackupIds.length} selected backup(s)?`,
+        ),
+      )
+    )
+      return;
+    setBulkBusy(true);
+    try {
+      const result = await backupApi.deleteSelected(selectedBackupIds);
+      setMessage(
+        tr(`Đã xóa ${result.deleted} bản sao lưu.`, `Deleted ${result.deleted} backup(s).`),
+      );
+      setSelectedBackupIds([]);
+      backups.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : tr('Xóa thất bại.', 'Delete failed.'));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function saveSchedule() {
     const targets = allDevicesSelected
       ? (devices.data ?? []).map((item) => item.id)
@@ -122,6 +199,7 @@ export function BackupCenter() {
             type: scheduleType,
             intervalHours,
             scheduledTime,
+            maxFiles,
           }),
         ),
       );
@@ -146,6 +224,7 @@ export function BackupCenter() {
     setScheduleType(schedule.type);
     setIntervalHours(schedule.intervalHours);
     setScheduledTime(schedule.scheduledTime);
+    setMaxFiles(schedule.maxFiles);
     setEditingScheduleId(schedule.id);
   }
 
@@ -154,6 +233,7 @@ export function BackupCenter() {
     setScheduleType('export');
     setIntervalHours(24);
     setScheduledTime('02:00');
+    setMaxFiles(30);
     setEditingScheduleId('');
   }
 
@@ -250,6 +330,16 @@ export function BackupCenter() {
               onChange={(event) => setScheduledTime(event.target.value)}
             />
           </label>
+          <label>
+            {tr('Số file tối đa / thiết bị', 'Maximum files / device')}
+            <input
+              type="number"
+              min={1}
+              max={500}
+              value={maxFiles}
+              onChange={(event) => setMaxFiles(Number(event.target.value))}
+            />
+          </label>
           <button className="small-button" onClick={() => void saveSchedule()}>
             {editingScheduleId
               ? tr('Cập nhật lịch', 'Update schedule')
@@ -269,7 +359,12 @@ export function BackupCenter() {
                 <strong>{schedule.device?.name ?? schedule.deviceId}</strong>
                 <span>
                   {schedule.type === 'export' ? '.rsc' : '.backup'} · {schedule.scheduledTime} ·{' '}
-                  {tr(`mỗi ${schedule.intervalHours} giờ`, `every ${schedule.intervalHours} hours`)}
+                  {tr(`mỗi ${schedule.intervalHours} giờ`, `every ${schedule.intervalHours} hours`)}{' '}
+                  ·{' '}
+                  {tr(
+                    `giữ tối đa ${schedule.maxFiles} file`,
+                    `keep up to ${schedule.maxFiles} files`,
+                  )}
                 </span>
                 <small>
                   {schedule.enabled
@@ -323,10 +418,55 @@ export function BackupCenter() {
         </label>
       </section>
 
+      <section className="backup-bulk-toolbar">
+        <label>
+          <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} />
+          {tr('Chọn tất cả đang hiển thị', 'Select all visible')}
+        </label>
+        <span>
+          {tr(
+            `Đã chọn ${selectedBackupIds.length} file`,
+            `${selectedBackupIds.length} file(s) selected`,
+          )}
+        </span>
+        <div>
+          <button
+            className="small-button"
+            disabled={bulkBusy || selectedAvailableIds.length === 0}
+            onClick={() => void downloadSelected()}
+          >
+            {tr(
+              `Tải ${selectedAvailableIds.length} file`,
+              `Download ${selectedAvailableIds.length}`,
+            )}
+          </button>
+          <button
+            className="small-button danger"
+            disabled={bulkBusy || selectedBackupIds.length === 0}
+            onClick={() => void deleteSelected()}
+          >
+            {tr('Xóa file đã chọn', 'Delete selected')}
+          </button>
+        </div>
+      </section>
+
       <div className="backup-grid">
         {visibleBackups.map((backup) => (
           <article className="backup-card" key={backup.id}>
             <div className="backup-card-header">
+              <label className="backup-card-select" title={tr('Chọn file', 'Select file')}>
+                <input
+                  type="checkbox"
+                  checked={selectedBackupIds.includes(backup.id)}
+                  onChange={(event) =>
+                    setSelectedBackupIds((current) =>
+                      event.target.checked
+                        ? [...new Set([...current, backup.id])]
+                        : current.filter((id) => id !== backup.id),
+                    )
+                  }
+                />
+              </label>
               <div>
                 <h4>{backup.fileName}</h4>
                 <p>

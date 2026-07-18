@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 7;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 8;
 
 interface Migration {
   version: number;
@@ -94,6 +94,10 @@ const migrations: Migration[] = [
     statements: [
       `ALTER TABLE "BackupSchedule" ADD COLUMN "scheduledTime" TEXT NOT NULL DEFAULT '02:00'`,
     ],
+  },
+  {
+    version: 8,
+    statements: [`ALTER TABLE "BackupSchedule" ADD COLUMN "maxFiles" INTEGER NOT NULL DEFAULT 30`],
   },
 ];
 

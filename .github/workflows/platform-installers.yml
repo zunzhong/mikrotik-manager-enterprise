@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.3.0
+        default: 5.3.1
       platform:
         description: Nền tảng cần build
         required: true
@@ -118,6 +118,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-CAI-DAT-WINDOWS.md artifacts/payload/HUONG-DAN-CAI-DAT-WINDOWS.md
           Copy-Item project-docs/deployment/HUONG-DAN-TINH-NANG-5.2.md artifacts/payload/HUONG-DAN-TINH-NANG-5.2.md
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-REPORT-5.3.md artifacts/payload/HUONG-DAN-TOPOLOGY-REPORT-5.3.md
+          Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md artifacts/payload/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md
           New-Item -ItemType Directory -Force artifacts/payload/runtime, artifacts/payload/service | Out-Null
           Copy-Item (Get-Command node).Source artifacts/payload/runtime/node.exe
           Invoke-WebRequest `
@@ -224,6 +225,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-CAI-DAT-WINDOWS.md artifacts/HUONG-DAN-CAI-DAT-WINDOWS.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-TINH-NANG-5.2.md artifacts/HUONG-DAN-TINH-NANG-5.2.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-REPORT-5.3.md artifacts/HUONG-DAN-TOPOLOGY-REPORT-5.3.md -Force
+          Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md artifacts/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md -Force
 
       - name: Thu thập chẩn đoán Windows Service
         if: always()
@@ -259,6 +261,7 @@ jobs:
             artifacts/HUONG-DAN-CAI-DAT-WINDOWS.md
             artifacts/HUONG-DAN-TINH-NANG-5.2.md
             artifacts/HUONG-DAN-TOPOLOGY-REPORT-5.3.md
+            artifacts/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md
             artifacts/*.log
           if-no-files-found: error
 

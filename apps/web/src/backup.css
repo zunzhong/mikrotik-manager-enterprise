@@ -40,6 +40,27 @@
   color: var(--text);
   background: var(--surface-soft);
 }
+.backup-bulk-toolbar {
+  margin-top: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+.backup-bulk-toolbar label,
+.backup-bulk-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.backup-bulk-toolbar > span {
+  color: var(--muted);
+}
 .backup-schedule-list {
   display: grid;
   gap: 10px;
@@ -113,6 +134,19 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
+}
+.backup-card-select {
+  display: grid;
+  place-items: center;
+  align-self: flex-start;
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+.backup-card-select input {
+  margin: 0;
 }
 .backup-card h4 {
   margin: 0;

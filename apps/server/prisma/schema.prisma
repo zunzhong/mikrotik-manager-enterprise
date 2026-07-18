@@ -289,6 +289,7 @@ model BackupSchedule {
   type          String    @default("export")
   intervalHours Int       @default(24)
   scheduledTime String    @default("02:00")
+  maxFiles      Int       @default(30)
   lastRunAt     DateTime?
   nextRunAt     DateTime?
   createdAt     DateTime  @default(now())

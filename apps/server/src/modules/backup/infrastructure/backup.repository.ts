@@ -24,6 +24,13 @@ export class BackupRepository {
     });
   }
 
+  public findManyByIds(ids: string[]) {
+    return prisma.backupRecord.findMany({
+      where: { id: { in: ids } },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   public create(input: {
     deviceId: string;
     type: string;

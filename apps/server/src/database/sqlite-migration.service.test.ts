@@ -52,6 +52,7 @@ describe('SQLite migration service', () => {
     expect(logFingerprintTable?.name).toBe('RouterOsLogFingerprint');
     expect(backupScheduleTable?.name).toBe('BackupSchedule');
     expect(backupScheduleColumns.map((column) => column.name)).toContain('scheduledTime');
+    expect(backupScheduleColumns.map((column) => column.name)).toContain('maxFiles');
     expect(alertRuleColumns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['channelIds', 'notifyAllChannels']),
     );
@@ -74,7 +75,7 @@ describe('SQLite migration service', () => {
     `);
     database.close();
 
-    expect(ensureSqliteSchemaVersion(databasePath)).toBe(7);
+    expect(ensureSqliteSchemaVersion(databasePath)).toBe(8);
 
     const upgraded = new DatabaseSync(databasePath);
     const table = upgraded
@@ -90,7 +91,8 @@ describe('SQLite migration service', () => {
 
     expect(table?.name).toBe('BackupSchedule');
     expect(columns.map((column) => column.name)).toContain('scheduledTime');
-    expect(version.version).toBe(7);
+    expect(columns.map((column) => column.name)).toContain('maxFiles');
+    expect(version.version).toBe(8);
   });
 
   it('rejects a database created by a newer application', () => {

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export class BackupStorageService {
@@ -60,6 +60,17 @@ export class BackupStorageService {
 
   public async read(filePath: string): Promise<Buffer> {
     return readFile(await this.resolveExistingPath(filePath));
+  }
+
+  public async delete(filePath?: string | null): Promise<boolean> {
+    if (!filePath) return false;
+    try {
+      await unlink(await this.resolveExistingPath(filePath));
+      return true;
+    } catch (error) {
+      if (error instanceof Error && /not found|ENOENT/i.test(error.message)) return false;
+      throw error;
+    }
   }
 
   public checksumText(value: string): string {

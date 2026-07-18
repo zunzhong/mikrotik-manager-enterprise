@@ -14,6 +14,7 @@ export interface TopologyLink {
   source: string;
   target: string;
   label?: string;
+  managed: boolean;
   metadata?: unknown;
 }
 
@@ -24,6 +25,9 @@ export interface TopologyData {
     nodes: number;
     links: number;
     devices: number;
+    managedLinks: number;
+    connectedDevices: number;
+    isolatedDevices: number;
   };
   inventoryScheduler: {
     running: boolean;
@@ -39,4 +43,6 @@ export interface TopologyData {
 export const topologyApi = {
   get: () => apiGet<TopologyData>('/api/v1/topology'),
   refresh: () => apiPost<TopologyData>('/api/v1/topology/refresh'),
+  refreshDevice: (deviceId: string) =>
+    apiPost<TopologyData>(`/api/v1/topology/devices/${deviceId}/refresh`),
 };

@@ -20,6 +20,7 @@ export class InventorySchedulerService {
   private lastRunAt: string | undefined;
   private nextRunAt: string | undefined;
   private lastError: string | undefined;
+  private readonly deviceJobs = new Set<string>();
   private onError: (error: unknown) => void = () => undefined;
 
   public start(onError?: (error: unknown) => void): InventorySchedulerStatus {
@@ -75,6 +76,22 @@ export class InventorySchedulerService {
     }
 
     return this.status();
+  }
+
+  public async runDevice(deviceId: string, source: 'topology' = 'topology') {
+    if (this.deviceJobs.has(deviceId)) {
+      return { skipped: true, reason: 'already-running' as const };
+    }
+
+    this.deviceJobs.add(deviceId);
+    try {
+      const result = await inventoryCollectorService.collect(deviceId, source);
+      this.lastRunAt = new Date().toISOString();
+      this.lastError = result.error;
+      return { skipped: false, result };
+    } finally {
+      this.deviceJobs.delete(deviceId);
+    }
   }
 }
 
