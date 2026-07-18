@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 8;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 9;
 
 interface Migration {
   version: number;
@@ -98,6 +98,44 @@ const migrations: Migration[] = [
   {
     version: 8,
     statements: [`ALTER TABLE "BackupSchedule" ADD COLUMN "maxFiles" INTEGER NOT NULL DEFAULT 30`],
+  },
+  {
+    version: 9,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "TopologySnapshot" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "scope" TEXT NOT NULL DEFAULT 'all',
+        "graphHash" TEXT NOT NULL,
+        "nodes" JSONB NOT NULL,
+        "links" JSONB NOT NULL,
+        "summary" JSONB NOT NULL,
+        "collectedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      'CREATE INDEX IF NOT EXISTS "TopologySnapshot_scope_collectedAt_idx" ON "TopologySnapshot"("scope", "collectedAt")',
+      'CREATE INDEX IF NOT EXISTS "TopologySnapshot_graphHash_idx" ON "TopologySnapshot"("graphHash")',
+      `CREATE TABLE IF NOT EXISTS "TopologyManualLink" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "sourceNodeId" TEXT NOT NULL,
+        "targetNodeId" TEXT NOT NULL,
+        "label" TEXT,
+        "locked" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS "TopologyManualLink_sourceNodeId_targetNodeId_key" ON "TopologyManualLink"("sourceNodeId", "targetNodeId")',
+      'CREATE INDEX IF NOT EXISTS "TopologyManualLink_sourceNodeId_idx" ON "TopologyManualLink"("sourceNodeId")',
+      'CREATE INDEX IF NOT EXISTS "TopologyManualLink_targetNodeId_idx" ON "TopologyManualLink"("targetNodeId")',
+      `CREATE TABLE IF NOT EXISTS "TopologyNodeLayout" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "scope" TEXT NOT NULL DEFAULT 'all',
+        "nodeId" TEXT NOT NULL,
+        "x" REAL NOT NULL,
+        "y" REAL NOT NULL,
+        "updatedAt" DATETIME NOT NULL
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS "TopologyNodeLayout_scope_nodeId_key" ON "TopologyNodeLayout"("scope", "nodeId")',
+      'CREATE INDEX IF NOT EXISTS "TopologyNodeLayout_scope_idx" ON "TopologyNodeLayout"("scope")',
+    ],
   },
 ];
 

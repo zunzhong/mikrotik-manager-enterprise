@@ -48,7 +48,12 @@ export class InventoryCollectorService {
         const result = await collector.collect({ deviceId, client });
 
         if (!result.success) {
-          failedCollectors.push({ key: result.key, path: result.path, error: result.error });
+          failedCollectors.push({
+            key: result.key,
+            path: result.path,
+            error: result.error,
+            optional: collector.optional,
+          });
           continue;
         }
 
@@ -75,8 +80,9 @@ export class InventoryCollectorService {
         health: collectedRowsByKey['system.health'] ?? [],
       };
 
+      const requiredFailures = failedCollectors.filter((failure) => !failure.optional);
       await inventoryRepository.updateSnapshot(snapshot.id, {
-        status: failedCollectors.length === 0 ? 'completed' : 'partial',
+        status: requiredFailures.length === 0 ? 'completed' : 'partial',
         summary,
       });
       await deviceRepository.update(deviceId, {

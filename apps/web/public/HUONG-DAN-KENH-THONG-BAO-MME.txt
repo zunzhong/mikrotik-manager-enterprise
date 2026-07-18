@@ -1,5 +1,5 @@
 HƯỚNG DẪN CẤU HÌNH KÊNH THÔNG BÁO MME
-Phiên bản: 5.3.2
+Phiên bản: 5.4.0
 Tác giả hệ thống: Bùi Quang Chính
 
 1. EMAIL / SMTP

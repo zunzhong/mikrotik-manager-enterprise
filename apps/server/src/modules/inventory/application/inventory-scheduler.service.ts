@@ -1,5 +1,6 @@
 import { deviceRepository } from '../../device/infrastructure/device.repository.js';
 import { inventoryCollectorService } from './inventory-collector.service.js';
+import { topologyService } from '../../topology/application/topology.service.js';
 
 const INVENTORY_INTERVAL_MS = 30 * 60 * 1000;
 
@@ -65,6 +66,7 @@ export class InventorySchedulerService {
       );
       const rejected = results.filter((result) => result.status === 'rejected');
       if (rejected.length > 0) this.lastError = `${rejected.length} inventory job(s) failed`;
+      await topologyService.capture();
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : 'Inventory scheduler failed';
       this.onError(error);
@@ -86,6 +88,8 @@ export class InventorySchedulerService {
     this.deviceJobs.add(deviceId);
     try {
       const result = await inventoryCollectorService.collect(deviceId, source);
+      await topologyService.capture();
+      await topologyService.capture(deviceId);
       this.lastRunAt = new Date().toISOString();
       this.lastError = result.error;
       return { skipped: false, result };

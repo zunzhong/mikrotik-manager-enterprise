@@ -21,5 +21,6 @@ export interface InventoryCollector {
   label: string;
   path: string;
   enabledByDefault: boolean;
+  optional: boolean;
   collect(context: InventoryCollectorContext): Promise<InventoryCollectorResult>;
 }

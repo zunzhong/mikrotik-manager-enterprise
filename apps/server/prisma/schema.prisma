@@ -447,3 +447,42 @@ model TrafficSample {
   @@index([deviceId, collectedAt])
   @@index([deviceId, interfaceName, collectedAt])
 }
+
+model TopologySnapshot {
+  id          String   @id @default(cuid())
+  scope       String   @default("all")
+  graphHash   String
+  nodes       Json
+  links       Json
+  summary     Json
+  collectedAt DateTime @default(now())
+
+  @@index([scope, collectedAt])
+  @@index([graphHash])
+}
+
+model TopologyManualLink {
+  id           String   @id @default(cuid())
+  sourceNodeId String
+  targetNodeId String
+  label        String?
+  locked       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([sourceNodeId, targetNodeId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+}
+
+model TopologyNodeLayout {
+  id        String   @id @default(cuid())
+  scope     String   @default("all")
+  nodeId    String
+  x         Float
+  y         Float
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, nodeId])
+  @@index([scope])
+}
