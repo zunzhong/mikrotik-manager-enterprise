@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.3.1
+        default: 5.3.2
       platform:
         description: Nền tảng cần build
         required: true
@@ -60,20 +60,26 @@ jobs:
         shell: pwsh
         run: |
           pnpm install --frozen-lockfile
-          $tokens = $null
-          $parseErrors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path 'packaging/windows/MME-Control.ps1'),
-            [ref]$tokens,
-            [ref]$parseErrors
-          ) | Out-Null
-          if ($parseErrors.Count -gt 0) {
-            $parseErrors | ForEach-Object { Write-Error $_.Message }
-            throw 'PowerShell installer script không hợp lệ.'
-          }
-          $scriptBytes = [IO.File]::ReadAllBytes((Resolve-Path 'packaging/windows/MME-Control.ps1'))
-          if ($scriptBytes.Length -lt 3 -or $scriptBytes[0] -ne 0xEF -or $scriptBytes[1] -ne 0xBB -or $scriptBytes[2] -ne 0xBF) {
-            throw 'MME-Control.ps1 phải sử dụng UTF-8 BOM để tương thích Windows PowerShell 5.1.'
+          $installerScripts = @(
+            'packaging/windows/MME-Control.ps1',
+            'packaging/windows/MME-PreInstall.ps1'
+          )
+          foreach ($installerScript in $installerScripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $installerScript),
+              [ref]$tokens,
+              [ref]$parseErrors
+            ) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              throw "$installerScript không hợp lệ."
+            }
+            $scriptBytes = [IO.File]::ReadAllBytes((Resolve-Path $installerScript))
+            if ($scriptBytes.Length -lt 3 -or $scriptBytes[0] -ne 0xEF -or $scriptBytes[1] -ne 0xBB -or $scriptBytes[2] -ne 0xBF) {
+              throw "$installerScript phải sử dụng UTF-8 BOM để tương thích Windows PowerShell 5.1."
+            }
           }
           $validationRoot = Join-Path $env:RUNNER_TEMP 'mme-powershell-validation'
           $validationLog = Join-Path $env:RUNNER_TEMP 'mme-powershell-validation.log'
@@ -85,6 +91,12 @@ jobs:
           if (-not (Test-Path "$validationRoot\logs\bootstrap.log")) {
             throw 'Windows PowerShell không tạo được bootstrap.log.'
           }
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File packaging/windows/MME-PreInstall.ps1 `
+            -AppDir $validationRoot -DataRoot $validationRoot `
+            -LogPath (Join-Path $validationRoot 'logs\upgrade-preflight.log') -ValidateOnly `
+            *>> $validationLog
+          if ($LASTEXITCODE -ne 0) { throw 'MME-PreInstall.ps1 không chạy được bằng Windows PowerShell 5.1.' }
           Remove-Item $validationRoot -Recurse -Force
           pnpm --filter @mme/server prisma:generate
           pnpm lint
@@ -119,6 +131,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-TINH-NANG-5.2.md artifacts/payload/HUONG-DAN-TINH-NANG-5.2.md
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-REPORT-5.3.md artifacts/payload/HUONG-DAN-TOPOLOGY-REPORT-5.3.md
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md artifacts/payload/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md
+          Copy-Item project-docs/deployment/HUONG-DAN-NANG-CAP-5.3.2.md artifacts/payload/HUONG-DAN-NANG-CAP-5.3.2.md
           New-Item -ItemType Directory -Force artifacts/payload/runtime, artifacts/payload/service | Out-Null
           Copy-Item (Get-Command node).Source artifacts/payload/runtime/node.exe
           Invoke-WebRequest `
@@ -167,6 +180,31 @@ jobs:
             }
             Get-Service MME -ErrorAction SilentlyContinue | Format-List Name, Status, StartType
           }
+          function Wait-MMEReady([int]$TimeoutSeconds = 90) {
+            $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+            do {
+              try { $response = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 3 } catch { $response = $null }
+              if ($response.status -eq 'ready' -and $response.checks.database) { return $response }
+              Start-Sleep -Seconds 2
+            } while ((Get-Date) -lt $deadline)
+            Write-MMEDiagnostics
+            throw "API không ready sau $TimeoutSeconds giây."
+          }
+          function Assert-InstalledCriticalFiles {
+            $payloadRoot = (Resolve-Path 'artifacts/payload').Path.TrimEnd('\')
+            $installedRoot = (Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise\releases\${{ steps.version.outputs.value }}').TrimEnd('\')
+            $criticalFiles = Get-ChildItem $payloadRoot -Recurse -File | Where-Object {
+              $_.Extension -in @('.exe', '.dll', '.node')
+            }
+            foreach ($source in $criticalFiles) {
+              $relativePath = $source.FullName.Substring($payloadRoot.Length).TrimStart('\')
+              $installedFile = Join-Path $installedRoot $relativePath
+              if (-not (Test-Path $installedFile)) { throw "Thiếu file sau nâng cấp: $relativePath" }
+              $sourceHash = (Get-FileHash $source.FullName -Algorithm SHA256).Hash
+              $installedHash = (Get-FileHash $installedFile -Algorithm SHA256).Hash
+              if ($sourceHash -ne $installedHash) { throw "File không được thay thế đúng: $relativePath" }
+            }
+          }
 
           $freshInstall = Start-Process -FilePath $installer.FullName `
             -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-fresh.log") `
@@ -176,32 +214,112 @@ jobs:
             throw "Cài mới thất bại: exit code $($freshInstall.ExitCode)"
           }
 
-          $deadline = (Get-Date).AddSeconds(90)
-          do {
-            try { $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 3 } catch { $ready = $null }
-            if ($ready.status -eq 'ready') { break }
-            Start-Sleep -Seconds 2
-          } while ((Get-Date) -lt $deadline)
-          if ($ready.status -ne 'ready') { Write-MMEDiagnostics; throw 'API không ready sau khi cài mới.' }
+          $ready = Wait-MMEReady
           if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
           if ((Get-CimInstance Win32_Service -Filter "Name='MME'").StartMode -ne 'Auto') { throw 'Windows Service MME không tự khởi động cùng Windows.' }
-          $installedServer = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise\dist\server.js'
+          $installRoot = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise'
+          $releaseDir = Join-Path $installRoot 'releases\${{ steps.version.outputs.value }}'
+          $installedServer = Join-Path $releaseDir 'dist\server.js'
           if (-not (Test-Path $installedServer)) { throw 'Ứng dụng không được cài vào Program Files của ổ hệ thống.' }
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'SQLite database chưa được tạo.' }
+          Assert-InstalledCriticalFiles
 
-          $upgradeInstall = Start-Process -FilePath $installer.FullName `
-            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-upgrade.log") `
-            -Wait -PassThru
-          if ($upgradeInstall.ExitCode -ne 0) {
-            Write-MMEDiagnostics
-            throw "Nâng cấp tại chỗ không restart thất bại: exit code $($upgradeInstall.ExitCode)"
+          $externalLockFile = Join-Path $releaseDir 'upgrade-external-lock-test.dll'
+          [IO.File]::WriteAllBytes($externalLockFile, [byte[]](1, 2, 3, 4))
+          $lockJob = Start-Job -ScriptBlock {
+            param($Path)
+            $stream = [IO.File]::Open(
+              $Path,
+              [IO.FileMode]::Open,
+              [IO.FileAccess]::Read,
+              [IO.FileShare]::None
+            )
+            try {
+              Write-Output 'LOCKED'
+              Start-Sleep -Seconds 30
+            } finally { $stream.Dispose() }
+          } -ArgumentList $externalLockFile
+          $lockDeadline = (Get-Date).AddSeconds(10)
+          do {
+            $lockSignal = @(Receive-Job $lockJob -Keep -ErrorAction SilentlyContinue)
+            if ($lockSignal -contains 'LOCKED') { break }
+            Start-Sleep -Milliseconds 250
+          } while ((Get-Date) -lt $lockDeadline)
+          if ($lockSignal -notcontains 'LOCKED') {
+            Stop-Job $lockJob -ErrorAction SilentlyContinue
+            Remove-Job $lockJob -Force -ErrorAction SilentlyContinue
+            throw 'Không tạo được khóa DLL ngoài MME để kiểm thử nhánh rollback.'
           }
-          $ready = Invoke-RestMethod 'http://127.0.0.1:3000/ready' -TimeoutSec 10
-          if ($ready.status -ne 'ready') { throw 'API không ready sau khi nâng cấp.' }
-          if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy sau khi nâng cấp.' }
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File packaging/windows/MME-PreInstall.ps1 `
+            -AppDir $installRoot `
+            -DataRoot "$env:ProgramData\MikroTik Manager Enterprise" `
+            -LogPath "$env:ProgramData\MikroTik Manager Enterprise\logs\upgrade-preflight-negative.log" `
+            -TimeoutSeconds 3 *> "$artifactDir\preflight-negative-test.log"
+          $negativeExitCode = $LASTEXITCODE
+          Stop-Job $lockJob -ErrorAction SilentlyContinue
+          Remove-Job $lockJob -Force -ErrorAction SilentlyContinue
+          Remove-Item $externalLockFile -Force -ErrorAction SilentlyContinue
+          if ($negativeExitCode -eq 0) { throw 'Preflight cho phép nâng cấp dù DLL vẫn bị tiến trình ngoài MME khóa.' }
+          $ready = Wait-MMEReady 60
+          if ((Get-Service MME).Status -ne 'Running') {
+            throw 'Service cũ không được phục hồi sau khi preflight chủ động từ chối nâng cấp.'
+          }
 
-          $installDir = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise'
-          $uninstaller = Get-ChildItem "$installDir\unins*.exe" | Select-Object -First 1
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File packaging/windows/MME-PreInstall.ps1 `
+            -AppDir $installRoot `
+            -DataRoot "$env:ProgramData\MikroTik Manager Enterprise" `
+            -LogPath "$env:ProgramData\MikroTik Manager Enterprise\logs\upgrade-preflight-interrupted.log" `
+            -TimeoutSeconds 30 *> "$artifactDir\preflight-interrupted-test.log"
+          if ($LASTEXITCODE -ne 0) { throw 'Không thể chuẩn bị mô phỏng cài đặt bị gián đoạn.' }
+          if (Get-Service MME -ErrorAction SilentlyContinue) {
+            throw 'Preflight không gỡ service cũ trước khi thay payload.'
+          }
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File packaging/windows/MME-PreInstall.ps1 `
+            -AppDir $installRoot `
+            -DataRoot "$env:ProgramData\MikroTik Manager Enterprise" `
+            -LogPath "$env:ProgramData\MikroTik Manager Enterprise\logs\upgrade-preflight-interrupted.log" `
+            -RollbackOnly *>> "$artifactDir\preflight-interrupted-test.log"
+          if ($LASTEXITCODE -ne 0) { throw 'Rollback khi bộ cài bị gián đoạn đã thất bại.' }
+          $ready = Wait-MMEReady 60
+          if ((Get-Service MME).Status -ne 'Running') {
+            throw 'Service cũ không được phục hồi sau mô phỏng hủy/lỗi giải nén.'
+          }
+
+          $rogueScript = Join-Path $env:RUNNER_TEMP 'mme-upgrade-lock-test.js'
+          'setInterval(function () {}, 1000);' | Set-Content $rogueScript -Encoding ascii
+          for ($cycle = 1; $cycle -le 3; $cycle++) {
+            $rogueNode = Start-Process -FilePath "$releaseDir\runtime\node.exe" `
+              -ArgumentList @($rogueScript) -PassThru
+            Start-Sleep -Seconds 1
+            $rogueNode.Refresh()
+            if ($rogueNode.HasExited) { throw "Không tạo được tiến trình khóa node.exe ở chu kỳ $cycle." }
+
+            $upgradeInstall = Start-Process -FilePath $installer.FullName `
+              -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=$artifactDir\install-upgrade-$cycle.log") `
+              -Wait -PassThru
+            if ($upgradeInstall.ExitCode -ne 0) {
+              Write-MMEDiagnostics
+              throw "Nâng cấp tại chỗ chu kỳ $cycle thất bại: exit code $($upgradeInstall.ExitCode)"
+            }
+            $rogueNode.Refresh()
+            if (-not $rogueNode.HasExited) {
+              Stop-Process -Id $rogueNode.Id -Force -ErrorAction SilentlyContinue
+              throw "Preflight không giải phóng tiến trình node.exe ở chu kỳ $cycle."
+            }
+            $ready = Wait-MMEReady 90
+            if ((Get-Service MME).Status -ne 'Running') { throw "Service không chạy sau chu kỳ $cycle." }
+            Assert-InstalledCriticalFiles
+          }
+          $preflightLog = "$env:ProgramData\MikroTik Manager Enterprise\logs\upgrade-preflight.log"
+          if (-not (Test-Path $preflightLog)) { throw 'Thiếu upgrade-preflight.log.' }
+          if (-not (Select-String -Path $preflightLog -Pattern 'toàn bộ EXE/DLL/NODE đã mở khóa' -Quiet)) {
+            throw 'Preflight không ghi nhận trạng thái mở khóa thành công.'
+          }
+
+          $uninstaller = Get-ChildItem "$installRoot\unins*.exe" | Select-Object -First 1
           if (-not $uninstaller) { throw 'Không tìm thấy uninstaller.' }
           $uninstall = Start-Process -FilePath $uninstaller.FullName `
             -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$artifactDir\uninstall.log") `
@@ -226,6 +344,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-TINH-NANG-5.2.md artifacts/HUONG-DAN-TINH-NANG-5.2.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-REPORT-5.3.md artifacts/HUONG-DAN-TOPOLOGY-REPORT-5.3.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md artifacts/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md -Force
+          Copy-Item project-docs/deployment/HUONG-DAN-NANG-CAP-5.3.2.md artifacts/HUONG-DAN-NANG-CAP-5.3.2.md -Force
 
       - name: Thu thập chẩn đoán Windows Service
         if: always()
@@ -262,6 +381,7 @@ jobs:
             artifacts/HUONG-DAN-TINH-NANG-5.2.md
             artifacts/HUONG-DAN-TOPOLOGY-REPORT-5.3.md
             artifacts/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md
+            artifacts/HUONG-DAN-NANG-CAP-5.3.2.md
             artifacts/*.log
           if-no-files-found: error
 

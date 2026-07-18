@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.3.1"
+  #define MyAppVersion "5.3.2"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -27,12 +27,14 @@ CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
 SetupIconFile=mme-logo.ico
+SetupMutex=Global\MikroTikManagerEnterpriseInstaller
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "..\..\artifacts\payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "MME-PreInstall.ps1"; Flags: dontcopy
+Source: "..\..\artifacts\payload\*"; DestDir: "{app}\releases\{#MyAppVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
 Name: "{commonappdata}\MikroTik Manager Enterprise"
@@ -42,74 +44,69 @@ Name: "{commonappdata}\MikroTik Manager Enterprise\backups"
 Name: "{commonappdata}\MikroTik Manager Enterprise\logs"
 
 [Icons]
-Name: "{group}\Open Dashboard"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
-Name: "{group}\Start MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" start"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
-Name: "{group}\Stop MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" stop"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
-Name: "{group}\Service Status"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" status"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
-Name: "{group}\Backup Data"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" backup"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
-Name: "{group}\Open Data Folder"; Filename: "explorer.exe"; Parameters: """{commonappdata}\MikroTik Manager Enterprise"""; IconFilename: "{app}\packaging\windows\mme-logo.ico"
-Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\packaging\windows\mme-logo.ico"
+Name: "{group}\Open Dashboard"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
+Name: "{group}\Start MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" start"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
+Name: "{group}\Stop MME"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" stop"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
+Name: "{group}\Service Status"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" status"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
+Name: "{group}\Backup Data"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" backup"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
+Name: "{group}\Open Data Folder"; Filename: "explorer.exe"; Parameters: """{commonappdata}\MikroTik Manager Enterprise"""; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
+Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
 
 [UninstallRun]
-Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\packaging\windows\MME-Control.ps1"" uninstall -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" uninstall -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
 
 [Code]
-function PowerShellSingleQuoted(Value: String): String;
-begin
-  Result := Value;
-  StringChangeEx(Result, '''', '''''', True);
-  Result := '''' + Result + '''';
-end;
+var
+  UpgradeGuardExecuted: Boolean;
+  UpgradeGuardScriptPath: String;
+  UpgradeGuardLogPath: String;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
-  StopCommand: String;
+  Parameters: String;
 begin
   Result := '';
   NeedsRestart := False;
   ResultCode := -1;
-
-  { Không gọi MME-Control.ps1 cũ ở đây: bản cũ có thể trả về trước khi }
-  { node.exe thực sự thoát, làm query_engine-windows.dll.node còn bị khóa. }
-  StopCommand :=
-    '$ErrorActionPreference=''Stop''; ' +
-    '$app=' + PowerShellSingleQuoted(ExpandConstant('{app}')) + '; ' +
-    '$service=Get-Service -Name MME -ErrorAction SilentlyContinue; ' +
-    'if($service -and $service.Status -ne ''Stopped''){ ' +
-      'Stop-Service -Name MME -Force -ErrorAction SilentlyContinue; ' +
-      'try { $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(20)) } catch {} }; ' +
-    '$deadline=(Get-Date).AddSeconds(15); ' +
-    'do { ' +
-      '$processes=@(Get-CimInstance Win32_Process | Where-Object { ' +
-        '($_.Name -ieq ''node.exe'' -or $_.Name -ieq ''MME.Service.exe'') -and ' +
-        '(($_.ExecutablePath -and $_.ExecutablePath.StartsWith($app,[StringComparison]::OrdinalIgnoreCase)) -or ' +
-        '($_.CommandLine -and $_.CommandLine.IndexOf($app,[StringComparison]::OrdinalIgnoreCase) -ge 0)) }); ' +
-      'foreach($process in $processes){ Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
-      'if($processes.Count -eq 0){ break }; Start-Sleep -Milliseconds 300 ' +
-    '} while((Get-Date) -lt $deadline); ' +
-    '$remaining=@(Get-CimInstance Win32_Process | Where-Object { ' +
-      '($_.Name -ieq ''node.exe'' -or $_.Name -ieq ''MME.Service.exe'') -and ' +
-      '(($_.ExecutablePath -and $_.ExecutablePath.StartsWith($app,[StringComparison]::OrdinalIgnoreCase)) -or ' +
-      '($_.CommandLine -and $_.CommandLine.IndexOf($app,[StringComparison]::OrdinalIgnoreCase) -ge 0)) }); ' +
-    'if($remaining.Count -gt 0){ exit 32 }; ' +
-    '$locked=@(); ' +
-    'if(Test-Path $app){ ' +
-      '$engines=@(Get-ChildItem -Path $app -Recurse -Filter ''query_engine-windows*.dll.node'' -ErrorAction SilentlyContinue); ' +
-      'foreach($engine in $engines){ try { ' +
-        '$stream=[IO.File]::Open($engine.FullName,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None); ' +
-        '$stream.Dispose() ' +
-      '} catch { $locked += $engine.FullName } } }; ' +
-    'if($locked.Count -gt 0){ exit 33 }';
-
+  UpgradeGuardExecuted := False;
+  ExtractTemporaryFile('MME-PreInstall.ps1');
+  UpgradeGuardScriptPath := ExpandConstant('{tmp}\MME-PreInstall.ps1');
+  UpgradeGuardLogPath := ExpandConstant('{commonappdata}\MikroTik Manager Enterprise\logs\upgrade-preflight.log');
+  Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + UpgradeGuardScriptPath +
+    '" -AppDir "' + ExpandConstant('{app}') +
+    '" -DataRoot "' + ExpandConstant('{commonappdata}\MikroTik Manager Enterprise') +
+    '" -LogPath "' + UpgradeGuardLogPath + '"';
   if (not Exec('powershell.exe',
-    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + StopCommand + '"',
+    Parameters,
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
-    Result := 'Không thể giải phóng tiến trình MME đang sử dụng tệp chương trình (mã ' +
-      IntToStr(ResultCode) + '). ' +
-      'Hãy đóng cửa sổ MME rồi chạy lại bộ cài bằng quyền Administrator. ' +
-      'Không chọn bỏ qua tệp DLL.';
+    Result := 'Không thể chuẩn bị nâng cấp MME an toàn (mã ' + IntToStr(ResultCode) + '). ' +
+      'Bộ cài chưa thay đổi file chương trình và đã cố khôi phục service cũ. ' +
+      'Xem log: ' + UpgradeGuardLogPath + '. Không chọn bỏ qua bất kỳ file nào.'
+  else
+    UpgradeGuardExecuted := True;
+end;
+
+procedure DeinitializeSetup();
+var
+  ResultCode: Integer;
+  Parameters: String;
+begin
+  if not UpgradeGuardExecuted then
+    exit;
+
+  { MME-Control clears upgrade-state.json only after the new service passes /ready.
+    If extraction, post-install initialization or cancellation interrupted Setup,
+    this idempotent rollback restores the previous service. }
+  Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + UpgradeGuardScriptPath +
+    '" -AppDir "' + ExpandConstant('{app}') +
+    '" -DataRoot "' + ExpandConstant('{commonappdata}\MikroTik Manager Enterprise') +
+    '" -LogPath "' + UpgradeGuardLogPath + '" -RollbackOnly';
+  if (not Exec('powershell.exe', Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or
+    (ResultCode <> 0) then
+    Log('MME rollback guard returned exit code ' + IntToStr(ResultCode) +
+      '. See ' + UpgradeGuardLogPath);
 end;

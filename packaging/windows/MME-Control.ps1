@@ -7,6 +7,12 @@
 
 $ErrorActionPreference = 'Stop'
 $AppDir = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$AppParent = Split-Path -Parent $AppDir
+$InstallRoot = if ((Split-Path -Leaf $AppParent) -ieq 'releases') {
+  Split-Path -Parent $AppParent
+} else {
+  $AppDir
+}
 $CommonAppData = [Environment]::GetFolderPath('CommonApplicationData')
 if ([string]::IsNullOrWhiteSpace($DataRoot)) {
   if ([string]::IsNullOrWhiteSpace($CommonAppData)) { throw 'Windows không cung cấp đường dẫn ProgramData.' }
@@ -21,6 +27,7 @@ $BackupDir = Join-Path $DataDir 'backups'
 $LogDir = Join-Path $DataDir 'logs'
 $ConfigFile = Join-Path $DataDir 'config\mme.env'
 $BootstrapLog = Join-Path $LogDir 'bootstrap.log'
+$UpgradeStateFile = Join-Path $DataDir 'config\upgrade-state.json'
 $Port = 3000
 
 function Write-BootstrapLog([string]$Message) {
@@ -71,7 +78,7 @@ function Read-Environment {
 
 function Initialize-Environment {
   New-Item -ItemType Directory -Force (Split-Path $ConfigFile), (Split-Path $Database), $BackupDir, $LogDir | Out-Null
-  $legacyBackupDir = Join-Path $AppDir 'data\backups'
+  $legacyBackupDir = Join-Path $InstallRoot 'data\backups'
   if (Test-Path $legacyBackupDir) {
     Copy-Item (Join-Path $legacyBackupDir '*') $BackupDir -Recurse -Force -ErrorAction SilentlyContinue
     Write-BootstrapLog 'Đã chuyển file backup cũ sang vùng dữ liệu bền vững.'
@@ -79,9 +86,9 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.3.1')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.3.2')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.3.1`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.3.2`r`n"
     }
     $persistentBackupPath = $BackupDir.Replace('\','/')
     if ($existingConfig -match '(?m)^BACKUP_STORAGE_DIR=') {
@@ -94,6 +101,18 @@ function Initialize-Environment {
     } else {
       $existingConfig = $existingConfig.TrimEnd() + "`r`nBACKUP_STORAGE_PATH=$persistentBackupPath`r`n"
     }
+    $webDistPath = (Join-Path $AppDir 'web').Replace('\','/')
+    if ($existingConfig -match '(?m)^WEB_DIST_PATH=') {
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^WEB_DIST_PATH=.*$', "WEB_DIST_PATH=$webDistPath")
+    } else {
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nWEB_DIST_PATH=$webDistPath`r`n"
+    }
+    $sqliteSchemaPath = (Join-Path $AppDir 'prisma\schema.sqlite.sql').Replace('\','/')
+    if ($existingConfig -match '(?m)^SQLITE_SCHEMA_SQL=') {
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^SQLITE_SCHEMA_SQL=.*$', "SQLITE_SCHEMA_SQL=$sqliteSchemaPath")
+    } else {
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nSQLITE_SCHEMA_SQL=$sqliteSchemaPath`r`n"
+    }
     [IO.File]::WriteAllText($ConfigFile, $existingConfig, (New-Object Text.UTF8Encoding($false)))
     return
   }
@@ -101,7 +120,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.3.1
+APP_VERSION=5.3.2
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$Port
 DATABASE_URL=file:$($Database.Replace('\','/'))
@@ -131,10 +150,16 @@ function Set-ProcessEnvironment {
 }
 
 function Backup-Data {
-  if (-not (Test-Path $Database)) { return $null }
+  $paths = @()
+  if (Test-Path (Split-Path $Database)) {
+    $dataFiles = @(Get-ChildItem (Split-Path $Database) -Force -ErrorAction SilentlyContinue)
+    $paths += @($dataFiles | ForEach-Object { $_.FullName })
+  }
+  if (Test-Path $ConfigFile) { $paths += $ConfigFile }
+  if ($paths.Count -eq 0) { return $null }
   New-Item -ItemType Directory -Force $BackupDir | Out-Null
   $target = Join-Path $BackupDir "mme-before-upgrade-$(Get-Date -Format 'yyyyMMdd-HHmmss').zip"
-  Compress-Archive -Path (Join-Path $DataDir 'data\*'), $ConfigFile -DestinationPath $target -CompressionLevel Optimal
+  Compress-Archive -Path $paths -DestinationPath $target -CompressionLevel Optimal
   return $target
 }
 
@@ -146,9 +171,57 @@ function Restore-Data([string]$Archive) {
     $backupDatabase = Join-Path $temporary 'mme.db'
     if (-not (Test-Path $backupDatabase)) { $backupDatabase = Join-Path $temporary 'data\mme.db' }
     if (Test-Path $backupDatabase) { Copy-Item $backupDatabase $Database -Force }
+    $backupConfig = Join-Path $temporary 'mme.env'
+    if (-not (Test-Path $backupConfig)) { $backupConfig = Join-Path $temporary 'config\mme.env' }
+    if (Test-Path $backupConfig) { Copy-Item $backupConfig $ConfigFile -Force }
   } finally {
     Remove-Item $temporary -Recurse -Force -ErrorAction SilentlyContinue
   }
+}
+
+function Clear-UpgradeState {
+  if (Test-Path $UpgradeStateFile) {
+    Remove-Item $UpgradeStateFile -Force
+    if (Test-Path $UpgradeStateFile) {
+      throw 'Không thể xóa trạng thái rollback sau khi hoàn tất.'
+    }
+  }
+}
+
+function Restore-PreviousReleaseService {
+  if (-not (Test-Path $UpgradeStateFile)) { return }
+  $state = Get-Content $UpgradeStateFile -Raw | ConvertFrom-Json
+  $previousServiceExe = [string]$state.previousServiceExe
+  $previousServiceXml = [string]$state.previousServiceXml
+  if ([string]::IsNullOrWhiteSpace($previousServiceExe) -or
+    -not (Test-Path $previousServiceExe) -or
+    -not (Test-Path $previousServiceXml)) {
+    throw "Không tìm thấy release cũ để rollback: $previousServiceExe"
+  }
+
+  Write-BootstrapLog "Bắt đầu rollback Windows Service về release cũ: $previousServiceExe"
+  try { Stop-Service -Name MME -Force -ErrorAction SilentlyContinue } catch { }
+  try { & $ServiceExe stop *> $null } catch { }
+  try { & $ServiceExe uninstall *> $null } catch { }
+  & sc.exe delete MME *> $null
+  $deadline = (Get-Date).AddSeconds(15)
+  do {
+    if (-not (Get-CimInstance Win32_Service -Filter "Name='MME'" -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 300
+  } while ((Get-Date) -lt $deadline)
+
+  if (Get-CimInstance Win32_Service -Filter "Name='MME'" -ErrorAction SilentlyContinue) {
+    throw 'Không thể gỡ đăng ký Windows Service của release lỗi.'
+  }
+
+  & $previousServiceExe install
+  if ($LASTEXITCODE -ne 0) { throw 'Không thể đăng ký lại Windows Service của release cũ.' }
+  if ([bool]$state.previousServiceWasRunning) {
+    & $previousServiceExe start
+    if ($LASTEXITCODE -ne 0) { throw 'Không thể khởi động lại Windows Service của release cũ.' }
+  }
+  Clear-UpgradeState
+  Write-BootstrapLog 'Đã rollback Windows Service về release cũ.'
 }
 
 function Write-ServiceConfiguration {
@@ -177,13 +250,54 @@ $($environmentLines -join "`r`n")
 }
 
 function Get-MMERuntimeProcesses {
-  return @(Get-CimInstance Win32_Process | Where-Object {
-    ($_.Name -ieq 'node.exe' -or $_.Name -ieq 'MME.Service.exe') -and
-    (
-      ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($AppDir, [StringComparison]::OrdinalIgnoreCase)) -or
-      ($_.CommandLine -and $_.CommandLine.IndexOf($AppDir, [StringComparison]::OrdinalIgnoreCase) -ge 0)
-    )
-  })
+  $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+  $ids = New-Object 'System.Collections.Generic.HashSet[int]'
+  $serviceProcess = Get-CimInstance Win32_Service -Filter "Name='MME'" -ErrorAction SilentlyContinue
+  if ($serviceProcess -and [int]$serviceProcess.ProcessId -gt 0) {
+    [void]$ids.Add([int]$serviceProcess.ProcessId)
+  }
+  foreach ($process in $allProcesses) {
+    $pathMatches = $process.ExecutablePath -and
+      $process.ExecutablePath.StartsWith($AppDir, [StringComparison]::OrdinalIgnoreCase)
+    $commandMatches = $process.CommandLine -and
+      $process.CommandLine.IndexOf($AppDir, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    if (($process.Name -ieq 'node.exe' -or $process.Name -ieq 'MME.Service.exe') -and
+      ($pathMatches -or $commandMatches)) {
+      [void]$ids.Add([int]$process.ProcessId)
+    }
+  }
+  do {
+    $changed = $false
+    foreach ($process in $allProcesses) {
+      if ($ids.Contains([int]$process.ParentProcessId) -and $ids.Add([int]$process.ProcessId)) {
+        $changed = $true
+      }
+    }
+  } while ($changed)
+  return @($allProcesses | Where-Object { $ids.Contains([int]$_.ProcessId) })
+}
+
+function Get-LockedMMEProgramFiles {
+  if (-not (Test-Path $AppDir)) { return @() }
+  $locked = @()
+  $criticalFiles = @(
+    Get-ChildItem -Path $AppDir -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Extension -in @('.exe', '.dll', '.node') }
+  )
+  foreach ($file in $criticalFiles) {
+    try {
+      $stream = [IO.File]::Open(
+        $file.FullName,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::Read,
+        [IO.FileShare]::None
+      )
+      $stream.Dispose()
+    } catch {
+      $locked += $file.FullName
+    }
+  }
+  return @($locked)
 }
 
 function Stop-MMERuntime([int]$TimeoutSeconds = 30) {
@@ -198,6 +312,7 @@ function Stop-MMERuntime([int]$TimeoutSeconds = 30) {
     } catch {
       Write-BootstrapLog 'Windows Service chưa dừng đúng hạn; sẽ giải phóng tiến trình runtime.'
     }
+    $service.Close()
   }
 
   if (Test-Path $ServiceExe) {
@@ -207,9 +322,10 @@ function Stop-MMERuntime([int]$TimeoutSeconds = 30) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   do {
     $processes = @(Get-MMERuntimeProcesses)
-    if ($processes.Count -eq 0) { return }
+    $lockedFiles = @(Get-LockedMMEProgramFiles)
+    if ($processes.Count -eq 0 -and $lockedFiles.Count -eq 0) { return }
     foreach ($process in $processes) {
-      Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+      & taskkill.exe /PID ([string]$process.ProcessId) /T /F *> $null
     }
     Start-Sleep -Milliseconds 300
   } while ((Get-Date) -lt $deadline)
@@ -217,6 +333,10 @@ function Stop-MMERuntime([int]$TimeoutSeconds = 30) {
   $remaining = @(Get-MMERuntimeProcesses)
   if ($remaining.Count -gt 0) {
     throw "Không thể giải phóng tiến trình MME: $($remaining.ProcessId -join ', ')."
+  }
+  $remainingLocks = @(Get-LockedMMEProgramFiles)
+  if ($remainingLocks.Count -gt 0) {
+    throw "Không thể mở khóa file chương trình MME: $($remainingLocks -join '; ')."
   }
 }
 
@@ -238,15 +358,35 @@ function Wait-MMEHealthy([int]$TimeoutSeconds = 60) {
   throw "Dịch vụ MME không sẵn sàng sau $TimeoutSeconds giây (trạng thái: $state). Xem log tại: $LogDir"
 }
 
+function Remove-StaleReleases {
+  $releasesRoot = Split-Path -Parent $AppDir
+  if ((Split-Path -Leaf $releasesRoot) -ine 'releases' -or -not (Test-Path $releasesRoot)) {
+    return
+  }
+  $otherReleases = @(
+    Get-ChildItem -Path $releasesRoot -Directory -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -ne $AppDir } |
+      Sort-Object LastWriteTime -Descending
+  )
+  foreach ($release in ($otherReleases | Select-Object -Skip 1)) {
+    try {
+      Remove-Item $release.FullName -Recurse -Force
+      Write-BootstrapLog "Đã dọn release cũ: $($release.Name)."
+    } catch {
+      Write-BootstrapLog "Chưa thể dọn release cũ $($release.Name): $($_.Exception.Message)"
+    }
+  }
+}
+
 function Install-MME {
   Write-BootstrapLog 'Bắt đầu preflight.'
   Assert-Prerequisites
   Write-BootstrapLog 'Preflight đạt.'
   Stop-MMERuntime
   Write-BootstrapLog 'Đã dừng hoàn toàn runtime MME cũ.'
+  $backup = Backup-Data
   Initialize-Environment
   Write-BootstrapLog 'Đã khởi tạo cấu hình và thư mục dữ liệu.'
-  $backup = Backup-Data
   Set-ProcessEnvironment
   try {
     Write-BootstrapLog 'Bắt đầu khởi tạo SQLite.'
@@ -267,25 +407,29 @@ function Install-MME {
     Write-BootstrapLog 'Khởi tạo SQLite đạt.'
   } catch {
     Restore-Data $backup
+    Restore-PreviousReleaseService
     throw "Nâng cấp thất bại; dữ liệu đã được rollback. $($_.Exception.Message)"
   }
-  Write-ServiceConfiguration
-  Write-BootstrapLog 'Đã tạo cấu hình Windows Service.'
-  & $ServiceExe uninstall *> $null
-  & $ServiceExe install
-  if ($LASTEXITCODE -ne 0) { throw 'Không thể đăng ký Windows Service MME.' }
-  & $ServiceExe start
-  if ($LASTEXITCODE -ne 0) { throw 'Không thể khởi động Windows Service MME.' }
-  Write-BootstrapLog 'Windows Service đã nhận lệnh khởi động.'
   try {
+    Write-ServiceConfiguration
+    Write-BootstrapLog 'Đã tạo cấu hình Windows Service.'
+    & $ServiceExe uninstall *> $null
+    & $ServiceExe install
+    if ($LASTEXITCODE -ne 0) { throw 'Không thể đăng ký Windows Service MME.' }
+    & $ServiceExe start
+    if ($LASTEXITCODE -ne 0) { throw 'Không thể khởi động Windows Service MME.' }
+    Write-BootstrapLog 'Windows Service đã nhận lệnh khởi động.'
     Wait-MMEHealthy
   } catch {
-    & $ServiceExe stop *> $null
-    & $ServiceExe uninstall *> $null
+    try { & $ServiceExe stop *> $null } catch { }
+    try { & $ServiceExe uninstall *> $null } catch { }
     Restore-Data $backup
+    Restore-PreviousReleaseService
     throw
   }
   Write-BootstrapLog 'Cài đặt MME hoàn tất và API đã sẵn sàng.'
+  Clear-UpgradeState
+  Remove-StaleReleases
   if (-not $NoOpen) { Start-Process "http://localhost:$Port/setup" }
 }
 
