@@ -60,7 +60,7 @@ export function buildPeriodicReport(input: {
   ram?: number;
   temperature?: number;
   intervalMinutes: number;
-  interfaceTotals: Array<{ name: string; bytes: number }>;
+  interfaceTotals: Array<{ name: string; txBytes: number; rxBytes: number }>;
   accumulatedBytes: number;
   language: 'vi' | 'en';
   timeZone: string;
@@ -83,7 +83,7 @@ export function buildPeriodicReport(input: {
     ? input.interfaceTotals
         .map(
           (item, index) =>
-            `${interfaceIcons[index % interfaceIcons.length]} ${item.name}: ${formatBytes(item.bytes)}`,
+            `${interfaceIcons[index % interfaceIcons.length]} ${item.name}: ${formatBytes(item.txBytes)} / ${formatBytes(item.rxBytes)}`,
         )
         .join('\n')
     : input.language === 'en'
@@ -101,7 +101,7 @@ export function buildPeriodicReport(input: {
       `🏆 PERFORMANCE SCORE: ${input.score} / 100 (${status.icon} ${status.en})`,
       `🌡️ Health: CPU: ${cpu} | RAM: ${ram} | Temp: ${temperature}`,
       '',
-      `📈 Traffic consumed in ${period}:`,
+      `📈 Traffic consumed in ${period} (TX/RX):`,
       traffic,
       '================================',
       `💰 Accumulated data: ${formatBytes(input.accumulatedBytes)}`,
@@ -114,7 +114,7 @@ export function buildPeriodicReport(input: {
     `🏆 ĐIỂM HIỆU SUẤT: ${input.score} / 100 (${status.icon} ${status.vi})`,
     `🌡️ Sức khỏe: CPU: ${cpu} | RAM: ${ram} | Temp: ${temperature}`,
     '',
-    `📈 Lưu lượng tiêu thụ trong ${period}:`,
+    `📈 Lưu lượng tiêu thụ trong ${period} (TX/RX):`,
     traffic,
     '================================',
     `💰 Tổng data tích lũy: ${formatBytes(input.accumulatedBytes)}`,
@@ -214,10 +214,17 @@ export class ReportService {
     return { id, deleted: reportStore.deleteSchedule(id) };
   }
 
-  public async sendSchedule(id: string) {
+  private async sendDueSchedule(id: string, dueAt: Date) {
     const schedule = reportStore.getSchedule(id);
-    if (!schedule)
-      throw new HttpError(404, 'REPORT_SCHEDULE_NOT_FOUND', 'Report schedule not found');
+    const nextRunAt = schedule?.nextRunAt ? new Date(schedule.nextRunAt).getTime() : Number.NaN;
+    if (
+      !schedule ||
+      !schedule.enabled ||
+      !Number.isFinite(nextRunAt) ||
+      nextRunAt > dueAt.getTime()
+    ) {
+      return [];
+    }
     const allDevices = await deviceRepository.findMany();
     const devices = schedule.allDevices
       ? allDevices
@@ -244,13 +251,13 @@ export class ReportService {
           where: { deviceId: device.id, collectedAt: { gte: from } },
           select: { interfaceName: true, rxDeltaBytes: true, txDeltaBytes: true },
         });
-        const interfaceMap = new Map<string, number>();
+        const interfaceMap = new Map<string, { txBytes: number; rxBytes: number }>();
         for (const sample of recentSamples) {
-          const bytes = Number(sample.rxDeltaBytes) + Number(sample.txDeltaBytes);
-          interfaceMap.set(
-            sample.interfaceName,
-            (interfaceMap.get(sample.interfaceName) ?? 0) + bytes,
-          );
+          const current = interfaceMap.get(sample.interfaceName) ?? { txBytes: 0, rxBytes: 0 };
+          interfaceMap.set(sample.interfaceName, {
+            txBytes: current.txBytes + Number(sample.txDeltaBytes),
+            rxBytes: current.rxBytes + Number(sample.rxDeltaBytes),
+          });
         }
         const accumulated = await prisma.trafficSample.aggregate({
           where: { deviceId: device.id },
@@ -265,9 +272,9 @@ export class ReportService {
           temperature: temperatureFromHealth(snapshot.health),
           intervalMinutes: schedule.intervalMinutes,
           interfaceTotals: [...interfaceMap.entries()]
-            .map(([name, bytes]) => ({ name, bytes }))
-            .filter((item) => item.bytes > 0)
-            .sort((a, b) => b.bytes - a.bytes)
+            .map(([name, totals]) => ({ name, ...totals }))
+            .filter((item) => item.txBytes + item.rxBytes > 0)
+            .sort((a, b) => b.txBytes + b.rxBytes - (a.txBytes + a.rxBytes))
             .slice(0, 12),
           accumulatedBytes:
             Number(accumulated._sum.rxDeltaBytes ?? 0) + Number(accumulated._sum.txDeltaBytes ?? 0),
@@ -321,10 +328,10 @@ export class ReportService {
     return results;
   }
 
-  public async runDue() {
-    const schedules = reportStore.due();
+  public async runDue(now = new Date()) {
+    const schedules = reportStore.due(now);
     const results = await Promise.allSettled(
-      schedules.map((schedule) => this.sendSchedule(schedule.id)),
+      schedules.map((schedule) => this.sendDueSchedule(schedule.id, now)),
     );
     return { schedules: schedules.length, results };
   }

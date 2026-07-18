@@ -31,6 +31,7 @@ Thumbs.db
 # Runtime
 *.pid
 *.seed
+/data/
 
 # Prisma
 prisma/dev.db

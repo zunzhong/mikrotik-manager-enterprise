@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.4.0
+        default: 5.4.1
       platform:
         description: Nền tảng cần build
         required: true
@@ -133,6 +133,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md artifacts/payload/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md
           Copy-Item project-docs/deployment/HUONG-DAN-NANG-CAP-5.3.2.md artifacts/payload/HUONG-DAN-NANG-CAP-5.3.2.md
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/payload/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
+          Copy-Item project-docs/deployment/HUONG-DAN-REPORT-5.4.1.md artifacts/payload/HUONG-DAN-REPORT-5.4.1.md
           New-Item -ItemType Directory -Force artifacts/payload/runtime, artifacts/payload/service | Out-Null
           Copy-Item (Get-Command node).Source artifacts/payload/runtime/node.exe
           Invoke-WebRequest `
@@ -202,6 +203,27 @@ jobs:
             }
             $topology | ConvertTo-Json -Depth 10 | Set-Content artifacts/topology-smoke.json -Encoding utf8
           }
+          function Assert-ReportScheduleOnly {
+            $statusCode = 0
+            try {
+              Invoke-WebRequest `
+                'http://127.0.0.1:3000/api/v1/reports/schedules/ci-smoke/send' `
+                -Method Post `
+                -ContentType 'application/json' `
+                -Body '{}' `
+                -TimeoutSec 10 `
+                -UseBasicParsing | Out-Null
+            } catch {
+              if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+              }
+            }
+            if ($statusCode -ne 404) {
+              throw "Report vẫn có thể gửi ngoài lịch: HTTP $statusCode."
+            }
+            'HTTP 404 — unscheduled report endpoint is disabled' |
+              Set-Content artifacts/report-schedule-only-smoke.txt -Encoding utf8
+          }
           function Assert-InstalledCriticalFiles {
             $payloadRoot = (Resolve-Path 'artifacts/payload').Path.TrimEnd('\')
             $installedRoot = (Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise\releases\${{ steps.version.outputs.value }}').TrimEnd('\')
@@ -228,6 +250,7 @@ jobs:
 
           $ready = Wait-MMEReady
           Assert-TopologyApi
+          Assert-ReportScheduleOnly
           if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
           if ((Get-CimInstance Win32_Service -Filter "Name='MME'").StartMode -ne 'Auto') { throw 'Windows Service MME không tự khởi động cùng Windows.' }
           $installRoot = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise'
@@ -324,6 +347,7 @@ jobs:
             }
             $ready = Wait-MMEReady 90
             Assert-TopologyApi
+            Assert-ReportScheduleOnly
             if ((Get-Service MME).Status -ne 'Running') { throw "Service không chạy sau chu kỳ $cycle." }
             Assert-InstalledCriticalFiles
           }
@@ -360,6 +384,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md artifacts/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-NANG-CAP-5.3.2.md artifacts/HUONG-DAN-NANG-CAP-5.3.2.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md -Force
+          Copy-Item project-docs/deployment/HUONG-DAN-REPORT-5.4.1.md artifacts/HUONG-DAN-REPORT-5.4.1.md -Force
 
       - name: Thu thập chẩn đoán Windows Service
         if: always()
@@ -398,8 +423,10 @@ jobs:
             artifacts/HUONG-DAN-TOPOLOGY-BACKUP-5.3.1.md
             artifacts/HUONG-DAN-NANG-CAP-5.3.2.md
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
+            artifacts/HUONG-DAN-REPORT-5.4.1.md
             artifacts/*.log
             artifacts/topology-smoke.json
+            artifacts/report-schedule-only-smoke.txt
           if-no-files-found: error
 
       - name: Upload Windows diagnostics when installer fails
@@ -524,6 +551,8 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-fresh.json
           curl --fail --silent http://127.0.0.1:3000/api/v1/topology | tee artifacts/topology-deb-smoke.json
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('artifacts/topology-deb-smoke.json'));if(!x.success||x.data.summary.confirmedLinks===undefined||x.data.inventoryScheduler.intervalMs!==1800000)process.exit(1)"
+          report_status="$(curl --silent --output artifacts/report-schedule-only-deb.json --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{}' http://127.0.0.1:3000/api/v1/reports/schedules/ci-smoke/send)"
+          test "$report_status" = '404'
           systemctl is-enabled mme.service | tee artifacts/service-enabled.log
           systemctl is-active mme.service | tee artifacts/service-active.log
           test -f /var/lib/mikrotik-manager-enterprise/data/mme.db
@@ -549,6 +578,7 @@ jobs:
           sha256sum "$package" | tee artifacts/SHA256SUMS-LINUX.txt
           cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md artifacts/HUONG-DAN-CAI-DAT-LINUX.md
           cp project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
+          cp project-docs/deployment/HUONG-DAN-REPORT-5.4.1.md artifacts/HUONG-DAN-REPORT-5.4.1.md
 
       - name: Thu thập chẩn đoán Linux
         if: always()
@@ -567,9 +597,11 @@ jobs:
             artifacts/SHA256SUMS-LINUX.txt
             artifacts/HUONG-DAN-CAI-DAT-LINUX.md
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
+            artifacts/HUONG-DAN-REPORT-5.4.1.md
             artifacts/*.log
             artifacts/ready-deb-*.json
             artifacts/topology-deb-smoke.json
+            artifacts/report-schedule-only-deb.json
           if-no-files-found: error
 
       - name: Upload Linux diagnostics when installer fails

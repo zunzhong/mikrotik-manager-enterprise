@@ -156,31 +156,6 @@ export function ReportCenter() {
     }
   }
 
-  async function send(schedule: ReportSchedule) {
-    setBusy(`send:${schedule.id}`);
-    setError(null);
-    setSuccess(null);
-    try {
-      const results = await reportApi.send(schedule.id);
-      const sent = results.filter((item) => item.status === 'sent').length;
-      setSuccess(
-        tr(
-          `Đã gửi ${sent}/${results.length} báo cáo qua Telegram.`,
-          `Sent ${sent}/${results.length} Telegram reports.`,
-        ),
-      );
-      await load();
-    } catch (sendError) {
-      setError(
-        sendError instanceof Error
-          ? sendError.message
-          : tr('Không gửi được báo cáo.', 'Unable to send report.'),
-      );
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="report-center">
       {error ? <div className="error-banner">{error}</div> : null}
@@ -375,16 +350,6 @@ export function ReportCenter() {
                   onClick={() => editSchedule(schedule)}
                 >
                   {tr('Sửa', 'Edit')}
-                </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  disabled={busy === `send:${schedule.id}`}
-                  onClick={() => void send(schedule)}
-                >
-                  {busy === `send:${schedule.id}`
-                    ? tr('Đang gửi...', 'Sending...')
-                    : tr('Gửi ngay', 'Send now')}
                 </button>
                 <button
                   className="danger-button"
