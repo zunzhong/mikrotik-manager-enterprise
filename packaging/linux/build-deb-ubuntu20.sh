@@ -1,24 +1,34 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="${1:-}"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+~.-][0-9A-Za-z.+~-]+)?$ ]] || {
+MME_PACKAGE_VERSION="${1:-}"
+MME_VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+([+~.-][0-9A-Za-z.+~-]+)?$'
+[[ "$MME_PACKAGE_VERSION" =~ $MME_VERSION_PATTERN ]] || {
   echo 'Cách dùng: build-deb-ubuntu20.sh <version>' >&2
   exit 2
 }
 
 if [[ -r /etc/os-release ]]; then
-  # shellcheck disable=SC1091
-  source /etc/os-release
-  [[ "${ID:-}" == ubuntu && "${VERSION_ID:-}" == '20.04' ]] || {
-    echo "Gói phát hành phải được build trong Ubuntu 20.04; hiện tại: ${PRETTY_NAME:-unknown}." >&2
+  # Đọc thông tin OS trong subshell để VERSION của /etc/os-release không thể
+  # ghi đè phiên bản MME. Ubuntu 20.04 định nghĩa VERSION="20.04.6 LTS (...)".
+  read_os_release_value() (
+    local key="$1"
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    printf '%s' "${!key:-}"
+  )
+  OS_ID="$(read_os_release_value ID)"
+  OS_VERSION_ID="$(read_os_release_value VERSION_ID)"
+  OS_PRETTY_NAME="$(read_os_release_value PRETTY_NAME)"
+  [[ "$OS_ID" == ubuntu && "$OS_VERSION_ID" == '20.04' ]] || {
+    echo "Gói phát hành phải được build trong Ubuntu 20.04; hiện tại: $OS_PRETTY_NAME." >&2
     exit 1
   }
 fi
 
 ROOT="artifacts/deb-root"
 APP="$ROOT/opt/mikrotik-manager-enterprise"
-PACKAGE="artifacts/mikrotik-manager-enterprise_${VERSION}_amd64.deb"
+PACKAGE="artifacts/mikrotik-manager-enterprise_${MME_PACKAGE_VERSION}_amd64.deb"
 
 rm -rf "$ROOT" "$PACKAGE"
 mkdir -p \
@@ -70,7 +80,7 @@ find "$CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-3.0.x*' -print -quit | gre
 cp -a apps/web/dist "$APP/web"
 install -d -m 0755 "$APP/runtime"
 install -m 0755 "$(command -v node)" "$APP/runtime/node"
-printf '%s\n' "$VERSION" > "$APP/VERSION"
+printf '%s\n' "$MME_PACKAGE_VERSION" > "$APP/VERSION"
 cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LINUX.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
@@ -79,7 +89,7 @@ install -m 0644 packaging/linux/mme.service "$ROOT/lib/systemd/system/mme.servic
 
 cat > "$ROOT/DEBIAN/control" <<EOF
 Package: mikrotik-manager-enterprise
-Version: $VERSION
+Version: $MME_PACKAGE_VERSION
 Section: admin
 Priority: optional
 Architecture: amd64
@@ -116,15 +126,30 @@ fi
 EOF
 
 chmod 0755 "$ROOT/DEBIAN/postinst" "$ROOT/DEBIAN/prerm" "$ROOT/DEBIAN/postrm"
+
+# Chặn metadata lỗi trước khi dpkg-deb chạy, kể cả khi môi trường build có các
+# biến tên chung như VERSION. Đây là quality gate độc lập với kiểm tra đầu vào.
+CONTROL_VERSION="$(sed -n 's/^Version:[[:space:]]*//p' "$ROOT/DEBIAN/control")"
+[[ "$CONTROL_VERSION" == "$MME_PACKAGE_VERSION" && "$CONTROL_VERSION" =~ $MME_VERSION_PATTERN ]] || {
+  echo "Version DEB không hợp lệ: ${CONTROL_VERSION:-empty}" >&2
+  exit 1
+}
+
 dpkg-deb --build --root-owner-group "$ROOT" "$PACKAGE"
 dpkg-deb --info "$PACKAGE"
+BUILT_VERSION="$(dpkg-deb --field "$PACKAGE" Version)"
+[[ "$BUILT_VERSION" == "$MME_PACKAGE_VERSION" ]] || {
+  echo "Version DEB sau build không khớp: expected=$MME_PACKAGE_VERSION actual=$BUILT_VERSION" >&2
+  exit 1
+}
 cp packaging/linux/mme-ubuntu-install.sh artifacts/mme-ubuntu-install.sh
 chmod 0755 artifacts/mme-ubuntu-install.sh
 (cd artifacts && sha256sum "$(basename "$PACKAGE")" > SHA256SUMS-LINUX.txt)
 
 NODE_GLIBC="$("$APP/runtime/node" -p "process.report.getReport().header.glibcVersionRuntime || 'unknown'")"
 {
-  echo "build_os=${PRETTY_NAME:-unknown}"
+  echo "build_os=${OS_PRETTY_NAME:-unknown}"
+  echo "package_version=$MME_PACKAGE_VERSION"
   echo "node_version=$("$APP/runtime/node" --version)"
   echo "node_glibc=$NODE_GLIBC"
   echo 'prisma_targets=debian-openssl-1.1.x,debian-openssl-3.0.x'

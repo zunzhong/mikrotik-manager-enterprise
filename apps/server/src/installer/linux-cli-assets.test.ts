@@ -28,12 +28,25 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
   it('builds on Ubuntu 20.04 with runtime engines for both OpenSSL generations', () => {
     const build = read('packaging/linux/build-deb-ubuntu20.sh');
 
-    expect(build).toContain('"${VERSION_ID:-}" == \'20.04\'');
+    expect(build).toContain('"$OS_VERSION_ID" == \'20.04\'');
     expect(build).toContain('binaryTargets = ["debian-openssl-1.1.x", "debian-openssl-3.0.x"]');
     expect(build).toContain('*debian-openssl-1.1.x*');
     expect(build).toContain('*debian-openssl-3.0.x*');
     expect(build).toContain('SHA256SUMS-LINUX.txt');
     expect(build).toContain('mme-ubuntu-install.sh');
+  });
+
+  it('keeps the MME package version isolated from Ubuntu os-release variables', () => {
+    const build = read('packaging/linux/build-deb-ubuntu20.sh');
+
+    expect(build).toContain('MME_PACKAGE_VERSION="${1:-}"');
+    expect(build).toContain('read_os_release_value() (');
+    expect(build).toContain('OS_VERSION_ID="$(read_os_release_value VERSION_ID)"');
+    expect(build).not.toContain('source /etc/os-release');
+    expect(build).toContain('Version: $MME_PACKAGE_VERSION');
+    expect(build).toContain('CONTROL_VERSION=');
+    expect(build).toContain('dpkg-deb --field "$PACKAGE" Version');
+    expect(build).not.toContain('Version: $VERSION');
   });
 
   it('requires checksum validation and performs a readiness check during CLI install', () => {
