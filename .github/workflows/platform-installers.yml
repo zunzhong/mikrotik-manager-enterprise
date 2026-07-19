@@ -441,9 +441,10 @@ jobs:
 
   linux-installer:
     name: Linux DEB Installer
-    # Linux is intentionally manual-only until the Windows release is accepted.
-    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'linux' || inputs.platform == 'all')
-    runs-on: ubuntu-latest
+    # Linux chạy độc lập với Windows. DEB được build và smoke-test trong Ubuntu
+    # 20.04; runner 22.04 chỉ dùng để kiểm thử dpkg/systemd thực tế.
+    if: github.event_name == 'push' || inputs.platform == 'linux' || inputs.platform == 'all'
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -471,69 +472,40 @@ jobs:
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build Debian package
+      - name: Build và smoke test runtime trong Ubuntu 20.04
         shell: bash
         run: |
           version='${{ steps.version.outputs.value }}'
-          root="artifacts/deb-root"
-          app="$root/opt/mikrotik-manager-enterprise"
-          mkdir -p "$app" "$root/usr/local/bin" "$root/lib/systemd/system" "$root/DEBIAN" artifacts
-          pnpm install --frozen-lockfile
-          # TypeScript nguồn dùng các kiểu JSON của schema PostgreSQL. Sinh client chuẩn
-          # trước quality gate, sau đó mới chuyển sang client SQLite cho payload Linux.
-          pnpm --filter @mme/server prisma:generate
-          pnpm lint
-          pnpm typecheck
-          pnpm test
-          export DATABASE_URL='file:./mme-build.db'
-          pnpm --filter @mme/server prisma:generate:sqlite
-          pnpm --filter @mme/server prisma:sql:sqlite
-          pnpm --filter @mme/web build
-          pnpm --filter @mme/routeros-core build
-          pnpm --filter @mme/routeros-sdk build
-          pnpm --filter @mme/server build
-          pnpm --filter @mme/server deploy --legacy --prod "$app"
-          prisma_cli="$(find "$app/node_modules/.pnpm" -path '*/prisma/build/index.js' -print -quit)"
-          test -n "$prisma_cli"
-          node "$prisma_cli" generate --schema "$app/prisma/schema.sqlite.prisma"
-          cp -a apps/web/dist "$app/web"
-          mkdir -p "$app/runtime"
-          cp "$(command -v node)" "$app/runtime/node"
-          chmod 0755 "$app/runtime/node"
-          install -m 0755 packaging/linux/mme-control "$root/usr/local/bin/mme-control"
-          install -m 0644 packaging/linux/mme.service "$root/lib/systemd/system/mme.service"
-          cat > "$root/DEBIAN/control" <<EOF
-          Package: mikrotik-manager-enterprise
-          Version: $version
-          Section: admin
-          Priority: optional
-          Architecture: amd64
-          Depends: openssl, systemd
-          Maintainer: MikroTik Manager Enterprise Community
-          Description: Enterprise MikroTik controller and monitoring platform
-          EOF
-          cat > "$root/DEBIAN/postinst" <<'EOF'
-          #!/bin/sh
-          set -e
-          systemctl daemon-reload
-          systemctl enable mme.service
-          echo 'Chạy lệnh: sudo mme-control install'
-          EOF
-          cat > "$root/DEBIAN/prerm" <<'EOF'
-          #!/bin/sh
-          set -e
-          if [ "$1" = remove ]; then
-            systemctl disable --now mme.service 2>/dev/null || true
-          fi
-          EOF
-          cat > "$root/DEBIAN/postrm" <<'EOF'
-          #!/bin/sh
-          set -e
-          systemctl daemon-reload 2>/dev/null || true
-          EOF
-          chmod 0755 "$root/DEBIAN/postinst" "$root/DEBIAN/prerm" "$root/DEBIAN/postrm"
-          dpkg-deb --build --root-owner-group "$root" "artifacts/mikrotik-manager-enterprise_${version}_amd64.deb"
-          dpkg-deb --info "artifacts/mikrotik-manager-enterprise_${version}_amd64.deb"
+          docker run --rm \
+            --env "MME_VERSION=$version" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            ubuntu:20.04 \
+            bash -Eeuo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install --yes --no-install-recommends \
+                ca-certificates curl xz-utils git python3 make g++ openssl libssl1.1
+              node_version=22.17.1
+              node_archive="node-v${node_version}-linux-x64.tar.xz"
+              curl --fail --silent --show-error --location \
+                "https://nodejs.org/dist/v${node_version}/${node_archive}" \
+                --output "/tmp/${node_archive}"
+              curl --fail --silent --show-error --location \
+                "https://nodejs.org/dist/v${node_version}/SHASUMS256.txt" \
+                --output /tmp/SHASUMS256.txt
+              grep " ${node_archive}$" /tmp/SHASUMS256.txt \
+                | (cd /tmp && sha256sum --check -)
+              mkdir -p /opt/node
+              tar --extract --xz --no-same-owner --file "/tmp/${node_archive}" --directory /opt/node --strip-components=1
+              export PATH="/opt/node/bin:$PATH"
+              export COREPACK_HOME=/tmp/corepack
+              corepack enable
+              corepack prepare pnpm@11.12.0 --activate
+              packaging/linux/build-deb-ubuntu20.sh "$MME_VERSION"
+              package="$(find artifacts -maxdepth 1 -name "mikrotik-manager-enterprise_*_amd64.deb" -print -quit)"
+              packaging/linux/smoke-ubuntu20.sh "$package"
+            '
 
       - name: Smoke test cài mới, nâng cấp và gỡ cài đặt DEB
         shell: bash
@@ -541,8 +513,8 @@ jobs:
           set -euo pipefail
           package="$(find artifacts -maxdepth 1 -name 'mikrotik-manager-enterprise_*.deb' -print -quit)"
           test -n "$package"
-          sudo dpkg -i "$package" | tee artifacts/install-deb-fresh.log
-          sudo mme-control install | tee artifacts/setup-deb-fresh.log
+          sudo bash artifacts/mme-ubuntu-install.sh install "$package" artifacts/SHA256SUMS-LINUX.txt \
+            | tee artifacts/install-deb-fresh.log
 
           for attempt in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:3000/ready | grep -q 'ready'; then break; fi
@@ -557,13 +529,31 @@ jobs:
           systemctl is-active mme.service | tee artifacts/service-active.log
           test -f /var/lib/mikrotik-manager-enterprise/data/mme.db
           test -f /etc/mikrotik-manager-enterprise/mme.env
+          jwt_before="$(sudo awk -F= '/^JWT_SECRET=/{print $2}' /etc/mikrotik-manager-enterprise/mme.env)"
+          sudo /opt/mikrotik-manager-enterprise/runtime/node -e \
+            "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('/var/lib/mikrotik-manager-enterprise/data/mme.db');db.exec('CREATE TABLE IF NOT EXISTS ci_upgrade_marker (id TEXT PRIMARY KEY)');db.prepare('INSERT OR REPLACE INTO ci_upgrade_marker (id) VALUES (?)').run('ubuntu20-preserved');db.close()"
 
-          sudo dpkg -i "$package" | tee artifacts/install-deb-upgrade.log
-          sudo mme-control install | tee artifacts/setup-deb-upgrade.log
-          curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-upgrade.json
+          cp artifacts/SHA256SUMS-LINUX.txt artifacts/SHA256SUMS-LINUX-invalid.txt
+          sed -i '1s/^[0-9a-f]\{64\}/0000000000000000000000000000000000000000000000000000000000000000/' \
+            artifacts/SHA256SUMS-LINUX-invalid.txt
+          if sudo bash artifacts/mme-ubuntu-install.sh upgrade "$package" artifacts/SHA256SUMS-LINUX-invalid.txt \
+            > artifacts/checksum-negative-test.log 2>&1; then
+            echo 'Bộ cài chấp nhận checksum sai.' >&2
+            exit 1
+          fi
           systemctl is-active --quiet mme.service
 
-          sudo dpkg -r mikrotik-manager-enterprise | tee artifacts/uninstall-deb.log
+          sudo bash artifacts/mme-ubuntu-install.sh upgrade "$package" artifacts/SHA256SUMS-LINUX.txt \
+            | tee artifacts/install-deb-upgrade.log
+          curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-upgrade.json
+          systemctl is-active --quiet mme.service
+          jwt_after="$(sudo awk -F= '/^JWT_SECRET=/{print $2}' /etc/mikrotik-manager-enterprise/mme.env)"
+          test -n "$jwt_before"
+          test "$jwt_before" = "$jwt_after"
+          sudo /opt/mikrotik-manager-enterprise/runtime/node -e \
+            "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('/var/lib/mikrotik-manager-enterprise/data/mme.db',{readOnly:true});const row=db.prepare('SELECT COUNT(*) AS count FROM ci_upgrade_marker WHERE id = ?').get('ubuntu20-preserved');db.close();if(Number(row.count)!==1)process.exit(1)"
+
+          sudo bash artifacts/mme-ubuntu-install.sh uninstall | tee artifacts/uninstall-deb.log
           if systemctl is-active --quiet mme.service; then
             echo 'MME service vẫn chạy sau khi gỡ DEB.' >&2
             exit 1
@@ -575,7 +565,7 @@ jobs:
         shell: bash
         run: |
           package="$(find artifacts -maxdepth 1 -name 'mikrotik-manager-enterprise_*.deb' -print -quit)"
-          sha256sum "$package" | tee artifacts/SHA256SUMS-LINUX.txt
+          (cd artifacts && sha256sum "$(basename "$package")") | tee artifacts/SHA256SUMS-LINUX.txt
           cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md artifacts/HUONG-DAN-CAI-DAT-LINUX.md
           cp project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
           cp project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
@@ -584,6 +574,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          mkdir -p artifacts
           systemctl status mme.service --no-pager > artifacts/service-status-linux.log 2>&1 || true
           journalctl -u mme.service --no-pager -n 300 > artifacts/service-journal-linux.log 2>&1 || true
 
@@ -594,6 +585,7 @@ jobs:
           name: mme-linux-installer-${{ steps.version.outputs.value }}
           path: |
             artifacts/*.deb
+            artifacts/mme-ubuntu-install.sh
             artifacts/SHA256SUMS-LINUX.txt
             artifacts/HUONG-DAN-CAI-DAT-LINUX.md
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
@@ -602,6 +594,9 @@ jobs:
             artifacts/ready-deb-*.json
             artifacts/topology-deb-smoke.json
             artifacts/report-send-guard-deb.json
+            artifacts/ubuntu20-*.txt
+            artifacts/ubuntu20-*.json
+            artifacts/ubuntu20-*.log
           if-no-files-found: error
 
       - name: Upload Linux diagnostics when installer fails

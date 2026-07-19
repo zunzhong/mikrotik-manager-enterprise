@@ -1,31 +1,73 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
-ACTION="${1:-start}"
+ACTION="${1:-status}"
 APP_DIR="${MME_HOME:-/opt/mikrotik-manager-enterprise}"
 DATA_DIR="${MME_DATA:-/var/lib/mikrotik-manager-enterprise}"
-ENV_FILE="/etc/mikrotik-manager-enterprise/mme.env"
+CONFIG_DIR="${MME_CONFIG:-/etc/mikrotik-manager-enterprise}"
+ENV_FILE="$CONFIG_DIR/mme.env"
+LOGIN_FILE="/root/mme-thong-tin-dang-nhap.txt"
 NODE="$APP_DIR/runtime/node"
+SERVICE="mme.service"
 
-require_root() { [[ $EUID -eq 0 ]] || { echo 'Lệnh này cần quyền root.' >&2; exit 1; }; }
-secret() { openssl rand -hex "${1:-32}"; }
+require_root() {
+  [[ ${EUID:-$(id -u)} -eq 0 ]] || {
+    echo 'Lệnh này cần quyền root. Hãy chạy với sudo.' >&2
+    exit 1
+  }
+}
+
+require_systemd() {
+  command -v systemctl >/dev/null 2>&1 || {
+    echo 'Không tìm thấy systemctl; MME yêu cầu Ubuntu Server dùng systemd.' >&2
+    exit 1
+  }
+  [[ -d /run/systemd/system ]] || {
+    echo 'systemd không chạy (PID 1); không thể quản lý dịch vụ MME.' >&2
+    exit 1
+  }
+}
+
+secret() {
+  openssl rand -hex "${1:-32}"
+}
+
+installed_version() {
+  if [[ -s "$APP_DIR/VERSION" ]]; then
+    tr -d '[:space:]' < "$APP_DIR/VERSION"
+  elif command -v dpkg-query >/dev/null 2>&1 &&
+    dpkg-query -W -f='${Version}' mikrotik-manager-enterprise >/dev/null 2>&1; then
+    dpkg-query -W -f='${Version}' mikrotik-manager-enterprise
+  else
+    echo 'unknown'
+  fi
+}
+
+prepare_directories() {
+  install -d -m 0750 "$CONFIG_DIR"
+  install -d -m 0750 "$DATA_DIR" "$DATA_DIR/data" "$DATA_DIR/backups" "$DATA_DIR/logs"
+}
 
 initialize_env() {
-  mkdir -p "$(dirname "$ENV_FILE")" "$DATA_DIR/data" "$DATA_DIR/backups" "$DATA_DIR/logs"
+  local version
+  version="$(installed_version)"
+
   if [[ -f "$ENV_FILE" ]]; then
     if grep -q '^APP_VERSION=' "$ENV_FILE"; then
-      sed -i 's/^APP_VERSION=.*/APP_VERSION=4.1.12/' "$ENV_FILE"
+      sed -i "s/^APP_VERSION=.*/APP_VERSION=$version/" "$ENV_FILE"
     else
-      printf '\nAPP_VERSION=4.1.12\n' >> "$ENV_FILE"
+      printf '\nAPP_VERSION=%s\n' "$version" >> "$ENV_FILE"
     fi
+    chmod 0600 "$ENV_FILE"
     return
   fi
+
   local admin_password
   admin_password="$(secret 12)"
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=4.1.12
+APP_VERSION=$version
 SERVER_HOST=127.0.0.1
 SERVER_PORT=3000
 DATABASE_URL=file:$DATA_DIR/data/mme.db
@@ -38,51 +80,176 @@ WEB_DIST_PATH=$APP_DIR/web
 SQLITE_SCHEMA_SQL=$APP_DIR/prisma/schema.sqlite.sql
 LOG_LEVEL=info
 EOF
-  chmod 600 "$ENV_FILE"
-  printf 'URL: http://localhost:3000\nEmail: admin@example.com\nMật khẩu: %s\n' "$admin_password" \
-    > /root/mme-thong-tin-dang-nhap.txt
-  chmod 600 /root/mme-thong-tin-dang-nhap.txt
+  chmod 0600 "$ENV_FILE"
+
+  printf 'URL: http://127.0.0.1:3000\nEmail: admin@example.com\nMật khẩu: %s\n' "$admin_password" \
+    > "$LOGIN_FILE"
+  chmod 0600 "$LOGIN_FILE"
 }
 
-backup_data() {
-  [[ -f "$DATA_DIR/data/mme.db" ]] || { echo ''; return 0; }
-  mkdir -p "$DATA_DIR/backups"
-  local target="$DATA_DIR/backups/mme-before-upgrade-$(date +%Y%m%d-%H%M%S).tar.gz"
-  tar -czf "$target" \
-    -C "$DATA_DIR" data -C /etc mikrotik-manager-enterprise
+backup_state() {
+  local has_data=0
+  local has_config=0
+  [[ -f "$DATA_DIR/data/mme.db" ]] && has_data=1
+  [[ -f "$ENV_FILE" ]] && has_config=1
+  if [[ $has_data -eq 0 && $has_config -eq 0 ]]; then
+    echo ''
+    return 0
+  fi
+
+  local target
+  target="$DATA_DIR/backups/mme-before-upgrade-$(date +%Y%m%d-%H%M%S).tar.gz"
+  local entries=()
+  [[ $has_data -eq 1 ]] && entries+=("${DATA_DIR#/}/data/mme.db")
+  [[ $has_config -eq 1 ]] && entries+=("${ENV_FILE#/}")
+  tar --create --gzip --file "$target" --directory / "${entries[@]}"
   echo "$target"
 }
 
-restore_data() {
+restore_state() {
   local archive="${1:-}"
   [[ -n "$archive" && -f "$archive" ]] || return 0
+
   local temporary
   temporary="$(mktemp -d)"
-  trap 'rm -rf "$temporary"' RETURN
-  tar -xzf "$archive" -C "$temporary"
-  [[ -f "$temporary/data/mme.db" ]] && cp -f "$temporary/data/mme.db" "$DATA_DIR/data/mme.db"
+  tar --extract --gzip --file "$archive" --directory "$temporary"
+  if [[ -f "$temporary/${DATA_DIR#/}/data/mme.db" ]]; then
+    install -m 0640 "$temporary/${DATA_DIR#/}/data/mme.db" "$DATA_DIR/data/mme.db"
+  fi
+  if [[ -f "$temporary/${ENV_FILE#/}" ]]; then
+    install -m 0600 "$temporary/${ENV_FILE#/}" "$ENV_FILE"
+  fi
+  rm -rf "$temporary"
+}
+
+wait_ready() {
+  local timeout="${1:-90}"
+  local deadline=$((SECONDS + timeout))
+  while (( SECONDS < deadline )); do
+    if curl --fail --silent --show-error --max-time 3 \
+      http://127.0.0.1:3000/ready 2>/dev/null | grep -q '"status":"ready"'; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "MME không ready sau ${timeout} giây." >&2
+  journalctl -u "$SERVICE" --no-pager -n 100 >&2 || true
+  return 1
+}
+
+install_or_upgrade() {
+  require_root
+  require_systemd
+  [[ -x "$NODE" ]] || {
+    echo "Thiếu Node runtime tại $NODE. Hãy cài lại gói DEB." >&2
+    exit 1
+  }
+  [[ -f "$APP_DIR/dist/scripts/setup-native.js" ]] || {
+    echo 'Payload MME không đầy đủ; thiếu setup-native.js.' >&2
+    exit 1
+  }
+
+  local was_active=0
+  local backup=''
+  if systemctl is-active --quiet "$SERVICE"; then
+    was_active=1
+    systemctl stop "$SERVICE"
+  fi
+
+  rollback_unexpected_error() {
+    local exit_code=$?
+    trap - ERR
+    set +e
+    restore_state "$backup"
+    [[ $was_active -eq 1 ]] && systemctl start "$SERVICE"
+    echo 'Cài đặt gặp lỗi ngoài dự kiến; database/cấu hình đã được phục hồi.' >&2
+    exit "$exit_code"
+  }
+  trap rollback_unexpected_error ERR
+
+  prepare_directories
+  backup="$(backup_state)"
+  initialize_env
+  set -a
+  # File do root sở hữu, quyền 0600 và chỉ chứa các cặp KEY=VALUE do MME sinh ra.
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+
+  if ! "$NODE" "$APP_DIR/dist/scripts/setup-native.js"; then
+    trap - ERR
+    set +e
+    restore_state "$backup"
+    [[ $was_active -eq 1 ]] && systemctl start "$SERVICE" || true
+    echo 'Nâng cấp thất bại; database và cấu hình đã được rollback.' >&2
+    exit 1
+  fi
+
+  systemctl daemon-reload
+  systemctl enable "$SERVICE"
+  systemctl restart "$SERVICE"
+  if ! wait_ready 90; then
+    trap - ERR
+    set +e
+    systemctl stop "$SERVICE" || true
+    restore_state "$backup"
+    [[ $was_active -eq 1 ]] && systemctl start "$SERVICE" || true
+    echo 'Dịch vụ mới không ready; database và cấu hình đã được rollback.' >&2
+    exit 1
+  fi
+
+  trap - ERR
+  echo "MME $(installed_version) đã cài đặt và đang chạy."
+  [[ -f "$LOGIN_FILE" ]] && echo "Thông tin đăng nhập ban đầu: $LOGIN_FILE"
 }
 
 case "$ACTION" in
-  install)
-    require_root; initialize_env
-    backup="$(backup_data)"
-    set -a; source "$ENV_FILE"; set +a
-    if ! "$NODE" "$APP_DIR/dist/scripts/setup-native.js"; then
-      restore_data "$backup"
-      echo 'Nâng cấp thất bại; dữ liệu đã được rollback.' >&2
-      exit 1
-    fi
-    systemctl daemon-reload
-    systemctl enable mme.service
-    systemctl restart mme.service
-    echo 'MME đã cài xong. Thông tin đăng nhập: /root/mme-thong-tin-dang-nhap.txt'
+  install | upgrade)
+    install_or_upgrade
     ;;
-  start) require_root; systemctl start mme.service ;;
-  stop) require_root; systemctl stop mme.service ;;
-  restart) require_root; systemctl restart mme.service ;;
-  status) systemctl status mme.service --no-pager ;;
-  backup) require_root; backup_data ;;
-  uninstall) require_root; systemctl disable --now mme.service || true ;;
-  *) echo 'Cách dùng: mme-control {install|start|stop|restart|status|backup|uninstall}' >&2; exit 2 ;;
+  start)
+    require_root
+    require_systemd
+    systemctl start "$SERVICE"
+    ;;
+  stop)
+    require_root
+    require_systemd
+    systemctl stop "$SERVICE"
+    ;;
+  restart)
+    require_root
+    require_systemd
+    systemctl restart "$SERVICE"
+    ;;
+  status)
+    require_systemd
+    systemctl status "$SERVICE" --no-pager
+    ;;
+  health)
+    curl --fail --silent --show-error http://127.0.0.1:3000/ready
+    printf '\n'
+    ;;
+  logs)
+    require_systemd
+    journalctl -u "$SERVICE" --no-pager -n "${2:-300}"
+    ;;
+  backup)
+    require_root
+    prepare_directories
+    backup_state
+    ;;
+  uninstall)
+    require_root
+    require_systemd
+    systemctl disable --now "$SERVICE" || true
+    echo 'Đã dừng dịch vụ. Database, backup và cấu hình được giữ nguyên.'
+    ;;
+  version)
+    installed_version
+    ;;
+  *)
+    echo 'Cách dùng: mme-control {install|upgrade|start|stop|restart|status|health|logs [số_dòng]|backup|uninstall|version}' >&2
+    exit 2
+    ;;
 esac
