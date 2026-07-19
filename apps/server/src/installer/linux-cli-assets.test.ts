@@ -27,6 +27,10 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('chown -R ${HOST_UID}:${HOST_GID} artifacts');
     expect(linuxJob).toContain('test -w artifacts');
     expect(linuxJob).toContain('ubuntu20-artifact-ownership.txt');
+    expect(linuxJob).toContain('sudo test -s /var/lib/mikrotik-manager-enterprise/data/mme.db');
+    expect(linuxJob).toContain('sudo test -s /etc/mikrotik-manager-enterprise/mme.env');
+    expect(linuxJob).toContain('test -n "$jwt_before"');
+    expect(linuxJob).not.toMatch(/^\s+test -f \/(?:var\/lib|etc)\/mikrotik-manager-enterprise/m);
     expect(linuxJob).not.toContain('windows-installer');
   });
 
