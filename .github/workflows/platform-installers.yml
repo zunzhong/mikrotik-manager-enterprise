@@ -478,10 +478,15 @@ jobs:
           version='${{ steps.version.outputs.value }}'
           docker run --rm \
             --env "MME_VERSION=$version" \
+            --env "HOST_UID=$(id -u)" \
+            --env "HOST_GID=$(id -g)" \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
             ubuntu:20.04 \
             bash -Eeuo pipefail -c '
+              # artifacts nằm trên bind mount của runner. Luôn trả quyền sở hữu
+              # cho runner, kể cả khi build/smoke trong container thất bại.
+              trap "chown -R ${HOST_UID}:${HOST_GID} artifacts 2>/dev/null || true" EXIT
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install --yes --no-install-recommends \
@@ -507,10 +512,22 @@ jobs:
               packaging/linux/smoke-ubuntu20.sh "$package"
             '
 
+          test -w artifacts || {
+            ls -ldn artifacts >&2 || true
+            echo 'Không thể trả quyền ghi artifacts từ container cho GitHub runner.' >&2
+            exit 1
+          }
+          printf 'owner=%s:%s\n' "$(id -u)" "$(id -g)" \
+            > artifacts/ubuntu20-artifact-ownership.txt
+
       - name: Smoke test cài mới, nâng cấp và gỡ cài đặt DEB
         shell: bash
         run: |
           set -euo pipefail
+          test -w artifacts || {
+            echo 'Runner không có quyền ghi vào artifacts sau bước build Ubuntu 20.04.' >&2
+            exit 1
+          }
           package="$(find artifacts -maxdepth 1 -name 'mikrotik-manager-enterprise_*.deb' -print -quit)"
           test -n "$package"
           sudo bash artifacts/mme-ubuntu-install.sh install "$package" artifacts/SHA256SUMS-LINUX.txt \

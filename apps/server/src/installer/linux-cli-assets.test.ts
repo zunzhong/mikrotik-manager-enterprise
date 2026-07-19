@@ -22,6 +22,11 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('checksum-negative-test.log');
     expect(linuxJob).toContain('ci_upgrade_marker');
     expect(linuxJob).toContain('jwt_before');
+    expect(linuxJob).toContain('--env "HOST_UID=$(id -u)"');
+    expect(linuxJob).toContain('--env "HOST_GID=$(id -g)"');
+    expect(linuxJob).toContain('chown -R ${HOST_UID}:${HOST_GID} artifacts');
+    expect(linuxJob).toContain('test -w artifacts');
+    expect(linuxJob).toContain('ubuntu20-artifact-ownership.txt');
     expect(linuxJob).not.toContain('windows-installer');
   });
 
