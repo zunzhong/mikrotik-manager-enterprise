@@ -71,6 +71,8 @@ describe('Windows in-place upgrade assets', () => {
     expect(installer).toContain('{param:FRONTENDPORT|}');
     expect(installer).toContain('-BackendPort {code:GetBackendPort}');
     expect(installer).toContain('-FrontendPort {code:GetFrontendPort}');
+    expect(installer).toContain('Port := StrToIntDef(Trim(Value), -1)');
+    expect(installer).not.toContain('TryStrToInt');
     expect(control).toContain('[int]$BackendPort = 0');
     expect(control).toContain('[int]$FrontendPort = 0');
     expect(control).toContain('Assert-PortAvailable $BackendRuntimePort');

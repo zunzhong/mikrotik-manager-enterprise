@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.5.0"
+  #define MyAppVersion "5.5.1"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -98,11 +98,11 @@ end;
 
 function IsValidPort(const Value: String): Boolean;
 var
-  Port: Integer;
+  Port: LongInt;
 begin
-  Result := TryStrToInt(Value, Port);
-  if Result then
-    Result := (Port >= 1) and (Port <= 65535);
+  { Use the integer parser provided by Inno Setup Pascal Script. }
+  Port := StrToIntDef(Trim(Value), -1);
+  Result := (Port >= 1) and (Port <= 65535);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
