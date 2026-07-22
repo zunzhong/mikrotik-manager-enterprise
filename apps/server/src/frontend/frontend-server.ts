@@ -55,6 +55,10 @@ function resolveStaticFile(webRoot: string, pathname: string): string | null {
   if (candidate !== root && !candidate.startsWith(`${root}${sep}`)) return null;
   if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
 
+  // Never return index.html for a missing browser asset. Serving HTML with a
+  // CSS/JavaScript URL and MIME type leaves the browser on a blank screen.
+  if (requested.startsWith('/assets/') || extname(requested) !== '') return null;
+
   const fallback = resolve(root, 'index.html');
   return existsSync(fallback) && statSync(fallback).isFile() ? fallback : null;
 }
@@ -100,7 +104,7 @@ export async function startFrontendServer(options: FrontendServerOptions): Promi
     const headers: OutgoingHttpHeaders = {
       'content-type': MIME_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
       'cache-control': file.endsWith('index.html')
-        ? 'no-cache'
+        ? 'no-store, max-age=0'
         : 'public, max-age=31536000, immutable',
     };
     applySecurityHeaders(headers);

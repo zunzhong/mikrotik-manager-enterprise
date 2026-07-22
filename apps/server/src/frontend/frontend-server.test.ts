@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,7 +36,12 @@ describe('separate frontend listener', () => {
     );
     const webRoot = mkdtempSync(join(tmpdir(), 'mme-frontend-'));
     directories.push(webRoot);
-    writeFileSync(join(webRoot, 'index.html'), '<main>MME SPA</main>');
+    mkdirSync(join(webRoot, 'assets'));
+    writeFileSync(
+      join(webRoot, 'index.html'),
+      '<link rel="stylesheet" href="/assets/app.css"><main>MME SPA</main>',
+    );
+    writeFileSync(join(webRoot, 'assets/app.css'), 'body { color: green; }');
 
     const frontend = await startFrontendServer({
       backendHost: '127.0.0.1',
@@ -58,5 +63,15 @@ describe('separate frontend listener', () => {
     const spa = await fetch(`http://127.0.0.1:${address.port}/topology`);
     expect(await spa.text()).toContain('MME SPA');
     expect(spa.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(spa.headers.get('cache-control')).toBe('no-store, max-age=0');
+
+    const stylesheet = await fetch(`http://127.0.0.1:${address.port}/assets/app.css`);
+    expect(stylesheet.status).toBe(200);
+    expect(stylesheet.headers.get('content-type')).toContain('text/css');
+    expect(await stylesheet.text()).toContain('color: green');
+
+    const missingAsset = await fetch(`http://127.0.0.1:${address.port}/assets/missing.js`);
+    expect(missingAsset.status).toBe(404);
+    expect(await missingAsset.text()).not.toContain('MME SPA');
   });
 });

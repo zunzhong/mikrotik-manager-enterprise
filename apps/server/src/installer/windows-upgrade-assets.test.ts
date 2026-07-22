@@ -79,5 +79,6 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain('FRONTEND_PORT=$FrontendRuntimePort');
     expect(workflow).toContain("'/FRONTENDPORT=3080'");
     expect(workflow).toContain('Assert-SeparateFrontendPort');
+    expect(workflow).toContain("smoke-frontend-assets.mjs 'http://127.0.0.1:3080'");
   });
 });

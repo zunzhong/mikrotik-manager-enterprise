@@ -112,6 +112,20 @@ Sau đó mở `http://127.0.0.1:8080` trên máy Windows. Frontend tự chuyển
 và `/ready` tới cổng backend nên trình duyệt không cần truy cập trực tiếp backend. Khi triển khai
 dùng lâu dài, nên đặt reverse proxy HTTPS phía trước cổng frontend thay vì mở thẳng ra Internet.
 
+### Kiểm tra khi dashboard trắng
+
+Từ bản 5.5.2, MME luôn gửi mới `index.html` sau nâng cấp, đồng thời kiểm tra CSS/JavaScript thật
+thay vì chỉ kiểm tra trang HTML. Trước tiên xác định cổng frontend và kiểm tra asset:
+
+```bash
+FRONTEND_PORT="$(sudo sed -n 's/^FRONTEND_PORT=//p' /etc/mikrotik-manager-enterprise/mme.env)"
+curl --fail --silent "http://127.0.0.1:${FRONTEND_PORT}/" -o /tmp/mme-index.html
+grep -oE '/assets/[^" ]+\.(css|js)' /tmp/mme-index.html
+```
+
+Nếu service và asset đều tốt nhưng tab đã mở từ phiên bản cũ vẫn trắng, dùng `Ctrl+Shift+R` hoặc
+xóa dữ liệu trang của địa chỉ MME một lần. Không cần xóa database hay cài lại hệ điều hành.
+
 ## Nâng cấp
 
 ```bash
