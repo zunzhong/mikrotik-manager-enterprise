@@ -15,6 +15,7 @@ import {
   type TopologyLink,
   type TopologyNode,
 } from '../topology.api';
+import { wheelZoomStep } from '../topology-zoom';
 
 interface Point {
   x: number;
@@ -498,8 +499,8 @@ export function TopologyView() {
             <h3>{tr('Sơ đồ mạng trực quan', 'Interactive network map')}</h3>
             <span>
               {tr(
-                'Kéo node, kéo nền để di chuyển, cuộn để zoom; click node hoặc link để xem bằng chứng.',
-                'Drag nodes, pan the canvas and scroll to zoom; select a node or link to inspect evidence.',
+                'Kéo node, kéo nền để di chuyển, giữ Ctrl và lăn chuột để zoom; click node hoặc link để xem bằng chứng.',
+                'Drag nodes, pan the canvas, and hold Ctrl while scrolling to zoom; select a node or link to inspect evidence.',
               )}
             </span>
           </div>
@@ -596,8 +597,10 @@ export function TopologyView() {
                 onPointerCancel={finishPointer}
                 onPointerLeave={finishPointer}
                 onWheel={(event) => {
+                  const step = wheelZoomStep(event.deltaY, event.ctrlKey);
+                  if (step === null) return;
                   event.preventDefault();
-                  setZoom((value) => clamp(value + (event.deltaY < 0 ? 0.1 : -0.1), 0.35, 3));
+                  setZoom((value) => clamp(value + step, 0.35, 3));
                 }}
               >
                 <rect

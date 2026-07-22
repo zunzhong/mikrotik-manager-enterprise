@@ -39,7 +39,8 @@ mkdir -p \
   artifacts
 
 pnpm install --frozen-lockfile
-# Quality gate sử dụng schema PostgreSQL chuẩn; payload phát hành chuyển sang SQLite sau đó.
+# Quality gate sử dụng schema PostgreSQL chuẩn. Payload phát hành chứa cả
+# SQLite tích hợp và PostgreSQL để trình cài Linux có thể chọn an toàn.
 pnpm --filter @mme/server prisma:generate
 pnpm lint
 pnpm typecheck
@@ -77,11 +78,35 @@ find "$CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-3.0.x*' -print -quit | gre
   exit 1
 }
 
+# Sinh Prisma Client PostgreSQL độc lập. Client SQLite mặc định vẫn nằm trong
+# node_modules/@prisma/client, nên Windows và chế độ SQLite không bị thay đổi.
+cp "$APP/prisma/schema.prisma" "$APP/prisma/schema.postgresql.prisma"
+sed -i '/provider = "prisma-client-js"/a\  output = "../prisma-client-postgresql"' \
+  "$APP/prisma/schema.postgresql.prisma"
+sed -i '/output = "..\/prisma-client-postgresql"/a\  binaryTargets = ["debian-openssl-1.1.x", "debian-openssl-3.0.x"]' \
+  "$APP/prisma/schema.postgresql.prisma"
+node "$PRISMA_CLI" generate --schema "$APP/prisma/schema.postgresql.prisma"
+
+POSTGRES_CLIENT_DIR="$APP/prisma-client-postgresql"
+[[ -f "$POSTGRES_CLIENT_DIR/index.js" ]] || {
+  echo 'Payload thiếu Prisma Client PostgreSQL.' >&2
+  exit 1
+}
+find "$POSTGRES_CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-1.1.x*' -print -quit | grep -q . || {
+  echo 'PostgreSQL client thiếu engine Ubuntu 20.04/OpenSSL 1.1.' >&2
+  exit 1
+}
+find "$POSTGRES_CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-3.0.x*' -print -quit | grep -q . || {
+  echo 'PostgreSQL client thiếu engine Ubuntu 22.04/24.04/OpenSSL 3.' >&2
+  exit 1
+}
+
 cp -a apps/web/dist "$APP/web"
 install -d -m 0755 "$APP/runtime"
 install -m 0755 "$(command -v node)" "$APP/runtime/node"
 printf '%s\n' "$MME_PACKAGE_VERSION" > "$APP/VERSION"
 cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LINUX.md"
+cp project-docs/deployment/HUONG-DAN-CONG-DATABASE-5.5.0.md "$APP/HUONG-DAN-CONG-DATABASE-5.5.0.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
 install -m 0755 packaging/linux/mme-ubuntu-install.sh "$ROOT/usr/local/bin/mme-ubuntu-install"
@@ -96,7 +121,7 @@ Architecture: amd64
 Depends: ca-certificates, curl, openssl, procps, systemd
 Maintainer: MikroTik Manager Enterprise Community
 Description: Enterprise MikroTik controller and monitoring platform
- Native SQLite build for Ubuntu Server 20.04 or newer, managed by systemd.
+ SQLite or PostgreSQL build for Ubuntu Server 20.04 or newer, managed by systemd.
 EOF
 
 cat > "$ROOT/DEBIAN/postinst" <<'EOF'
@@ -152,5 +177,6 @@ NODE_GLIBC="$("$APP/runtime/node" -p "process.report.getReport().header.glibcVer
   echo "package_version=$MME_PACKAGE_VERSION"
   echo "node_version=$("$APP/runtime/node" --version)"
   echo "node_glibc=$NODE_GLIBC"
+  echo 'database_engines=sqlite,postgresql'
   echo 'prisma_targets=debian-openssl-1.1.x,debian-openssl-3.0.x'
 } | tee artifacts/ubuntu20-build-runtime.txt

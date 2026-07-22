@@ -13,10 +13,6 @@ export function buildApiUrl(path: string): string {
     return `${explicitApiBaseUrl}${path}`;
   }
 
-  if (!import.meta.env.DEV && typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:3000${path}`;
-  }
-
   return path;
 }
 

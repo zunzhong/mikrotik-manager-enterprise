@@ -6,8 +6,12 @@ import { backupSchedulerService } from './modules/backup/application/backup-sche
 import { inventorySchedulerService } from './modules/inventory/application/inventory-scheduler.service.js';
 import { reportSchedulerService } from './modules/report/index.js';
 import { deviceRepository } from './modules/device/infrastructure/device.repository.js';
+import { resolve } from 'node:path';
+import type { Server } from 'node:http';
+import { startFrontendServer } from './frontend/frontend-server.js';
 
 const app = await buildApp();
+let frontendServer: Server | undefined;
 
 const shutdown = async () => {
   app.log.info('Shutting down MME server');
@@ -16,6 +20,11 @@ const shutdown = async () => {
   backupSchedulerService.stop();
   inventorySchedulerService.stop();
   reportSchedulerService.stop();
+  if (frontendServer) {
+    await new Promise<void>((resolveClose, reject) =>
+      frontendServer?.close((error) => (error ? reject(error) : resolveClose())),
+    );
+  }
   await moduleRegistry.shutdownAll();
   await app.close();
 
@@ -34,6 +43,17 @@ try {
     host: config.server.host,
     port: config.server.port,
   });
+
+  if (config.frontend.separateListener) {
+    frontendServer = await startFrontendServer({
+      backendHost: config.server.proxyHost,
+      backendPort: config.server.port,
+      frontendHost: config.frontend.host,
+      frontendPort: config.frontend.port,
+      webRoot: resolve(process.env.WEB_DIST_PATH ?? resolve(process.cwd(), 'apps/web/dist')),
+    });
+    app.log.info(`MME frontend running at ${config.frontend.publicUrl}`);
+  }
 
   app.log.info(`MME server running at ${config.server.publicUrl}`);
   deviceRealtimeSchedulerService.start({ intervalMs: 10000, ttlMs: 15000 });

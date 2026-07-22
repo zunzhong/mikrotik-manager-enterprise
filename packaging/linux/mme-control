@@ -9,6 +9,71 @@ ENV_FILE="$CONFIG_DIR/mme.env"
 LOGIN_FILE="/root/mme-thong-tin-dang-nhap.txt"
 NODE="$APP_DIR/runtime/node"
 SERVICE="mme.service"
+BACKEND_PORT=3000
+FRONTEND_PORT=3000
+
+valid_port() {
+  [[ "${1:-}" =~ ^[0-9]+$ ]] && (( 1 <= $1 && $1 <= 65535 ))
+}
+
+read_env_value() {
+  local key="$1"
+  [[ -r "$ENV_FILE" ]] || return 0
+  awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
+}
+
+load_environment_file() {
+  local key value
+  while IFS='=' read -r key value; do
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    export "$key=$value"
+  done < "$ENV_FILE"
+}
+
+refresh_runtime_ports() {
+  local configured_backend configured_frontend
+  configured_backend="$(read_env_value SERVER_PORT)"
+  configured_frontend="$(read_env_value FRONTEND_PORT)"
+  valid_port "$configured_backend" && BACKEND_PORT="$configured_backend"
+  if valid_port "$configured_frontend"; then
+    FRONTEND_PORT="$configured_frontend"
+  else
+    FRONTEND_PORT="$BACKEND_PORT"
+  fi
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local temporary
+  temporary="$(mktemp)"
+  if [[ -f "$ENV_FILE" ]]; then
+    awk -v key="$key" -v value="$value" '
+      BEGIN { found = 0 }
+      index($0, key "=") == 1 { print key "=" value; found = 1; next }
+      { print }
+      END { if (!found) print key "=" value }
+    ' "$ENV_FILE" > "$temporary"
+  else
+    printf '%s=%s\n' "$key" "$value" > "$temporary"
+  fi
+  install -m 0600 "$temporary" "$ENV_FILE"
+  rm -f "$temporary"
+}
+
+assert_port_available() {
+  local port="$1"
+  local label="$2"
+  "$NODE" -e '
+    const net = require("node:net");
+    const server = net.createServer();
+    server.once("error", () => process.exit(1));
+    server.listen(Number(process.argv[1]), "127.0.0.1", () => server.close(() => process.exit(0)));
+  ' "$port" || {
+    echo "$label $port đang được tiến trình khác sử dụng. Hãy chọn cổng khác hoặc dừng tiến trình đó." >&2
+    return 1
+  }
+}
 
 require_root() {
   [[ ${EUID:-$(id -u)} -eq 0 ]] || {
@@ -53,24 +118,48 @@ initialize_env() {
   version="$(installed_version)"
 
   if [[ -f "$ENV_FILE" ]]; then
-    if grep -q '^APP_VERSION=' "$ENV_FILE"; then
-      sed -i "s/^APP_VERSION=.*/APP_VERSION=$version/" "$ENV_FILE"
-    else
-      printf '\nAPP_VERSION=%s\n' "$version" >> "$ENV_FILE"
+    set_env_value APP_VERSION "$version"
+    set_env_value WEB_DIST_PATH "$APP_DIR/web"
+    set_env_value SQLITE_SCHEMA_SQL "$APP_DIR/prisma/schema.sqlite.sql"
+    set_env_value PRISMA_POSTGRESQL_CLIENT_PATH "$APP_DIR/prisma-client-postgresql"
+    set_env_value PRISMA_POSTGRESQL_SCHEMA "$APP_DIR/prisma/schema.postgresql.prisma"
+    set_env_value PRISMA_CLI_PATH "$APP_DIR/node_modules/prisma/build/index.js"
+    if valid_port "${MME_BACKEND_PORT:-}"; then
+      set_env_value SERVER_PORT "$MME_BACKEND_PORT"
     fi
+    local existing_backend
+    existing_backend="$(read_env_value SERVER_PORT)"
+    valid_port "$existing_backend" || {
+      existing_backend=3000
+      set_env_value SERVER_PORT "$existing_backend"
+    }
+    if valid_port "${MME_FRONTEND_PORT:-}"; then
+      set_env_value FRONTEND_PORT "$MME_FRONTEND_PORT"
+    elif ! valid_port "$(read_env_value FRONTEND_PORT)"; then
+      set_env_value FRONTEND_PORT "$existing_backend"
+    fi
+    [[ -n "${MME_DATABASE_URL:-}" ]] && set_env_value DATABASE_URL "$MME_DATABASE_URL"
     chmod 0600 "$ENV_FILE"
     return
   fi
 
   local admin_password
+  local backend_port frontend_port database_url
   admin_password="$(secret 12)"
+  backend_port="${MME_BACKEND_PORT:-3000}"
+  valid_port "$backend_port" || backend_port=3000
+  frontend_port="${MME_FRONTEND_PORT:-$backend_port}"
+  valid_port "$frontend_port" || frontend_port="$backend_port"
+  database_url="${MME_DATABASE_URL:-file:$DATA_DIR/data/mme.db}"
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
 APP_VERSION=$version
 SERVER_HOST=127.0.0.1
-SERVER_PORT=3000
-DATABASE_URL=file:$DATA_DIR/data/mme.db
+SERVER_PORT=$backend_port
+FRONTEND_HOST=127.0.0.1
+FRONTEND_PORT=$frontend_port
+DATABASE_URL=$database_url
 JWT_SECRET=$(secret 32)
 ENCRYPTION_KEY=$(secret 32)
 DEFAULT_ADMIN_EMAIL=admin@example.com
@@ -78,11 +167,15 @@ DEFAULT_ADMIN_PASSWORD=$admin_password
 BACKUP_STORAGE_PATH=$DATA_DIR/backups
 WEB_DIST_PATH=$APP_DIR/web
 SQLITE_SCHEMA_SQL=$APP_DIR/prisma/schema.sqlite.sql
+PRISMA_POSTGRESQL_CLIENT_PATH=$APP_DIR/prisma-client-postgresql
+PRISMA_POSTGRESQL_SCHEMA=$APP_DIR/prisma/schema.postgresql.prisma
+PRISMA_CLI_PATH=$APP_DIR/node_modules/prisma/build/index.js
 LOG_LEVEL=info
 EOF
   chmod 0600 "$ENV_FILE"
 
-  printf 'URL: http://127.0.0.1:3000\nEmail: admin@example.com\nMật khẩu: %s\n' "$admin_password" \
+  printf 'URL: http://127.0.0.1:%s\nBackend API: http://127.0.0.1:%s\nEmail: admin@example.com\nMật khẩu: %s\n' \
+    "$frontend_port" "$backend_port" "$admin_password" \
     > "$LOGIN_FILE"
   chmod 0600 "$LOGIN_FILE"
 }
@@ -127,7 +220,7 @@ wait_ready() {
   local deadline=$((SECONDS + timeout))
   while (( SECONDS < deadline )); do
     if curl --fail --silent --show-error --max-time 3 \
-      http://127.0.0.1:3000/ready 2>/dev/null | grep -q '"status":"ready"'; then
+      "http://127.0.0.1:$BACKEND_PORT/ready" 2>/dev/null | grep -q '"status":"ready"'; then
       return 0
     fi
     sleep 2
@@ -170,11 +263,15 @@ install_or_upgrade() {
   prepare_directories
   backup="$(backup_state)"
   initialize_env
-  set -a
-  # File do root sở hữu, quyền 0600 và chỉ chứa các cặp KEY=VALUE do MME sinh ra.
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
+  # Không `source` file cấu hình: URL PostgreSQL có thể chứa `&` và các ký tự
+  # shell khác. Chỉ nhập các cặp KEY=VALUE hợp lệ mà không thực thi nội dung.
+  load_environment_file
+  BACKEND_PORT="$SERVER_PORT"
+  FRONTEND_PORT="${FRONTEND_PORT:-$SERVER_PORT}"
+  assert_port_available "$BACKEND_PORT" 'Cổng backend/API'
+  if [[ "$FRONTEND_PORT" != "$BACKEND_PORT" ]]; then
+    assert_port_available "$FRONTEND_PORT" 'Cổng frontend/dashboard'
+  fi
 
   if ! "$NODE" "$APP_DIR/dist/scripts/setup-native.js"; then
     trap - ERR
@@ -200,8 +297,11 @@ install_or_upgrade() {
 
   trap - ERR
   echo "MME $(installed_version) đã cài đặt và đang chạy."
+  echo "Dashboard: http://127.0.0.1:$FRONTEND_PORT · Backend API: http://127.0.0.1:$BACKEND_PORT"
   [[ -f "$LOGIN_FILE" ]] && echo "Thông tin đăng nhập ban đầu: $LOGIN_FILE"
 }
+
+refresh_runtime_ports
 
 case "$ACTION" in
   install | upgrade)
@@ -227,7 +327,7 @@ case "$ACTION" in
     systemctl status "$SERVICE" --no-pager
     ;;
   health)
-    curl --fail --silent --show-error http://127.0.0.1:3000/ready
+    curl --fail --silent --show-error "http://127.0.0.1:$BACKEND_PORT/ready"
     printf '\n'
     ;;
   logs)

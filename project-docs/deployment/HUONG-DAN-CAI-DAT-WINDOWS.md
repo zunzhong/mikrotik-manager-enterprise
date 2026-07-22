@@ -5,7 +5,7 @@
 - Windows 10 22H2 (build 19045 trở lên) hoặc Windows 11 x64.
 - Tối thiểu 2 GB dung lượng trống trên ổ cài Windows.
 - Quyền Administrator để đăng ký Windows Service.
-- Cổng TCP `3000` chưa được ứng dụng khác sử dụng.
+- Cổng TCP đã chọn chưa được ứng dụng khác sử dụng; mặc định frontend/backend dùng chung `3000`.
 
 Bản Windows Desktop dùng SQLite nhúng. Node.js runtime, Prisma SQLite engine và Windows Service
 wrapper đã nằm trong bộ cài, vì vậy không cần cài Docker, PostgreSQL, Redis, Node.js hay pnpm.
@@ -28,10 +28,13 @@ if ($actual -ne $expected) { throw 'Checksum không khớp. Không được ch�
 2. Chọn **Run as administrator**.
 3. Giữ đường dẫn mặc định `%ProgramFiles%\MikroTik Manager Enterprise` trên ổ cài Windows
    (thông thường là `C:\Program Files\MikroTik Manager Enterprise`).
-4. Chờ bộ cài khởi tạo SQLite và Windows Service `MME`.
-5. Mở shortcut **MikroTik Manager Enterprise** trên Desktop.
+4. Tại bước **Cấu hình cổng MME**, giữ dấu chọn bỏ qua để dùng chung cổng `3000`; hoặc bỏ dấu
+   chọn rồi nhập riêng cổng backend/API và frontend/dashboard.
+5. Chờ bộ cài khởi tạo SQLite và Windows Service `MME`.
+6. Mở shortcut **MikroTik Manager Enterprise** trên Desktop.
 
-Dashboard chạy tại `http://localhost:3000`. Thông tin đăng nhập ban đầu được ghi vào file
+Dashboard chạy tại cổng frontend đã chọn. Nếu bỏ qua bước cấu hình, URL là
+`http://localhost:3000`. Thông tin đăng nhập ban đầu được ghi vào file
 `MME-Thong-Tin-Dang-Nhap.txt` trên Desktop. Hãy đổi mật khẩu ngay sau lần đăng nhập đầu tiên.
 
 ## 4. Vị trí dữ liệu
@@ -61,10 +64,22 @@ Kết quả mong đợi: Service có trạng thái `Running`, API trả về `st
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-4.1.4-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.5.0-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
+
+Đặt cổng riêng khi cài im lặng:
+
+```powershell
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.5.0-x64.exe' `
+  -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
+    '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
+  -Wait
+```
+
+Nếu bỏ hai tham số, cài mới dùng mặc định `3000`. Khi cài đè, bỏ qua tùy chỉnh sẽ giữ cổng đang
+cấu hình để không làm gián đoạn URL hiện tại.
 
 ## 7. Sao lưu và nâng cấp
 

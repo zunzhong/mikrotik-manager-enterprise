@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.4.2"
+  #define MyAppVersion "5.5.0"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -53,7 +53,7 @@ Name: "{group}\Open Data Folder"; Filename: "explorer.exe"; Parameters: """{comm
 Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"" -BackendPort {code:GetBackendPort} -FrontendPort {code:GetFrontendPort}"; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" uninstall -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
@@ -63,6 +63,88 @@ var
   UpgradeGuardExecuted: Boolean;
   UpgradeGuardScriptPath: String;
   UpgradeGuardLogPath: String;
+  PortPage: TInputQueryWizardPage;
+  UseDefaultPortsCheck: TNewCheckBox;
+
+procedure TogglePortInputs(Sender: TObject);
+begin
+  PortPage.Edits[0].Enabled := not UseDefaultPortsCheck.Checked;
+  PortPage.Edits[1].Enabled := not UseDefaultPortsCheck.Checked;
+end;
+
+procedure InitializeWizard();
+begin
+  PortPage := CreateInputQueryPage(
+    wpSelectDir,
+    'Cấu hình cổng MME',
+    'Backend/API và frontend/dashboard',
+    'Đánh dấu bỏ qua để dùng chế độ tương thích mặc định: backend và frontend chung cổng 3000.'
+  );
+  PortPage.Add('Cổng backend/API:', False);
+  PortPage.Add('Cổng frontend/dashboard:', False);
+  PortPage.Values[0] := '3000';
+  PortPage.Values[1] := '3000';
+
+  UseDefaultPortsCheck := TNewCheckBox.Create(PortPage);
+  UseDefaultPortsCheck.Parent := PortPage.Surface;
+  UseDefaultPortsCheck.Top := PortPage.Edits[1].Top + PortPage.Edits[1].Height + ScaleY(16);
+  UseDefaultPortsCheck.Left := PortPage.Edits[1].Left;
+  UseDefaultPortsCheck.Width := PortPage.Edits[1].Width;
+  UseDefaultPortsCheck.Caption := 'Bỏ qua tùy chỉnh và dùng cổng mặc định';
+  UseDefaultPortsCheck.Checked := True;
+  UseDefaultPortsCheck.OnClick := @TogglePortInputs;
+  TogglePortInputs(nil);
+end;
+
+function IsValidPort(const Value: String): Boolean;
+var
+  Port: Integer;
+begin
+  Result := TryStrToInt(Value, Port);
+  if Result then
+    Result := (Port >= 1) and (Port <= 65535);
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = PortPage.ID) and (not UseDefaultPortsCheck.Checked) then
+  begin
+    if not IsValidPort(Trim(PortPage.Values[0])) then
+    begin
+      MsgBox('Cổng backend/API phải là số từ 1 đến 65535.', mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    if not IsValidPort(Trim(PortPage.Values[1])) then
+    begin
+      MsgBox('Cổng frontend/dashboard phải là số từ 1 đến 65535.', mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+end;
+
+function GetBackendPort(Param: String): String;
+var
+  CommandLinePort: String;
+begin
+  CommandLinePort := Trim(ExpandConstant('{param:BACKENDPORT|}'));
+  if IsValidPort(CommandLinePort) then Result := CommandLinePort
+  else if CommandLinePort <> '' then Result := '-1'
+  else if UseDefaultPortsCheck.Checked then Result := '0'
+  else Result := Trim(PortPage.Values[0]);
+end;
+
+function GetFrontendPort(Param: String): String;
+var
+  CommandLinePort: String;
+begin
+  CommandLinePort := Trim(ExpandConstant('{param:FRONTENDPORT|}'));
+  if IsValidPort(CommandLinePort) then Result := CommandLinePort
+  else if CommandLinePort <> '' then Result := '-1'
+  else if UseDefaultPortsCheck.Checked then Result := '0'
+  else Result := Trim(PortPage.Values[1]);
+end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var

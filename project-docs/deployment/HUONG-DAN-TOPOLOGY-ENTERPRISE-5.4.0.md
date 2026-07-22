@@ -39,7 +39,7 @@ Các collector Wi‑Fi/CAPsMAN/OSPF là collector tùy chọn. RouterOS không h
 2. Chọn **Dashboard tổng thể** hoặc một thiết bị MME ở **Phạm vi kiểm tra**.
 3. Bấm **Quét toàn bộ ngay** hoặc **Quét thiết bị này** nếu cần dữ liệu mới tức thời.
 4. Dùng ô tìm kiếm và bộ lọc loại thiết bị, trạng thái, độ tin cậy.
-5. Kéo nền để di chuyển, cuộn chuột hoặc nút `+/-` để zoom, kéo node để bố trí lại.
+5. Kéo nền để di chuyển, giữ `Ctrl` và lăn chuột hoặc dùng nút `+/-` để zoom, kéo node để bố trí lại.
 6. Bấm **Lưu bố cục** để lưu vị trí node vào database theo từng phạm vi.
 7. Click node để xem CPU, RAM, nhiệt độ, RX/TX của interface hoạt động mạnh nhất, model, RouterOS, uptime và các liên kết.
 8. Click link để xem từng bằng chứng, đường dẫn RouterOS, interface, thời điểm quan sát và trọng số.

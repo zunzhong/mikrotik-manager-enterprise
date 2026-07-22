@@ -20,10 +20,27 @@ export class ConfigService {
     host: env.SERVER_HOST,
     port: env.SERVER_PORT,
     publicHost: env.SERVER_HOST === '0.0.0.0' ? 'localhost' : env.SERVER_HOST,
+    proxyHost:
+      env.SERVER_HOST === '0.0.0.0'
+        ? '127.0.0.1'
+        : env.SERVER_HOST === '::'
+          ? '::1'
+          : env.SERVER_HOST,
     get publicUrl() {
       const host = env.SERVER_HOST === '0.0.0.0' ? 'localhost' : env.SERVER_HOST;
       return `http://${host}:${env.SERVER_PORT}`;
     },
+  };
+
+  public readonly frontend = {
+    host: env.FRONTEND_HOST ?? env.SERVER_HOST,
+    port: env.FRONTEND_PORT ?? env.SERVER_PORT,
+    get publicUrl() {
+      const configuredHost = env.FRONTEND_HOST ?? env.SERVER_HOST;
+      const host = configuredHost === '0.0.0.0' ? 'localhost' : configuredHost;
+      return `http://${host}:${env.FRONTEND_PORT ?? env.SERVER_PORT}`;
+    },
+    separateListener: (env.FRONTEND_PORT ?? env.SERVER_PORT) !== env.SERVER_PORT,
   };
 
   public readonly database = {

@@ -48,6 +48,8 @@ APP_VERSION="$(tr -d '[:space:]' < "$APP/VERSION")"
 export APP_VERSION
 export SERVER_HOST=127.0.0.1
 export SERVER_PORT=3100
+export FRONTEND_HOST=127.0.0.1
+export FRONTEND_PORT=3180
 export DATABASE_URL="file:$DATA/data/mme.db"
 export JWT_SECRET=ubuntu20-smoke-jwt-secret-2026-000000000000000000
 export ENCRYPTION_KEY=ubuntu20-smoke-encryption-key-2026
@@ -77,6 +79,11 @@ curl --fail --silent --show-error http://127.0.0.1:3100/ready \
   | tee artifacts/ubuntu20-ready.json
 grep -q '"status":"ready"' artifacts/ubuntu20-ready.json
 grep -q '"database":true' artifacts/ubuntu20-ready.json
+
+curl --fail --silent --show-error http://127.0.0.1:3180/ready \
+  | tee artifacts/ubuntu20-frontend-ready.json
+curl --fail --silent --show-error http://127.0.0.1:3180/topology \
+  | grep -q '<div id="root"></div>'
 
 curl --fail --silent --show-error http://127.0.0.1:3100/api/v1/topology \
   | tee artifacts/ubuntu20-topology.json

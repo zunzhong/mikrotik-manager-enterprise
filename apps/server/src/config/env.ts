@@ -5,7 +5,9 @@ const envSchema = z.object({
   APP_NAME: z.string().min(1).default('mikrotik-manager-enterprise'),
   APP_VERSION: z.string().min(1).default('0.1.0'),
   SERVER_HOST: z.string().min(1).default('0.0.0.0'),
-  SERVER_PORT: z.coerce.number().int().positive().default(3000),
+  SERVER_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  FRONTEND_HOST: z.string().min(1).optional(),
+  FRONTEND_PORT: z.coerce.number().int().min(1).max(65535).optional(),
   DATABASE_URL: z
     .string()
     .min(1)
@@ -17,6 +19,9 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().min(16).default('change-me-32-byte-minimum-secret-key'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   WEB_DIST_PATH: z.string().optional(),
+  PRISMA_POSTGRESQL_CLIENT_PATH: z.string().optional(),
+  PRISMA_POSTGRESQL_SCHEMA: z.string().optional(),
+  PRISMA_CLI_PATH: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

@@ -59,4 +59,23 @@ describe('Windows in-place upgrade assets', () => {
     expect(workflow).toContain('-RollbackOnly');
     expect(workflow).toContain('upgrade-preflight.log');
   });
+
+  it('offers compatible default ports and verifies separate frontend/backend ports', () => {
+    const installer = read('packaging/windows/mme-installer.iss');
+    const control = read('packaging/windows/MME-Control.ps1');
+    const workflow = read('.github/workflows/platform-installers.yml');
+
+    expect(installer).toContain("'Cấu hình cổng MME'");
+    expect(installer).toContain('UseDefaultPortsCheck.Checked := True');
+    expect(installer).toContain('{param:BACKENDPORT|}');
+    expect(installer).toContain('{param:FRONTENDPORT|}');
+    expect(installer).toContain('-BackendPort {code:GetBackendPort}');
+    expect(installer).toContain('-FrontendPort {code:GetFrontendPort}');
+    expect(control).toContain('[int]$BackendPort = 0');
+    expect(control).toContain('[int]$FrontendPort = 0');
+    expect(control).toContain('Assert-PortAvailable $BackendRuntimePort');
+    expect(control).toContain('FRONTEND_PORT=$FrontendRuntimePort');
+    expect(workflow).toContain("'/FRONTENDPORT=3080'");
+    expect(workflow).toContain('Assert-SeparateFrontendPort');
+  });
 });

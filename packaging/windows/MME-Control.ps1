@@ -2,7 +2,11 @@
   [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'backup', 'uninstall', 'validate')]
   [string]$Action = 'start',
   [switch]$NoOpen,
-  [string]$DataRoot = ''
+  [string]$DataRoot = '',
+  [ValidateRange(0, 65535)]
+  [int]$BackendPort = 0,
+  [ValidateRange(0, 65535)]
+  [int]$FrontendPort = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,7 +32,9 @@ $LogDir = Join-Path $DataDir 'logs'
 $ConfigFile = Join-Path $DataDir 'config\mme.env'
 $BootstrapLog = Join-Path $LogDir 'bootstrap.log'
 $UpgradeStateFile = Join-Path $DataDir 'config\upgrade-state.json'
-$Port = 3000
+$DefaultPort = 3000
+$BackendRuntimePort = if ($BackendPort -gt 0) { $BackendPort } else { $DefaultPort }
+$FrontendRuntimePort = if ($FrontendPort -gt 0) { $FrontendPort } else { $BackendRuntimePort }
 
 function Write-BootstrapLog([string]$Message) {
   New-Item -ItemType Directory -Force $LogDir | Out-Null
@@ -76,6 +82,54 @@ function Read-Environment {
   return $values
 }
 
+function Set-EnvironmentContentValue([string]$Content, [string]$Name, [string]$Value) {
+  if ($Content -match "(?m)^$([Text.RegularExpressions.Regex]::Escape($Name))=") {
+    return [Text.RegularExpressions.Regex]::Replace(
+      $Content,
+      "(?m)^$([Text.RegularExpressions.Regex]::Escape($Name))=.*$",
+      "$Name=$Value"
+    )
+  }
+  return $Content.TrimEnd() + "`r`n$Name=$Value`r`n"
+}
+
+function Resolve-RuntimePorts {
+  $values = Read-Environment
+  $configuredBackend = 0
+  $configuredFrontend = 0
+  if ($values.ContainsKey('SERVER_PORT')) {
+    [void][int]::TryParse([string]$values['SERVER_PORT'], [ref]$configuredBackend)
+  }
+  if ($values.ContainsKey('FRONTEND_PORT')) {
+    [void][int]::TryParse([string]$values['FRONTEND_PORT'], [ref]$configuredFrontend)
+  }
+  $script:BackendRuntimePort = if ($BackendPort -gt 0) {
+    $BackendPort
+  } elseif ($configuredBackend -ge 1 -and $configuredBackend -le 65535) {
+    $configuredBackend
+  } else {
+    $DefaultPort
+  }
+  $script:FrontendRuntimePort = if ($FrontendPort -gt 0) {
+    $FrontendPort
+  } elseif ($configuredFrontend -ge 1 -and $configuredFrontend -le 65535) {
+    $configuredFrontend
+  } else {
+    $script:BackendRuntimePort
+  }
+}
+
+function Assert-PortAvailable([int]$Port, [string]$Name) {
+  $listener = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, $Port)
+  try {
+    $listener.Start()
+  } catch {
+    throw "$Name $Port đang được tiến trình khác sử dụng. Hãy chọn cổng khác hoặc dừng tiến trình đó."
+  } finally {
+    try { $listener.Stop() } catch { }
+  }
+}
+
 function Initialize-Environment {
   New-Item -ItemType Directory -Force (Split-Path $ConfigFile), (Split-Path $Database), $BackupDir, $LogDir | Out-Null
   $legacyBackupDir = Join-Path $InstallRoot 'data\backups'
@@ -86,9 +140,37 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.4.2')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.5.0')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.4.2`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.5.0`r`n"
+    }
+    $backendForFrontend = $DefaultPort
+    if ($BackendPort -gt 0) {
+      $backendForFrontend = $BackendPort
+      $existingConfig = Set-EnvironmentContentValue $existingConfig 'SERVER_PORT' ([string]$BackendPort)
+    } elseif ($existingConfig -match '(?m)^SERVER_PORT=([0-9]+)$') {
+      $configuredBackend = 0
+      [void][int]::TryParse($Matches[1], [ref]$configuredBackend)
+      if ($configuredBackend -ge 1 -and $configuredBackend -le 65535) {
+        $backendForFrontend = $configuredBackend
+      } else {
+        $existingConfig = Set-EnvironmentContentValue $existingConfig 'SERVER_PORT' ([string]$DefaultPort)
+      }
+    } else {
+      $existingConfig = Set-EnvironmentContentValue $existingConfig 'SERVER_PORT' ([string]$DefaultPort)
+    }
+    if ($FrontendPort -gt 0) {
+      $existingConfig = Set-EnvironmentContentValue $existingConfig 'FRONTEND_PORT' ([string]$FrontendPort)
+    } else {
+      $configuredFrontend = 0
+      $frontendIsValid = $false
+      if ($existingConfig -match '(?m)^FRONTEND_PORT=([0-9]+)$') {
+        $frontendIsValid = [int]::TryParse($Matches[1], [ref]$configuredFrontend)
+        $frontendIsValid = $frontendIsValid -and $configuredFrontend -ge 1 -and $configuredFrontend -le 65535
+      }
+      if (-not $frontendIsValid) {
+        $existingConfig = Set-EnvironmentContentValue $existingConfig 'FRONTEND_PORT' ([string]$backendForFrontend)
+      }
     }
     $persistentBackupPath = $BackupDir.Replace('\','/')
     if ($existingConfig -match '(?m)^BACKUP_STORAGE_DIR=') {
@@ -120,9 +202,11 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.4.2
+APP_VERSION=5.5.0
 SERVER_HOST=127.0.0.1
-SERVER_PORT=$Port
+SERVER_PORT=$BackendRuntimePort
+FRONTEND_HOST=127.0.0.1
+FRONTEND_PORT=$FrontendRuntimePort
 DATABASE_URL=file:$($Database.Replace('\','/'))
 JWT_SECRET=$(New-Secret 32)
 ENCRYPTION_KEY=$(New-Secret 32)
@@ -140,7 +224,7 @@ LOG_LEVEL=info
     $credentialsDirectory = Split-Path $ConfigFile
   }
   $credentials = Join-Path $credentialsDirectory 'MME-Thong-Tin-Dang-Nhap.txt'
-  [IO.File]::WriteAllText($credentials, "URL: http://localhost:$Port`r`nEmail: admin@example.com`r`nMat khau: $adminPassword`r`n`r`nHay doi mat khau ngay sau lan dang nhap dau tien.", (New-Object Text.UTF8Encoding($false)))
+  [IO.File]::WriteAllText($credentials, "URL: http://localhost:$FrontendRuntimePort`r`nBackend API: http://localhost:$BackendRuntimePort`r`nEmail: admin@example.com`r`nMat khau: $adminPassword`r`n`r`nHay doi mat khau ngay sau lan dang nhap dau tien.", (New-Object Text.UTF8Encoding($false)))
 }
 
 function Set-ProcessEnvironment {
@@ -342,7 +426,7 @@ function Stop-MMERuntime([int]$TimeoutSeconds = 30) {
 
 function Wait-MMEHealthy([int]$TimeoutSeconds = 60) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-  $healthUrl = "http://127.0.0.1:$Port/ready"
+  $healthUrl = "http://127.0.0.1:$BackendRuntimePort/ready"
   do {
     try {
       $response = Invoke-RestMethod -Uri $healthUrl -Method Get -TimeoutSec 3
@@ -386,8 +470,19 @@ function Install-MME {
   Write-BootstrapLog 'Đã dừng hoàn toàn runtime MME cũ.'
   $backup = Backup-Data
   Initialize-Environment
+  Resolve-RuntimePorts
   Write-BootstrapLog 'Đã khởi tạo cấu hình và thư mục dữ liệu.'
   Set-ProcessEnvironment
+  try {
+    Assert-PortAvailable $BackendRuntimePort 'Cổng backend/API'
+    if ($FrontendRuntimePort -ne $BackendRuntimePort) {
+      Assert-PortAvailable $FrontendRuntimePort 'Cổng frontend/dashboard'
+    }
+  } catch {
+    Restore-Data $backup
+    Restore-PreviousReleaseService
+    throw "Kiểm tra cổng thất bại; cấu hình và service cũ đã được phục hồi. $($_.Exception.Message)"
+  }
   try {
     Write-BootstrapLog 'Bắt đầu khởi tạo SQLite.'
     # Windows PowerShell 5.1 chuyển mọi nội dung stderr của native process thành
@@ -430,17 +525,19 @@ function Install-MME {
   Write-BootstrapLog 'Cài đặt MME hoàn tất và API đã sẵn sàng.'
   Clear-UpgradeState
   Remove-StaleReleases
-  if (-not $NoOpen) { Start-Process "http://localhost:$Port/setup" }
+  if (-not $NoOpen) { Start-Process "http://localhost:$FrontendRuntimePort/setup" }
 }
+
+Resolve-RuntimePorts
 
 try {
   Write-BootstrapLog "Thực thi tác vụ: $Action"
   switch ($Action) {
     'install' { Install-MME }
-    'start' { Assert-Administrator; & $ServiceExe start; Start-Process "http://localhost:$Port" }
+    'start' { Assert-Administrator; & $ServiceExe start; Start-Process "http://localhost:$FrontendRuntimePort" }
     'stop' { Assert-Administrator; Stop-MMERuntime }
     'restart' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe start }
-    'open' { Start-Process "http://localhost:$Port" }
+    'open' { Start-Process "http://localhost:$FrontendRuntimePort" }
     'status' { Get-Service -Name MME -ErrorAction SilentlyContinue | Format-List; Read-Host 'Nhấn Enter để đóng' }
     'backup' { Assert-Administrator; Backup-Data }
     'uninstall' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe uninstall }

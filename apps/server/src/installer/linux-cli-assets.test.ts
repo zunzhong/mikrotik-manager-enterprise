@@ -30,6 +30,9 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('sudo test -s /var/lib/mikrotik-manager-enterprise/data/mme.db');
     expect(linuxJob).toContain('sudo test -s /etc/mikrotik-manager-enterprise/mme.env');
     expect(linuxJob).toContain('test -n "$jwt_before"');
+    expect(linuxJob).toContain('MME_FRONTEND_PORT=3080');
+    expect(linuxJob).toContain('MME_DATABASE_ENGINE=postgresql');
+    expect(linuxJob).toContain('topology-deb-postgresql-smoke.json');
     expect(linuxJob).not.toMatch(/^\s+test -f \/(?:var\/lib|etc)\/mikrotik-manager-enterprise/m);
     expect(linuxJob).not.toContain('windows-installer');
   });
@@ -43,6 +46,12 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(build).toContain('*debian-openssl-3.0.x*');
     expect(build).toContain('SHA256SUMS-LINUX.txt');
     expect(build).toContain('mme-ubuntu-install.sh');
+    expect(build).toContain('database_engines=sqlite,postgresql');
+    expect(build).toContain('prisma-client-postgresql');
+    expect(build).toContain('schema.postgresql.prisma');
+    const smoke = read('packaging/linux/smoke-ubuntu20.sh');
+    expect(smoke).toContain('export FRONTEND_PORT=3180');
+    expect(smoke).toContain('http://127.0.0.1:3180/ready');
   });
 
   it('keeps the MME package version isolated from Ubuntu os-release variables', () => {
@@ -67,6 +76,16 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(installer).toContain('SHA-256 không khớp');
     expect(installer).toContain('mme-control "$ACTION"');
     expect(installer).toContain('mme-control health');
+    expect(installer).toContain('MME_BACKEND_PORT');
+    expect(installer).toContain('MME_FRONTEND_PORT');
+    expect(installer).toContain('Database được MME Linux hỗ trợ');
+    expect(installer).toContain('SQLite tích hợp');
+    expect(installer).toContain('PostgreSQL 12 trở lên');
+    expect(installer).toContain('MySQL/MariaDB hiện chưa được hỗ trợ');
+    expect(installer).toContain('USE_CONFIGURED_POSTGRESQL=1');
+    expect(installer).toContain('PROVISION_LOCAL_POSTGRESQL=1');
+    expect(installer).toContain('role_name="mme_$(openssl rand -hex 4)"');
+    expect(installer).not.toContain('ALTER ROLE mme');
   });
 
   it('uses the installed package version and rolls back state on failed upgrades', () => {
@@ -78,5 +97,9 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('restore_state "$backup"');
     expect(control).toContain('wait_ready 90');
     expect(control).toContain('systemctl enable "$SERVICE"');
+    expect(control).toContain('FRONTEND_PORT=$frontend_port');
+    expect(control).toContain('PRISMA_POSTGRESQL_CLIENT_PATH');
+    expect(control).toContain('load_environment_file');
+    expect(control).not.toContain('source "$ENV_FILE"');
   });
 });
