@@ -130,7 +130,7 @@ install -d -m 0755 "$APP/runtime"
 install -m 0755 "$(command -v node)" "$APP/runtime/node"
 printf '%s\n' "$MME_PACKAGE_VERSION" > "$APP/VERSION"
 cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LINUX.md"
-cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.0.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.0.md"
+cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.1.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.1.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
 install -m 0755 packaging/linux/mme-ubuntu-install.sh "$ROOT/usr/local/bin/mme-ubuntu-install"
@@ -155,7 +155,7 @@ if [ -d /run/systemd/system ]; then
   systemctl daemon-reload
   systemctl enable mme.service
 fi
-echo 'Package extraction completed. Run: sudo mme-control install'
+echo 'Package extraction completed. Continue with mme-ubuntu-install to configure and start MME.'
 EOF
 
 cat > "$ROOT/DEBIAN/prerm" <<'EOF'

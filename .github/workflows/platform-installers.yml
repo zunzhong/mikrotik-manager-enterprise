@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.6.0
+        default: 5.6.1
       platform:
         description: Nền tảng cần build
         required: true
@@ -563,6 +563,11 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-fresh.json
           curl --fail --silent http://127.0.0.1:3080/topology | grep -q '<div id="root">'
+          sudo grep -q '^SERVER_HOST=127.0.0.1$' /etc/mikrotik-manager-enterprise/mme.env
+          sudo grep -q '^FRONTEND_HOST=0.0.0.0$' /etc/mikrotik-manager-enterprise/mme.env
+          lan_ip="$(hostname -I | awk '{print $1}')"
+          test -n "$lan_ip"
+          curl --fail --silent "http://${lan_ip}:3080/ready" | tee artifacts/ready-deb-lan.json
           /opt/mikrotik-manager-enterprise/runtime/node packaging/smoke-frontend-assets.mjs \
             http://127.0.0.1:3000 | tee artifacts/frontend-assets-deb-combined-smoke.json
           /opt/mikrotik-manager-enterprise/runtime/node packaging/smoke-frontend-assets.mjs \
@@ -659,7 +664,7 @@ jobs:
           cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md artifacts/HUONG-DAN-CAI-DAT-LINUX.md
           cp project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
           cp project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
-          cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.0.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.0.md
+          cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.1.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.1.md
 
       - name: Thu thập chẩn đoán Linux
         if: always()
@@ -681,7 +686,7 @@ jobs:
             artifacts/HUONG-DAN-CAI-DAT-LINUX.md
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
             artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
-            artifacts/HUONG-DAN-DATABASE-LINUX-5.6.0.md
+            artifacts/HUONG-DAN-DATABASE-LINUX-5.6.1.md
             artifacts/*.log
             artifacts/ready-deb-*.json
             artifacts/topology-deb-*.json

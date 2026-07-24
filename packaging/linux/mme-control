@@ -97,6 +97,15 @@ secret() {
   openssl rand -hex "${1:-32}"
 }
 
+public_host_for_listener() {
+  local host="${1:-127.0.0.1}"
+  if [[ "$host" == '0.0.0.0' || "$host" == '::' ]]; then
+    hostname -I 2>/dev/null | awk '{print $1; exit}'
+  else
+    printf '%s' "$host"
+  fi
+}
+
 installed_version() {
   if [[ -s "$APP_DIR/VERSION" ]]; then
     tr -d '[:space:]' < "$APP_DIR/VERSION"
@@ -140,26 +149,36 @@ initialize_env() {
     elif ! valid_port "$(read_env_value FRONTEND_PORT)"; then
       set_env_value FRONTEND_PORT "$existing_backend"
     fi
+    [[ -n "${MME_SERVER_HOST:-}" ]] && set_env_value SERVER_HOST "$MME_SERVER_HOST"
+    [[ -n "${MME_FRONTEND_HOST:-}" ]] && set_env_value FRONTEND_HOST "$MME_FRONTEND_HOST"
     [[ -n "${MME_DATABASE_URL:-}" ]] && set_env_value DATABASE_URL "$MME_DATABASE_URL"
     chmod 0600 "$ENV_FILE"
     return
   fi
 
   local admin_password
-  local backend_port frontend_port database_url
+  local backend_host backend_port frontend_host frontend_port database_url dashboard_host
   admin_password="$(secret 12)"
   backend_port="${MME_BACKEND_PORT:-3000}"
   valid_port "$backend_port" || backend_port=3000
   frontend_port="${MME_FRONTEND_PORT:-$backend_port}"
   valid_port "$frontend_port" || frontend_port="$backend_port"
+  if [[ -n "${MME_SERVER_HOST:-}" ]]; then
+    backend_host="$MME_SERVER_HOST"
+  elif [[ "$frontend_port" == "$backend_port" ]]; then
+    backend_host=0.0.0.0
+  else
+    backend_host=127.0.0.1
+  fi
+  frontend_host="${MME_FRONTEND_HOST:-0.0.0.0}"
   database_url="${MME_DATABASE_URL:-file:$DATA_DIR/data/mme.db}"
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
 APP_VERSION=$version
-SERVER_HOST=127.0.0.1
+SERVER_HOST=$backend_host
 SERVER_PORT=$backend_port
-FRONTEND_HOST=127.0.0.1
+FRONTEND_HOST=$frontend_host
 FRONTEND_PORT=$frontend_port
 DATABASE_URL=$database_url
 JWT_SECRET=$(secret 32)
@@ -178,8 +197,10 @@ LOG_LEVEL=info
 EOF
   chmod 0600 "$ENV_FILE"
 
-  printf 'URL: http://127.0.0.1:%s\nBackend API: http://127.0.0.1:%s\nEmail: admin@example.com\nPassword: %s\n' \
-    "$frontend_port" "$backend_port" "$admin_password" \
+  dashboard_host="$(public_host_for_listener "$frontend_host")"
+  [[ -n "$dashboard_host" ]] || dashboard_host=127.0.0.1
+  printf 'URL: http://%s:%s\nBackend API: http://127.0.0.1:%s\nEmail: admin@example.com\nPassword: %s\n' \
+    "$dashboard_host" "$frontend_port" "$backend_port" "$admin_password" \
     > "$LOGIN_FILE"
   chmod 0600 "$LOGIN_FILE"
 }
@@ -232,6 +253,42 @@ wait_ready() {
   echo "MME did not become ready within ${timeout} seconds." >&2
   journalctl -u "$SERVICE" --no-pager -n 100 >&2 || true
   return 1
+}
+
+network_check() {
+  local server_host frontend_host listener_host check_host check_url_host public_host
+  server_host="$(read_env_value SERVER_HOST)"
+  frontend_host="$(read_env_value FRONTEND_HOST)"
+  [[ -n "$server_host" ]] || server_host=127.0.0.1
+  [[ -n "$frontend_host" ]] || frontend_host="$server_host"
+  if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
+    listener_host="$server_host"
+  else
+    listener_host="$frontend_host"
+  fi
+  if [[ "$listener_host" == '0.0.0.0' || "$listener_host" == '::' ]]; then
+    check_host=127.0.0.1
+  else
+    check_host="$listener_host"
+  fi
+  [[ "$check_host" == *:* ]] && check_url_host="[$check_host]" || check_url_host="$check_host"
+  public_host="$(public_host_for_listener "$listener_host")"
+  [[ -n "$public_host" ]] || public_host="$check_host"
+
+  echo "Configured dashboard listener: $listener_host:$FRONTEND_PORT"
+  echo "Suggested LAN URL: http://$public_host:$FRONTEND_PORT"
+  if command -v ss >/dev/null 2>&1; then
+    ss --listening --numeric --tcp --process 2>/dev/null |
+      awk -v suffix=":$FRONTEND_PORT" 'NR == 1 || index($4, suffix) == length($4) - length(suffix) + 1'
+  fi
+  curl --fail --silent --show-error --max-time 5 \
+    "http://$check_url_host:$FRONTEND_PORT/ready"
+  printf '\n'
+  if command -v ufw >/dev/null 2>&1; then
+    LC_ALL=C ufw status verbose
+  else
+    echo 'UFW is not installed.'
+  fi
 }
 
 install_or_upgrade() {
@@ -300,8 +357,16 @@ install_or_upgrade() {
   fi
 
   trap - ERR
+  local dashboard_listener_host dashboard_public_host
+  if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
+    dashboard_listener_host="${SERVER_HOST:-127.0.0.1}"
+  else
+    dashboard_listener_host="${FRONTEND_HOST:-127.0.0.1}"
+  fi
+  dashboard_public_host="$(public_host_for_listener "$dashboard_listener_host")"
+  [[ -n "$dashboard_public_host" ]] || dashboard_public_host=127.0.0.1
   echo "MME $(installed_version) is installed and running."
-  echo "Dashboard: http://127.0.0.1:$FRONTEND_PORT · Backend API: http://127.0.0.1:$BACKEND_PORT"
+  echo "Dashboard: http://$dashboard_public_host:$FRONTEND_PORT · Backend API: http://127.0.0.1:$BACKEND_PORT"
   [[ -f "$LOGIN_FILE" ]] && echo "Initial sign-in details: $LOGIN_FILE"
 }
 
@@ -334,6 +399,9 @@ case "$ACTION" in
     curl --fail --silent --show-error "http://127.0.0.1:$BACKEND_PORT/ready"
     printf '\n'
     ;;
+  network-check)
+    network_check
+    ;;
   logs)
     require_systemd
     journalctl -u "$SERVICE" --no-pager -n "${2:-300}"
@@ -353,7 +421,7 @@ case "$ACTION" in
     installed_version
     ;;
   *)
-    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|logs [lines]|backup|uninstall|version}' >&2
+    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|logs [lines]|backup|uninstall|version}' >&2
     exit 2
     ;;
 esac

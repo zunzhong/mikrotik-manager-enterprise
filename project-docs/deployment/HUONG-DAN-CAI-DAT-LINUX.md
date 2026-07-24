@@ -35,10 +35,12 @@ Script sẽ tự động:
 2. Xác nhận máy đang dùng systemd.
 3. Kiểm tra SHA-256 của gói DEB trước khi thay đổi hệ thống.
 4. Cho phép giữ cổng mặc định `3000`, hoặc đặt riêng cổng backend/API và frontend/dashboard.
-5. Kiểm tra database hiện có và hiển thị lựa chọn SQLite/PostgreSQL/MariaDB/MySQL.
-6. Cài dependency cần thiết, khởi tạo database và tài khoản quản trị.
-7. Bật `mme.service` tự chạy cùng Ubuntu.
-8. Chờ `/ready` xác nhận ứng dụng và database hoạt động.
+5. Hỏi có cho phép máy trong LAN truy cập dashboard hay không; mặc định là có khi cài mới.
+6. Nếu UFW đang bật, tự mở đúng cổng dashboard cho subnet LAN kết nối trực tiếp.
+7. Kiểm tra database hiện có và hiển thị lựa chọn SQLite/PostgreSQL/MariaDB/MySQL.
+8. Cài dependency cần thiết, khởi tạo database và tài khoản quản trị.
+9. Bật `mme.service` tự chạy cùng Ubuntu.
+10. Chờ `/ready` xác nhận ứng dụng và database hoạt động.
 
 Nếu phát hiện cấu hình database MME đã có, trình cài giữ nguyên khi nâng cấp. Khi cài mới,
 trình cài phát hiện SQLite MME, PostgreSQL hoặc MariaDB/MySQL trên máy và hỏi trước khi sử dụng.
@@ -61,10 +63,13 @@ SQLite và hai cổng riêng:
 ```bash
 sudo env MME_NONINTERACTIVE=1 \
   MME_BACKEND_PORT=3000 MME_FRONTEND_PORT=8080 \
+  MME_LAN_ACCESS=1 \
   MME_DATABASE_ENGINE=sqlite \
   ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_<phiên-bản>_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
+
+Đặt `MME_LAN_ACCESS=0` nếu chỉ muốn truy cập cục bộ hoặc qua SSH tunnel.
 
 Tự cài PostgreSQL cục bộ:
 
@@ -119,11 +124,13 @@ Backend và frontend đã chạy dưới dạng systemd service ngay sau khi cà
 sudo systemctl status mme.service --no-pager
 sudo mme-control status
 sudo mme-control health
+sudo mme-control network-check
 curl --fail http://127.0.0.1:3000/ready
 ```
 
-Dashboard nội bộ chạy tại cổng frontend đã chọn. Nếu dùng mặc định, URL là
-`http://127.0.0.1:3000`. Nếu đặt frontend `8080`, mở tunnel như sau:
+Dashboard nội bộ chạy tại cổng frontend đã chọn. Khi cho phép LAN, trình cài bind listener vào
+`0.0.0.0` và chỉ mở cổng frontend trên UFW; backend tiếp tục ở loopback nếu dùng cổng riêng.
+Nếu tắt LAN và đặt frontend `8080`, mở tunnel như sau:
 
 ```bash
 ssh -L 8080:127.0.0.1:8080 <user>@<ip-server-ubuntu>
@@ -132,6 +139,29 @@ ssh -L 8080:127.0.0.1:8080 <user>@<ip-server-ubuntu>
 Sau đó mở `http://127.0.0.1:8080` trên máy Windows. Frontend tự chuyển tiếp `/api`, `/health`
 và `/ready` tới cổng backend nên trình duyệt không cần truy cập trực tiếp backend. Khi triển khai
 dùng lâu dài, nên đặt reverse proxy HTTPS phía trước cổng frontend thay vì mở thẳng ra Internet.
+
+### Dashboard timeout từ máy khác
+
+Kiểm tra listener, truy cập cục bộ và UFW:
+
+```bash
+sudo ss -lntp | grep ':<frontend-port>'
+curl --fail "http://127.0.0.1:<frontend-port>/ready"
+sudo ufw status verbose
+```
+
+Nếu service bind `0.0.0.0:<frontend-port>` và curl cục bộ đạt nhưng máy khác vẫn timeout, cho phép
+subnet LAN truy cập cổng frontend, ví dụ:
+
+```bash
+sudo ufw allow from 10.0.0.0/24 to any port 3003 proto tcp comment 'MME dashboard'
+```
+
+Nếu UFW không hoạt động, cần kiểm tra firewall bên ngoài, VLAN/ACL và kết nối từ Windows:
+
+```powershell
+Test-NetConnection 10.0.0.11 -Port 3003
+```
 
 ### Kiểm tra khi dashboard trắng
 

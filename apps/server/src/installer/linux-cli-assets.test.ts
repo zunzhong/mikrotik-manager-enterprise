@@ -31,6 +31,8 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('sudo test -s /etc/mikrotik-manager-enterprise/mme.env');
     expect(linuxJob).toContain('test -n "$jwt_before"');
     expect(linuxJob).toContain('MME_FRONTEND_PORT=3080');
+    expect(linuxJob).toContain('FRONTEND_HOST=0.0.0.0');
+    expect(linuxJob).toContain('ready-deb-lan.json');
     expect(linuxJob).toContain('MME_DATABASE_ENGINE=postgresql');
     expect(linuxJob).toContain('topology-deb-postgresql-smoke.json');
     expect(linuxJob).toContain('MME_DATABASE_ENGINE=mariadb');
@@ -89,6 +91,10 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(installer).toContain('mme-control health');
     expect(installer).toContain('MME_BACKEND_PORT');
     expect(installer).toContain('MME_FRONTEND_PORT');
+    expect(installer).toContain('MME_LAN_ACCESS');
+    expect(installer).toContain('Allow other devices on the LAN to access the MME dashboard?');
+    expect(installer).toContain("comment 'MME dashboard'");
+    expect(installer).toContain('UFW allows MME dashboard access');
     expect(installer).toContain('Databases supported by MME Linux');
     expect(installer).toContain('Built-in SQLite');
     expect(installer).toContain('PostgreSQL 12 or newer');
@@ -120,6 +126,10 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('wait_ready 90');
     expect(control).toContain('systemctl enable "$SERVICE"');
     expect(control).toContain('FRONTEND_PORT=$frontend_port');
+    expect(control).toContain('SERVER_HOST=$backend_host');
+    expect(control).toContain('FRONTEND_HOST=$frontend_host');
+    expect(control).toContain('network-check)');
+    expect(control).toContain('Configured dashboard listener');
     expect(control).toContain('PRISMA_POSTGRESQL_CLIENT_PATH');
     expect(control).toContain('PRISMA_MYSQL_CLIENT_PATH');
     expect(control).toContain('load_environment_file');

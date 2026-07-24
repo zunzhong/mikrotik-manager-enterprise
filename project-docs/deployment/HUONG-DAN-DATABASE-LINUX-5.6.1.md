@@ -1,7 +1,11 @@
-# Database cho MME Linux 5.6.0
+# Database cho MME Linux 5.6.1
 
-MME Linux 5.6.0 hỗ trợ SQLite, PostgreSQL và MariaDB/MySQL. Trình cài tự kiểm tra cấu hình MME
+MME Linux 5.6.1 hỗ trợ SQLite, PostgreSQL và MariaDB/MySQL. Trình cài tự kiểm tra cấu hình MME
 đã có và các database server đang cài trên máy trước khi thay đổi hệ thống.
+
+Trình cài cũng hỏi bằng tiếng Anh có cho phép truy cập dashboard từ LAN hay không. Khi đồng ý,
+listener frontend được bind đúng giao diện và UFW đang hoạt động sẽ được bổ sung rule giới hạn
+theo subnet LAN.
 
 ## Cài mới có tương tác
 
@@ -25,7 +29,7 @@ SQLite:
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 MME_DATABASE_ENGINE=sqlite \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.0_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
@@ -33,7 +37,7 @@ PostgreSQL cục bộ:
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 MME_DATABASE_ENGINE=postgresql MME_DATABASE_NAME=mme \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.0_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
@@ -41,7 +45,7 @@ MariaDB cục bộ:
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 MME_DATABASE_ENGINE=mariadb MME_DATABASE_NAME=mme \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.0_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
@@ -50,14 +54,14 @@ Database server bên ngoài:
 ```bash
 sudo env MME_NONINTERACTIVE=1 \
   MME_DATABASE_URL='postgresql://user:password@db-host:5432/mme?schema=public' \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.0_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 \
   MME_DATABASE_URL='mysql://user:password@db-host:3306/mme' \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.0_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 

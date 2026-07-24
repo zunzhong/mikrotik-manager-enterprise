@@ -6,6 +6,9 @@ DEB_PATH="${2:-}"
 CHECKSUM_PATH="${3:-}"
 BACKEND_PORT="${MME_BACKEND_PORT:-}"
 FRONTEND_PORT="${MME_FRONTEND_PORT:-}"
+LAN_ACCESS_REQUEST="${MME_LAN_ACCESS:-}"
+LAN_ACCESS=0
+PRESERVE_NETWORK_HOSTS=0
 DATABASE_ENGINE="${MME_DATABASE_ENGINE:-}"
 DATABASE_NAME="${MME_DATABASE_NAME:-mme}"
 DATABASE_URL_OVERRIDE="${MME_DATABASE_URL:-}"
@@ -34,6 +37,7 @@ Management:
 
 Non-interactive/automation:
   MME_BACKEND_PORT=3000 MME_FRONTEND_PORT=8080 MME_DATABASE_ENGINE=sqlite sudo -E bash mme-ubuntu-install.sh install ...
+  MME_LAN_ACCESS=1 MME_FRONTEND_PORT=8080 sudo -E bash mme-ubuntu-install.sh install ...
   MME_DATABASE_ENGINE=postgresql MME_DATABASE_NAME=mme sudo -E bash mme-ubuntu-install.sh install ...
   MME_DATABASE_ENGINE=mariadb MME_DATABASE_NAME=mme sudo -E bash mme-ubuntu-install.sh install ...
 EOF
@@ -117,6 +121,97 @@ configure_ports() {
   valid_port "$BACKEND_PORT" || fail "Invalid backend port: $BACKEND_PORT"
   valid_port "$FRONTEND_PORT" || fail "Invalid frontend port: $FRONTEND_PORT"
   export MME_BACKEND_PORT="$BACKEND_PORT" MME_FRONTEND_PORT="$FRONTEND_PORT"
+}
+
+parse_boolean() {
+  case "${1,,}" in
+    1 | true | yes | y | on) printf '1' ;;
+    0 | false | no | n | off) printf '0' ;;
+    *) return 1 ;;
+  esac
+}
+
+configure_network_access() {
+  local configured_server_host configured_frontend_host current_access prompt_default
+  configured_server_host="$(read_config_value SERVER_HOST)"
+  configured_frontend_host="$(read_config_value FRONTEND_HOST)"
+
+  if [[ -n "$LAN_ACCESS_REQUEST" ]]; then
+    LAN_ACCESS="$(parse_boolean "$LAN_ACCESS_REQUEST")" ||
+      fail "Invalid MME_LAN_ACCESS value: $LAN_ACCESS_REQUEST"
+  elif [[ -f "$CONFIG_FILE" ]]; then
+    if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
+      [[ "$configured_server_host" == '0.0.0.0' || "$configured_server_host" == '::' ]] &&
+        current_access=1 ||
+        current_access=0
+    else
+      [[ "$configured_frontend_host" == '0.0.0.0' || "$configured_frontend_host" == '::' ]] &&
+        current_access=1 ||
+        current_access=0
+    fi
+    LAN_ACCESS="$current_access"
+    if is_interactive; then
+      [[ "$current_access" == 1 ]] && prompt_default=yes || prompt_default=no
+      if prompt_yes_no 'Allow other devices on the LAN to access the MME dashboard?' "$prompt_default"; then
+        LAN_ACCESS=1
+      else
+        LAN_ACCESS=0
+      fi
+    else
+      PRESERVE_NETWORK_HOSTS=1
+    fi
+  else
+    LAN_ACCESS=1
+    if is_interactive &&
+      ! prompt_yes_no 'Allow other devices on the LAN to access the MME dashboard?' yes; then
+      LAN_ACCESS=0
+    fi
+  fi
+
+  if [[ "$PRESERVE_NETWORK_HOSTS" != 1 ]]; then
+    if [[ "$LAN_ACCESS" == 1 ]]; then
+      if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
+        export MME_SERVER_HOST=0.0.0.0
+      else
+        export MME_SERVER_HOST=127.0.0.1
+      fi
+      export MME_FRONTEND_HOST=0.0.0.0
+    else
+      export MME_SERVER_HOST=127.0.0.1
+      export MME_FRONTEND_HOST=127.0.0.1
+    fi
+  fi
+  export MME_LAN_ACCESS_EFFECTIVE="$LAN_ACCESS"
+}
+
+configure_firewall() {
+  [[ "$LAN_ACCESS" == 1 ]] || return 0
+  if ! command -v ufw >/dev/null 2>&1; then
+    echo 'UFW is not installed; no UFW rule is required. Custom firewalls must allow the dashboard port.'
+    return
+  fi
+  if ! LC_ALL=C ufw status | grep -q '^Status: active$'; then
+    echo 'UFW is inactive; no firewall rule was added.'
+    return
+  fi
+
+  local default_interface lan_network
+  if command -v ip >/dev/null 2>&1; then
+    default_interface="$(ip -o -4 route show default 2>/dev/null | awk '{print $5; exit}')"
+  fi
+  if [[ -n "${default_interface:-}" ]]; then
+    lan_network="$(
+      ip -o -4 route show dev "$default_interface" scope link 2>/dev/null |
+        awk '$1 ~ /^[0-9.]+\/[0-9]+$/ && $1 !~ /^127\./ {print $1; exit}'
+    )"
+  fi
+  if [[ -n "${lan_network:-}" ]]; then
+    ufw allow from "$lan_network" to any port "$FRONTEND_PORT" proto tcp comment 'MME dashboard'
+    echo "UFW allows MME dashboard access from $lan_network on TCP port $FRONTEND_PORT."
+  else
+    ufw allow "$FRONTEND_PORT/tcp" comment 'MME dashboard'
+    echo "UFW allows MME dashboard access on TCP port $FRONTEND_PORT."
+  fi
 }
 
 postgresql_installed() {
@@ -585,8 +680,10 @@ install_package() {
   resolve_deb
   verify_checksum
   configure_ports
+  configure_network_access
   configure_database_choice
   install_dependencies
+  configure_firewall
   prepare_postgresql
   prepare_mysql
   prepare_sqlite
