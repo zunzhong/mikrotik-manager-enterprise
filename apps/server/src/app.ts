@@ -34,6 +34,7 @@ import { reportRoutes } from './modules/report/index.js';
 import { systemRoutes } from './modules/system/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
+import { createSecurityHeaderOptions } from './plugins/security-headers.js';
 import { registerWebApp } from './plugins/web-app.js';
 import { healthRoutes } from './routes/health.js';
 import { setupRoutes } from './routes/setup.js';
@@ -45,7 +46,7 @@ export async function buildApp() {
 
   await registerErrorHandler(app);
   await app.register(cors, { origin: true });
-  await app.register(helmet);
+  await app.register(helmet, createSecurityHeaderOptions());
 
   moduleRegistry.register(healthModule);
   moduleRegistry.register(auditModule);

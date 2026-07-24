@@ -1,8 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import helmet from '@fastify/helmet';
 import Fastify from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createSecurityHeaderOptions } from './security-headers.js';
 import { registerWebApp } from './web-app.js';
 
 const directories: string[] = [];
@@ -28,6 +30,7 @@ describe('combined backend/frontend static delivery', () => {
     process.env.WEB_DIST_PATH = webRoot;
 
     const app = Fastify();
+    await app.register(helmet, createSecurityHeaderOptions());
     await registerWebApp(app);
 
     const html = await app.inject({
@@ -41,6 +44,9 @@ describe('combined backend/frontend static delivery', () => {
     expect(html.statusCode).toBe(200);
     expect(html.headers['cache-control']).toBe('no-store, max-age=0');
     expect(html.headers.etag).toBeUndefined();
+    expect(html.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
+    expect(html.headers['cross-origin-opener-policy']).toBeUndefined();
+    expect(html.headers['origin-agent-cluster']).toBeUndefined();
     expect(html.body).toContain('<div id="root"></div>');
 
     const script = await app.inject({ method: 'GET', url: '/assets/app.js' });

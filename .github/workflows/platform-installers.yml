@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.5.2
+        default: 5.5.3
       platform:
         description: Nền tảng cần build
         required: true
@@ -234,8 +234,11 @@ jobs:
             if ($proxiedReady.status -ne 'ready' -or -not $proxiedReady.checks.database) {
               throw 'Frontend không chuyển tiếp được request /ready tới backend.'
             }
+            node packaging/smoke-frontend-assets.mjs 'http://127.0.0.1:3000' |
+              Set-Content artifacts/frontend-assets-windows-combined-smoke.json -Encoding utf8
+            if ($LASTEXITCODE -ne 0) { throw 'CSS/JavaScript trên cổng backend không tải được.' }
             node packaging/smoke-frontend-assets.mjs 'http://127.0.0.1:3080' |
-              Set-Content artifacts/frontend-assets-windows-smoke.json -Encoding utf8
+              Set-Content artifacts/frontend-assets-windows-separate-smoke.json -Encoding utf8
             if ($LASTEXITCODE -ne 0) { throw 'CSS/JavaScript frontend không tải được.' }
             'frontend=3080 backend=3000 proxy=ready' |
               Set-Content artifacts/custom-ports-smoke.txt -Encoding utf8
@@ -561,7 +564,9 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-fresh.json
           curl --fail --silent http://127.0.0.1:3080/topology | grep -q '<div id="root">'
           /opt/mikrotik-manager-enterprise/runtime/node packaging/smoke-frontend-assets.mjs \
-            http://127.0.0.1:3080 | tee artifacts/frontend-assets-deb-smoke.json
+            http://127.0.0.1:3000 | tee artifacts/frontend-assets-deb-combined-smoke.json
+          /opt/mikrotik-manager-enterprise/runtime/node packaging/smoke-frontend-assets.mjs \
+            http://127.0.0.1:3080 | tee artifacts/frontend-assets-deb-separate-smoke.json
           curl --fail --silent http://127.0.0.1:3080/ready | tee artifacts/ready-deb-frontend-proxy.json
           curl --fail --silent http://127.0.0.1:3000/api/v1/topology | tee artifacts/topology-deb-smoke.json
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('artifacts/topology-deb-smoke.json'));if(!x.success||x.data.summary.confirmedLinks===undefined||x.data.inventoryScheduler.intervalMs!==1800000)process.exit(1)"

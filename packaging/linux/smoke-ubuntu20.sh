@@ -84,6 +84,8 @@ curl --fail --silent --show-error http://127.0.0.1:3180/ready \
   | tee artifacts/ubuntu20-frontend-ready.json
 curl --fail --silent --show-error http://127.0.0.1:3180/topology \
   | grep -q '<div id="root"></div>'
+"$NODE" packaging/smoke-frontend-assets.mjs http://127.0.0.1:3100 \
+  | tee artifacts/ubuntu20-backend-assets.json
 "$NODE" packaging/smoke-frontend-assets.mjs http://127.0.0.1:3180 \
   | tee artifacts/ubuntu20-frontend-assets.json
 

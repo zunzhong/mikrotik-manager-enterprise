@@ -114,14 +114,20 @@ dùng lâu dài, nên đặt reverse proxy HTTPS phía trước cổng frontend 
 
 ### Kiểm tra khi dashboard trắng
 
-Từ bản 5.5.2, MME luôn gửi mới `index.html` sau nâng cấp, đồng thời kiểm tra CSS/JavaScript thật
-thay vì chỉ kiểm tra trang HTML. Trước tiên xác định cổng frontend và kiểm tra asset:
+Từ bản 5.5.3, MME luôn gửi mới `index.html` sau nâng cấp, không ép các asset HTTP sang HTTPS khi
+truy cập trực tiếp bằng IP LAN, đồng thời kiểm tra CSS/JavaScript thật thay vì chỉ kiểm tra trang
+HTML. Trước tiên xác định cổng frontend và kiểm tra asset:
 
 ```bash
 FRONTEND_PORT="$(sudo sed -n 's/^FRONTEND_PORT=//p' /etc/mikrotik-manager-enterprise/mme.env)"
 curl --fail --silent "http://127.0.0.1:${FRONTEND_PORT}/" -o /tmp/mme-index.html
 grep -oE '/assets/[^" ]+\.(css|js)' /tmp/mme-index.html
+curl --silent --dump-header - --output /dev/null "http://127.0.0.1:${FRONTEND_PORT}/" \
+  | grep -i '^content-security-policy:'
 ```
+
+Header CSP hợp lệ không được chứa `upgrade-insecure-requests`; nếu có, trình duyệt sẽ đổi CSS/JS
+từ HTTP sang HTTPS và báo `ERR_SSL_PROTOCOL_ERROR`.
 
 Nếu service và asset đều tốt nhưng tab đã mở từ phiên bản cũ vẫn trắng, dùng `Ctrl+Shift+R` hoặc
 xóa dữ liệu trang của địa chỉ MME một lần. Không cần xóa database hay cài lại hệ điều hành.

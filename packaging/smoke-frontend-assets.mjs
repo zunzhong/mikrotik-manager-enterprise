@@ -33,6 +33,10 @@ const indexType = indexResponse.headers.get('content-type') ?? '';
 if (!indexType.includes('text/html')) throw new Error(`index.html MIME không hợp lệ: ${indexType}`);
 if (indexResponse.status !== 200)
   throw new Error(`index.html không được truyền mới: HTTP ${indexResponse.status}`);
+const contentSecurityPolicy = indexResponse.headers.get('content-security-policy') ?? '';
+if (/\bupgrade-insecure-requests\b/i.test(contentSecurityPolicy)) {
+  throw new Error('CSP đang ép asset HTTP sang HTTPS và sẽ gây màn hình trắng trên IP LAN.');
+}
 const html = await indexResponse.text();
 if (!html.includes('<div id="root"></div>')) throw new Error('index.html thiếu React root.');
 
@@ -62,4 +66,4 @@ for (const asset of assets) {
   checked.push({ path: asset.pathname, contentType, bytes: Buffer.byteLength(body) });
 }
 
-log(JSON.stringify({ status: 'ready', index: indexUrl, assets: checked }));
+log(JSON.stringify({ status: 'ready', index: indexUrl, contentSecurityPolicy, assets: checked }));

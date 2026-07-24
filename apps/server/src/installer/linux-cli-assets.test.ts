@@ -52,8 +52,11 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     const smoke = read('packaging/linux/smoke-ubuntu20.sh');
     expect(smoke).toContain('export FRONTEND_PORT=3180');
     expect(smoke).toContain('http://127.0.0.1:3180/ready');
+    expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3100');
     expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3180');
-    expect(read('packaging/smoke-frontend-assets.mjs')).toContain("url.pathname.endsWith('.css')");
+    const frontendSmoke = read('packaging/smoke-frontend-assets.mjs');
+    expect(frontendSmoke).toContain("url.pathname.endsWith('.css')");
+    expect(frontendSmoke).toContain('upgrade-insecure-requests');
   });
 
   it('keeps the MME package version isolated from Ubuntu os-release variables', () => {
