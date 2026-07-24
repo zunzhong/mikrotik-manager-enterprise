@@ -33,6 +33,9 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('MME_FRONTEND_PORT=3080');
     expect(linuxJob).toContain('MME_DATABASE_ENGINE=postgresql');
     expect(linuxJob).toContain('topology-deb-postgresql-smoke.json');
+    expect(linuxJob).toContain('MME_DATABASE_ENGINE=mariadb');
+    expect(linuxJob).toContain('topology-deb-mariadb-smoke.json');
+    expect(linuxJob).toContain('SELECT count(*) FROM `mme_ci_mariadb`.`User`');
     expect(linuxJob).not.toMatch(/^\s+test -f \/(?:var\/lib|etc)\/mikrotik-manager-enterprise/m);
     expect(linuxJob).not.toContain('windows-installer');
   });
@@ -46,14 +49,17 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(build).toContain('*debian-openssl-3.0.x*');
     expect(build).toContain('SHA256SUMS-LINUX.txt');
     expect(build).toContain('mme-ubuntu-install.sh');
-    expect(build).toContain('database_engines=sqlite,postgresql');
+    expect(build).toContain('database_engines=sqlite,postgresql,mariadb,mysql');
     expect(build).toContain('prisma-client-postgresql');
     expect(build).toContain('schema.postgresql.prisma');
+    expect(build).toContain('prisma-client-mysql');
+    expect(build).toContain('schema.mysql.prisma');
     const smoke = read('packaging/linux/smoke-ubuntu20.sh');
     expect(smoke).toContain('export FRONTEND_PORT=3180');
     expect(smoke).toContain('http://127.0.0.1:3180/ready');
     expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3100');
     expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3180');
+    expect(smoke).toContain('ubuntu20-mysql-schema-validate.log');
     const frontendSmoke = read('packaging/smoke-frontend-assets.mjs');
     expect(frontendSmoke).toContain("url.pathname.endsWith('.css')");
     expect(frontendSmoke).toContain('upgrade-insecure-requests');
@@ -78,19 +84,30 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(installer).toContain('[[ "${ID:-}" == ubuntu ]]');
     expect(installer).toContain('version_at_least "${VERSION_ID:-0}" \'20.04\'');
     expect(installer).toContain('[[ "$(dpkg --print-architecture)" == amd64 ]]');
-    expect(installer).toContain('SHA-256 không khớp');
+    expect(installer).toContain('SHA-256 mismatch');
     expect(installer).toContain('mme-control "$ACTION"');
     expect(installer).toContain('mme-control health');
     expect(installer).toContain('MME_BACKEND_PORT');
     expect(installer).toContain('MME_FRONTEND_PORT');
-    expect(installer).toContain('Database được MME Linux hỗ trợ');
-    expect(installer).toContain('SQLite tích hợp');
-    expect(installer).toContain('PostgreSQL 12 trở lên');
-    expect(installer).toContain('MySQL/MariaDB hiện chưa được hỗ trợ');
+    expect(installer).toContain('Databases supported by MME Linux');
+    expect(installer).toContain('Built-in SQLite');
+    expect(installer).toContain('PostgreSQL 12 or newer');
+    expect(installer).toContain('MariaDB 10.3+ / MySQL 5.7+');
     expect(installer).toContain('USE_CONFIGURED_POSTGRESQL=1');
     expect(installer).toContain('PROVISION_LOCAL_POSTGRESQL=1');
+    expect(installer).toContain('USE_INSTALLED_POSTGRESQL=1');
+    expect(installer).toContain('USE_CONFIGURED_MYSQL=1');
+    expect(installer).toContain('PROVISION_LOCAL_MYSQL=1');
+    expect(installer).toContain('USE_INSTALLED_MYSQL=1');
+    expect(installer).toContain('mariadb-server mariadb-client');
+    expect(installer).toContain('MME_ALLOW_EXISTING_MYSQL');
     expect(installer).toContain('role_name="mme_$(openssl rand -hex 4)"');
     expect(installer).not.toContain('ALTER ROLE mme');
+    const confirmationLines = installer
+      .split('\n')
+      .filter((line) => line.includes('read -r -p') || line.includes('prompt_yes_no'))
+      .join('\n');
+    expect(confirmationLines).not.toMatch(/[À-ỹ]/u);
   });
 
   it('uses the installed package version and rolls back state on failed upgrades', () => {
@@ -104,7 +121,21 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('systemctl enable "$SERVICE"');
     expect(control).toContain('FRONTEND_PORT=$frontend_port');
     expect(control).toContain('PRISMA_POSTGRESQL_CLIENT_PATH');
+    expect(control).toContain('PRISMA_MYSQL_CLIENT_PATH');
     expect(control).toContain('load_environment_file');
     expect(control).not.toContain('source "$ENV_FILE"');
+  });
+
+  it('selects dedicated Prisma clients and schemas for every supported database engine', () => {
+    const prismaService = read('apps/server/src/database/prisma.service.ts');
+    const setup = read('apps/server/src/scripts/setup-native.ts');
+    const env = read('apps/server/src/config/env.ts');
+
+    expect(prismaService).toContain("databaseUrl.startsWith('mysql://')");
+    expect(prismaService).toContain('PRISMA_MYSQL_CLIENT_PATH');
+    expect(setup).toContain("prepareRelationalSchema('MariaDB/MySQL'");
+    expect(setup).toContain('PRISMA_MYSQL_SCHEMA');
+    expect(env).toContain('PRISMA_MYSQL_CLIENT_PATH');
+    expect(env).toContain('PRISMA_MYSQL_SCHEMA');
   });
 });

@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.5.3
+        default: 5.6.0
       platform:
         description: Nền tảng cần build
         required: true
@@ -625,6 +625,21 @@ jobs:
             | tee artifacts/topology-deb-postgresql-smoke.json \
             | grep -q '"success":true'
 
+          sudo env MME_NONINTERACTIVE=1 MME_BACKEND_PORT=3000 MME_FRONTEND_PORT=3080 \
+            MME_DATABASE_ENGINE=mariadb MME_DATABASE_NAME=mme_ci_mariadb \
+            bash artifacts/mme-ubuntu-install.sh upgrade "$package" artifacts/SHA256SUMS-LINUX.txt \
+            | tee artifacts/install-deb-mariadb.log
+          curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-mariadb.json
+          sudo grep -q '^DATABASE_URL=mysql://mme:' /etc/mikrotik-manager-enterprise/mme.env
+          sudo mariadb --batch --skip-column-names --execute \
+            'SELECT count(*) FROM `mme_ci_mariadb`.`User`' \
+            | grep -Eq '^[1-9][0-9]*$'
+          jwt_mariadb="$(sudo awk -F= '/^JWT_SECRET=/{print $2}' /etc/mikrotik-manager-enterprise/mme.env)"
+          test "$jwt_before" = "$jwt_mariadb"
+          curl --fail --silent http://127.0.0.1:3080/api/v1/topology \
+            | tee artifacts/topology-deb-mariadb-smoke.json \
+            | grep -q '"success":true'
+
           sudo bash artifacts/mme-ubuntu-install.sh uninstall | tee artifacts/uninstall-deb.log
           if systemctl is-active --quiet mme.service; then
             echo 'MME service vẫn chạy sau khi gỡ DEB.' >&2
@@ -644,7 +659,7 @@ jobs:
           cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md artifacts/HUONG-DAN-CAI-DAT-LINUX.md
           cp project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
           cp project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
-          cp project-docs/deployment/HUONG-DAN-CONG-DATABASE-5.5.0.md artifacts/HUONG-DAN-CONG-DATABASE-5.5.0.md
+          cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.0.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.0.md
 
       - name: Thu thập chẩn đoán Linux
         if: always()
@@ -666,7 +681,7 @@ jobs:
             artifacts/HUONG-DAN-CAI-DAT-LINUX.md
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
             artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
-            artifacts/HUONG-DAN-CONG-DATABASE-5.5.0.md
+            artifacts/HUONG-DAN-DATABASE-LINUX-5.6.0.md
             artifacts/*.log
             artifacts/ready-deb-*.json
             artifacts/topology-deb-*.json

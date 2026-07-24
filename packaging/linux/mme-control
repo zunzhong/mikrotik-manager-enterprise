@@ -70,25 +70,25 @@ assert_port_available() {
     server.once("error", () => process.exit(1));
     server.listen(Number(process.argv[1]), "127.0.0.1", () => server.close(() => process.exit(0)));
   ' "$port" || {
-    echo "$label $port đang được tiến trình khác sử dụng. Hãy chọn cổng khác hoặc dừng tiến trình đó." >&2
+    echo "$label $port is already in use. Choose another port or stop the conflicting process." >&2
     return 1
   }
 }
 
 require_root() {
   [[ ${EUID:-$(id -u)} -eq 0 ]] || {
-    echo 'Lệnh này cần quyền root. Hãy chạy với sudo.' >&2
+    echo 'This command requires root privileges. Run it with sudo.' >&2
     exit 1
   }
 }
 
 require_systemd() {
   command -v systemctl >/dev/null 2>&1 || {
-    echo 'Không tìm thấy systemctl; MME yêu cầu Ubuntu Server dùng systemd.' >&2
+    echo 'systemctl was not found; MME requires Ubuntu Server with systemd.' >&2
     exit 1
   }
   [[ -d /run/systemd/system ]] || {
-    echo 'systemd không chạy (PID 1); không thể quản lý dịch vụ MME.' >&2
+    echo 'systemd is not running as PID 1; the MME service cannot be managed.' >&2
     exit 1
   }
 }
@@ -123,6 +123,8 @@ initialize_env() {
     set_env_value SQLITE_SCHEMA_SQL "$APP_DIR/prisma/schema.sqlite.sql"
     set_env_value PRISMA_POSTGRESQL_CLIENT_PATH "$APP_DIR/prisma-client-postgresql"
     set_env_value PRISMA_POSTGRESQL_SCHEMA "$APP_DIR/prisma/schema.postgresql.prisma"
+    set_env_value PRISMA_MYSQL_CLIENT_PATH "$APP_DIR/prisma-client-mysql"
+    set_env_value PRISMA_MYSQL_SCHEMA "$APP_DIR/prisma/schema.mysql.prisma"
     set_env_value PRISMA_CLI_PATH "$APP_DIR/node_modules/prisma/build/index.js"
     if valid_port "${MME_BACKEND_PORT:-}"; then
       set_env_value SERVER_PORT "$MME_BACKEND_PORT"
@@ -169,12 +171,14 @@ WEB_DIST_PATH=$APP_DIR/web
 SQLITE_SCHEMA_SQL=$APP_DIR/prisma/schema.sqlite.sql
 PRISMA_POSTGRESQL_CLIENT_PATH=$APP_DIR/prisma-client-postgresql
 PRISMA_POSTGRESQL_SCHEMA=$APP_DIR/prisma/schema.postgresql.prisma
+PRISMA_MYSQL_CLIENT_PATH=$APP_DIR/prisma-client-mysql
+PRISMA_MYSQL_SCHEMA=$APP_DIR/prisma/schema.mysql.prisma
 PRISMA_CLI_PATH=$APP_DIR/node_modules/prisma/build/index.js
 LOG_LEVEL=info
 EOF
   chmod 0600 "$ENV_FILE"
 
-  printf 'URL: http://127.0.0.1:%s\nBackend API: http://127.0.0.1:%s\nEmail: admin@example.com\nMật khẩu: %s\n' \
+  printf 'URL: http://127.0.0.1:%s\nBackend API: http://127.0.0.1:%s\nEmail: admin@example.com\nPassword: %s\n' \
     "$frontend_port" "$backend_port" "$admin_password" \
     > "$LOGIN_FILE"
   chmod 0600 "$LOGIN_FILE"
@@ -225,7 +229,7 @@ wait_ready() {
     fi
     sleep 2
   done
-  echo "MME không ready sau ${timeout} giây." >&2
+  echo "MME did not become ready within ${timeout} seconds." >&2
   journalctl -u "$SERVICE" --no-pager -n 100 >&2 || true
   return 1
 }
@@ -234,11 +238,11 @@ install_or_upgrade() {
   require_root
   require_systemd
   [[ -x "$NODE" ]] || {
-    echo "Thiếu Node runtime tại $NODE. Hãy cài lại gói DEB." >&2
+    echo "The bundled Node runtime is missing at $NODE. Reinstall the DEB package." >&2
     exit 1
   }
   [[ -f "$APP_DIR/dist/scripts/setup-native.js" ]] || {
-    echo 'Payload MME không đầy đủ; thiếu setup-native.js.' >&2
+    echo 'The MME payload is incomplete: setup-native.js is missing.' >&2
     exit 1
   }
 
@@ -255,7 +259,7 @@ install_or_upgrade() {
     set +e
     restore_state "$backup"
     [[ $was_active -eq 1 ]] && systemctl start "$SERVICE"
-    echo 'Cài đặt gặp lỗi ngoài dự kiến; database/cấu hình đã được phục hồi.' >&2
+    echo 'Installation failed unexpectedly; the database and configuration were restored.' >&2
     exit "$exit_code"
   }
   trap rollback_unexpected_error ERR
@@ -268,9 +272,9 @@ install_or_upgrade() {
   load_environment_file
   BACKEND_PORT="$SERVER_PORT"
   FRONTEND_PORT="${FRONTEND_PORT:-$SERVER_PORT}"
-  assert_port_available "$BACKEND_PORT" 'Cổng backend/API'
+  assert_port_available "$BACKEND_PORT" 'Backend/API port'
   if [[ "$FRONTEND_PORT" != "$BACKEND_PORT" ]]; then
-    assert_port_available "$FRONTEND_PORT" 'Cổng frontend/dashboard'
+    assert_port_available "$FRONTEND_PORT" 'Frontend/dashboard port'
   fi
 
   if ! "$NODE" "$APP_DIR/dist/scripts/setup-native.js"; then
@@ -278,7 +282,7 @@ install_or_upgrade() {
     set +e
     restore_state "$backup"
     [[ $was_active -eq 1 ]] && systemctl start "$SERVICE" || true
-    echo 'Nâng cấp thất bại; database và cấu hình đã được rollback.' >&2
+    echo 'Upgrade failed; the database and configuration were rolled back.' >&2
     exit 1
   fi
 
@@ -291,14 +295,14 @@ install_or_upgrade() {
     systemctl stop "$SERVICE" || true
     restore_state "$backup"
     [[ $was_active -eq 1 ]] && systemctl start "$SERVICE" || true
-    echo 'Dịch vụ mới không ready; database và cấu hình đã được rollback.' >&2
+    echo 'The new service did not become ready; the database and configuration were rolled back.' >&2
     exit 1
   fi
 
   trap - ERR
-  echo "MME $(installed_version) đã cài đặt và đang chạy."
+  echo "MME $(installed_version) is installed and running."
   echo "Dashboard: http://127.0.0.1:$FRONTEND_PORT · Backend API: http://127.0.0.1:$BACKEND_PORT"
-  [[ -f "$LOGIN_FILE" ]] && echo "Thông tin đăng nhập ban đầu: $LOGIN_FILE"
+  [[ -f "$LOGIN_FILE" ]] && echo "Initial sign-in details: $LOGIN_FILE"
 }
 
 refresh_runtime_ports
@@ -343,13 +347,13 @@ case "$ACTION" in
     require_root
     require_systemd
     systemctl disable --now "$SERVICE" || true
-    echo 'Đã dừng dịch vụ. Database, backup và cấu hình được giữ nguyên.'
+    echo 'The service was stopped. The database, backups, and configuration were preserved.'
     ;;
   version)
     installed_version
     ;;
   *)
-    echo 'Cách dùng: mme-control {install|upgrade|start|stop|restart|status|health|logs [số_dòng]|backup|uninstall|version}' >&2
+    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|logs [lines]|backup|uninstall|version}' >&2
     exit 2
     ;;
 esac

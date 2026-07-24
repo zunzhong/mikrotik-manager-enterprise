@@ -4,21 +4,29 @@ import { resolve } from 'node:path';
 
 type PrismaClientConstructor = new () => PrismaClient;
 
-function resolvePrismaClient(): PrismaClientConstructor {
-  const databaseUrl = process.env.DATABASE_URL ?? '';
-  if (!databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
-    return PrismaClient;
-  }
-
-  const clientPath = process.env.PRISMA_POSTGRESQL_CLIENT_PATH;
+function loadGeneratedClient(
+  clientPath: string | undefined,
+  label: string,
+): PrismaClientConstructor {
   if (!clientPath) return PrismaClient;
 
   const require = createRequire(import.meta.url);
   const generated = require(resolve(clientPath)) as { PrismaClient?: PrismaClientConstructor };
   if (!generated.PrismaClient) {
-    throw new Error(`PostgreSQL Prisma Client không hợp lệ: ${clientPath}`);
+    throw new Error(`${label} Prisma Client is invalid: ${clientPath}`);
   }
   return generated.PrismaClient;
+}
+
+function resolvePrismaClient(): PrismaClientConstructor {
+  const databaseUrl = process.env.DATABASE_URL ?? '';
+  if (databaseUrl.startsWith('postgresql://') || databaseUrl.startsWith('postgres://')) {
+    return loadGeneratedClient(process.env.PRISMA_POSTGRESQL_CLIENT_PATH, 'PostgreSQL');
+  }
+  if (databaseUrl.startsWith('mysql://')) {
+    return loadGeneratedClient(process.env.PRISMA_MYSQL_CLIENT_PATH, 'MariaDB/MySQL');
+  }
+  return PrismaClient;
 }
 
 /**

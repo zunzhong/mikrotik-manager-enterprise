@@ -39,8 +39,8 @@ mkdir -p \
   artifacts
 
 pnpm install --frozen-lockfile
-# Quality gate sử dụng schema PostgreSQL chuẩn. Payload phát hành chứa cả
-# SQLite tích hợp và PostgreSQL để trình cài Linux có thể chọn an toàn.
+# Quality gate sử dụng schema PostgreSQL chuẩn. Payload phát hành tạo client
+# riêng cho SQLite, PostgreSQL và MariaDB/MySQL.
 pnpm --filter @mme/server prisma:generate
 pnpm lint
 pnpm typecheck
@@ -101,12 +101,36 @@ find "$POSTGRES_CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-3.0.x*' -print -q
   exit 1
 }
 
+# MariaDB and MySQL use Prisma's mysql connector and a dedicated generated
+# client so SQLite and PostgreSQL remain isolated.
+cp "$APP/prisma/schema.prisma" "$APP/prisma/schema.mysql.prisma"
+sed -i 's/provider = "postgresql"/provider = "mysql"/' "$APP/prisma/schema.mysql.prisma"
+sed -i '/provider = "prisma-client-js"/a\  output = "../prisma-client-mysql"' \
+  "$APP/prisma/schema.mysql.prisma"
+sed -i '/output = "..\/prisma-client-mysql"/a\  binaryTargets = ["debian-openssl-1.1.x", "debian-openssl-3.0.x"]' \
+  "$APP/prisma/schema.mysql.prisma"
+node "$PRISMA_CLI" generate --schema "$APP/prisma/schema.mysql.prisma"
+
+MYSQL_CLIENT_DIR="$APP/prisma-client-mysql"
+[[ -f "$MYSQL_CLIENT_DIR/index.js" ]] || {
+  echo 'Payload thiếu Prisma Client MariaDB/MySQL.' >&2
+  exit 1
+}
+find "$MYSQL_CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-1.1.x*' -print -quit | grep -q . || {
+  echo 'MariaDB/MySQL client thiếu engine Ubuntu 20.04/OpenSSL 1.1.' >&2
+  exit 1
+}
+find "$MYSQL_CLIENT_DIR" -maxdepth 1 -name '*debian-openssl-3.0.x*' -print -quit | grep -q . || {
+  echo 'MariaDB/MySQL client thiếu engine Ubuntu 22.04/24.04/OpenSSL 3.' >&2
+  exit 1
+}
+
 cp -a apps/web/dist "$APP/web"
 install -d -m 0755 "$APP/runtime"
 install -m 0755 "$(command -v node)" "$APP/runtime/node"
 printf '%s\n' "$MME_PACKAGE_VERSION" > "$APP/VERSION"
 cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LINUX.md"
-cp project-docs/deployment/HUONG-DAN-CONG-DATABASE-5.5.0.md "$APP/HUONG-DAN-CONG-DATABASE-5.5.0.md"
+cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.0.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.0.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
 install -m 0755 packaging/linux/mme-ubuntu-install.sh "$ROOT/usr/local/bin/mme-ubuntu-install"
@@ -121,7 +145,7 @@ Architecture: amd64
 Depends: ca-certificates, curl, openssl, procps, systemd
 Maintainer: MikroTik Manager Enterprise Community
 Description: Enterprise MikroTik controller and monitoring platform
- SQLite or PostgreSQL build for Ubuntu Server 20.04 or newer, managed by systemd.
+ SQLite, PostgreSQL, or MariaDB/MySQL build for Ubuntu Server 20.04 or newer.
 EOF
 
 cat > "$ROOT/DEBIAN/postinst" <<'EOF'
@@ -131,7 +155,7 @@ if [ -d /run/systemd/system ]; then
   systemctl daemon-reload
   systemctl enable mme.service
 fi
-echo 'Hoàn tất giải nén. Chạy: sudo mme-control install'
+echo 'Package extraction completed. Run: sudo mme-control install'
 EOF
 
 cat > "$ROOT/DEBIAN/prerm" <<'EOF'
@@ -177,6 +201,6 @@ NODE_GLIBC="$("$APP/runtime/node" -p "process.report.getReport().header.glibcVer
   echo "package_version=$MME_PACKAGE_VERSION"
   echo "node_version=$("$APP/runtime/node" --version)"
   echo "node_glibc=$NODE_GLIBC"
-  echo 'database_engines=sqlite,postgresql'
+  echo 'database_engines=sqlite,postgresql,mariadb,mysql'
   echo 'prisma_targets=debian-openssl-1.1.x,debian-openssl-3.0.x'
 } | tee artifacts/ubuntu20-build-runtime.txt

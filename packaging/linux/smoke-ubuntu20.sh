@@ -34,6 +34,9 @@ dpkg-deb --extract "$PACKAGE" "$PAYLOAD"
 APP="$PAYLOAD/opt/mikrotik-manager-enterprise"
 NODE="$APP/runtime/node"
 [[ -x "$NODE" && -f "$APP/dist/server.js" && -f "$APP/prisma/schema.sqlite.sql" ]]
+[[ -f "$APP/prisma/schema.postgresql.prisma" && -f "$APP/prisma-client-postgresql/index.js" ]]
+[[ -f "$APP/prisma/schema.mysql.prisma" && -f "$APP/prisma-client-mysql/index.js" ]]
+[[ -f "$APP/node_modules/prisma/build/index.js" ]]
 
 ldd "$NODE" | tee artifacts/ubuntu20-node-ldd.txt
 if ldd "$NODE" | grep -q 'not found'; then
@@ -59,6 +62,11 @@ export BACKUP_STORAGE_PATH="$DATA/backups"
 export WEB_DIST_PATH="$APP/web"
 export SQLITE_SCHEMA_SQL="$APP/prisma/schema.sqlite.sql"
 export LOG_LEVEL=info
+
+DATABASE_URL='mysql://mme:probe@127.0.0.1:3306/mme' \
+  "$NODE" "$APP/node_modules/prisma/build/index.js" validate \
+  --schema "$APP/prisma/schema.mysql.prisma" \
+  | tee artifacts/ubuntu20-mysql-schema-validate.log
 
 "$NODE" "$APP/dist/scripts/setup-native.js" | tee artifacts/ubuntu20-setup-native.log
 (

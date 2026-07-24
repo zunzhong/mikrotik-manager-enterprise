@@ -21,6 +21,8 @@ const envSchema = z.object({
   WEB_DIST_PATH: z.string().optional(),
   PRISMA_POSTGRESQL_CLIENT_PATH: z.string().optional(),
   PRISMA_POSTGRESQL_SCHEMA: z.string().optional(),
+  PRISMA_MYSQL_CLIENT_PATH: z.string().optional(),
+  PRISMA_MYSQL_SCHEMA: z.string().optional(),
   PRISMA_CLI_PATH: z.string().optional(),
 });
 
