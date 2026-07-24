@@ -130,6 +130,11 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('FRONTEND_HOST=$frontend_host');
     expect(control).toContain('network-check)');
     expect(control).toContain('Configured dashboard listener');
+    expect(control).toContain('database-check)');
+    expect(control).toContain('Database engine:');
+    expect(control).toContain('login-info)');
+    expect(control).toContain('ensure_login_file');
+    expect(control).toContain('/root/mme-thong-tin-dang-nhap.txt');
     expect(control).toContain('PRISMA_POSTGRESQL_CLIENT_PATH');
     expect(control).toContain('PRISMA_MYSQL_CLIENT_PATH');
     expect(control).toContain('load_environment_file');
@@ -147,5 +152,17 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(setup).toContain('PRISMA_MYSQL_SCHEMA');
     expect(env).toContain('PRISMA_MYSQL_CLIENT_PATH');
     expect(env).toContain('PRISMA_MYSQL_SCHEMA');
+  });
+
+  it('repairs a missing Linux sign-in file against the active database account', () => {
+    const credentials = read('apps/server/src/scripts/ensure-login-credentials.ts');
+    const guide = read('project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md');
+
+    expect(credentials).toContain('passwordService.verify');
+    expect(credentials).toContain("process.env.MME_REPAIR_LOGIN_CREDENTIALS !== '1'");
+    expect(credentials).toContain('passwordHash: passwordService.hash(password)');
+    expect(guide).toContain('sudo mme-control database-check');
+    expect(guide).toContain('sudo mme-control login-info');
+    expect(guide).toContain('/root/mme-thong-tin-dang-nhap.txt');
   });
 });

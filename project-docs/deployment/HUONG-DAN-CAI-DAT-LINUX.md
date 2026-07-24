@@ -39,8 +39,9 @@ Script sẽ tự động:
 6. Nếu UFW đang bật, tự mở đúng cổng dashboard cho subnet LAN kết nối trực tiếp.
 7. Kiểm tra database hiện có và hiển thị lựa chọn SQLite/PostgreSQL/MariaDB/MySQL.
 8. Cài dependency cần thiết, khởi tạo database và tài khoản quản trị.
-9. Bật `mme.service` tự chạy cùng Ubuntu.
-10. Chờ `/ready` xác nhận ứng dụng và database hoạt động.
+9. Tạo file `/root/mme-thong-tin-dang-nhap.txt` với quyền `0600`.
+10. Bật `mme.service` tự chạy cùng Ubuntu.
+11. Chờ `/ready` xác nhận ứng dụng và database hoạt động.
 
 Nếu phát hiện cấu hình database MME đã có, trình cài giữ nguyên khi nâng cấp. Khi cài mới,
 trình cài phát hiện SQLite MME, PostgreSQL hoặc MariaDB/MySQL trên máy và hỏi trước khi sử dụng.
@@ -114,7 +115,31 @@ Thông tin đăng nhập ban đầu nằm tại:
 
 ```bash
 sudo cat /root/mme-thong-tin-dang-nhap.txt
+sudo mme-control login-info
 ```
+
+Từ bản 5.6.2, cài mới luôn tạo file này. Khi nâng cấp mà file bị thiếu, MME kiểm tra mật khẩu
+trong `mme.env` với tài khoản quản trị trong database. Nếu hai giá trị không còn khớp, MME đồng
+bộ lại mật khẩu quản trị trước khi tạo file, vì vậy thông tin ghi trong file có thể dùng để đăng
+nhập. Quá trình này không xóa hoặc khởi tạo lại database.
+
+## Kiểm tra MME đang dùng database nào
+
+Lệnh an toàn sau chỉ hiển thị loại database và trạng thái kết nối, không in username hoặc mật khẩu:
+
+```bash
+sudo mme-control database-check
+```
+
+Ví dụ khi dùng MariaDB:
+
+```text
+Database engine: MariaDB/MySQL
+Configuration file: /etc/mikrotik-manager-enterprise/mme.env
+Database status: connected
+```
+
+Các kết quả engine có thể là `SQLite`, `PostgreSQL` hoặc `MariaDB/MySQL`.
 
 ## Kiểm tra backend và dashboard
 
@@ -125,6 +150,7 @@ sudo systemctl status mme.service --no-pager
 sudo mme-control status
 sudo mme-control health
 sudo mme-control network-check
+sudo mme-control database-check
 curl --fail http://127.0.0.1:3000/ready
 ```
 
@@ -213,6 +239,9 @@ sudo mme-control stop
 sudo mme-control restart
 sudo mme-control status
 sudo mme-control health
+sudo mme-control network-check
+sudo mme-control database-check
+sudo mme-control login-info
 sudo mme-control logs 300
 sudo mme-control backup
 sudo mme-control version

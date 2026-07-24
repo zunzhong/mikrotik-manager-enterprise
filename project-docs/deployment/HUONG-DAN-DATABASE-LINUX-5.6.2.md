@@ -1,6 +1,6 @@
-# Database cho MME Linux 5.6.1
+# Database cho MME Linux 5.6.2
 
-MME Linux 5.6.1 hỗ trợ SQLite, PostgreSQL và MariaDB/MySQL. Trình cài tự kiểm tra cấu hình MME
+MME Linux 5.6.2 hỗ trợ SQLite, PostgreSQL và MariaDB/MySQL. Trình cài tự kiểm tra cấu hình MME
 đã có và các database server đang cài trên máy trước khi thay đổi hệ thống.
 
 Trình cài cũng hỏi bằng tiếng Anh có cho phép truy cập dashboard từ LAN hay không. Khi đồng ý,
@@ -23,13 +23,34 @@ Trình cài thực hiện theo thứ tự:
 Các câu hỏi xác nhận hiển thị bằng tiếng Anh. Tên database chỉ được chứa chữ, số và dấu gạch
 dưới. Trình cài không thay đổi mật khẩu của tài khoản database đã tồn tại.
 
+## Kiểm tra database MME đang sử dụng
+
+Sau khi cài hoặc nâng cấp, chạy:
+
+```bash
+sudo mme-control database-check
+```
+
+Lệnh trả về engine `SQLite`, `PostgreSQL` hoặc `MariaDB/MySQL` cùng trạng thái kết nối nhưng
+không hiển thị thông tin xác thực database.
+
+Thông tin đăng nhập dashboard được lưu tại:
+
+```bash
+sudo mme-control login-info
+```
+
+File gốc là `/root/mme-thong-tin-dang-nhap.txt` và chỉ `root` có quyền đọc. Nếu file bị thiếu khi
+nâng cấp từ phiên bản cũ, MME 5.6.2 xác minh hoặc đồng bộ mật khẩu quản trị với database trước
+khi tạo lại file.
+
 ## Cài không tương tác
 
 SQLite:
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 MME_DATABASE_ENGINE=sqlite \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.2_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
@@ -37,7 +58,7 @@ PostgreSQL cục bộ:
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 MME_DATABASE_ENGINE=postgresql MME_DATABASE_NAME=mme \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.2_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
@@ -45,7 +66,7 @@ MariaDB cục bộ:
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 MME_DATABASE_ENGINE=mariadb MME_DATABASE_NAME=mme \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.2_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
@@ -54,14 +75,14 @@ Database server bên ngoài:
 ```bash
 sudo env MME_NONINTERACTIVE=1 \
   MME_DATABASE_URL='postgresql://user:password@db-host:5432/mme?schema=public' \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.2_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 
 ```bash
 sudo env MME_NONINTERACTIVE=1 \
   MME_DATABASE_URL='mysql://user:password@db-host:3306/mme' \
-  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.1_amd64.deb \
+  ./mme-ubuntu-install.sh install ./mikrotik-manager-enterprise_5.6.2_amd64.deb \
   ./SHA256SUMS-LINUX.txt
 ```
 

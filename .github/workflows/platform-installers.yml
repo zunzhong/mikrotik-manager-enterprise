@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.6.1
+        default: 5.6.2
       platform:
         description: Nền tảng cần build
         required: true
@@ -589,6 +589,12 @@ jobs:
             sudo ls -ld /etc/mikrotik-manager-enterprise >&2 || true
             exit 1
           }
+          sudo test -s /root/mme-thong-tin-dang-nhap.txt
+          sudo grep -q '^Email: admin@example.com$' /root/mme-thong-tin-dang-nhap.txt
+          sudo grep -Eq '^Password: .+$' /root/mme-thong-tin-dang-nhap.txt
+          sudo mme-control database-check | tee artifacts/database-check-sqlite.log
+          grep -q '^Database engine: SQLite$' artifacts/database-check-sqlite.log
+          grep -q '^Database status: connected$' artifacts/database-check-sqlite.log
           jwt_before="$(sudo awk -F= '/^JWT_SECRET=/{print $2}' /etc/mikrotik-manager-enterprise/mme.env)"
           test -n "$jwt_before" || {
             echo 'Cấu hình MME thiếu JWT_SECRET sau khi cài đặt.' >&2
@@ -607,10 +613,41 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
+          recovery_password='MME-Recovery-5.6.2!'
+          sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path('/etc/mikrotik-manager-enterprise/mme.env')
+          lines = path.read_text(encoding='utf-8').splitlines()
+          password = os.environ['RECOVERY_PASSWORD']
+          replaced = False
+          output = []
+          for line in lines:
+              if line.startswith('DEFAULT_ADMIN_PASSWORD='):
+                  output.append(f'DEFAULT_ADMIN_PASSWORD={password}')
+                  replaced = True
+              else:
+                  output.append(line)
+          if not replaced:
+              output.append(f'DEFAULT_ADMIN_PASSWORD={password}')
+          path.write_text('\n'.join(output) + '\n', encoding='utf-8')
+          PY
+          sudo rm -f /root/mme-thong-tin-dang-nhap.txt
+
           sudo bash artifacts/mme-ubuntu-install.sh upgrade "$package" artifacts/SHA256SUMS-LINUX.txt \
             | tee artifacts/install-deb-upgrade.log
           curl --fail --silent http://127.0.0.1:3000/ready | tee artifacts/ready-deb-upgrade.json
           systemctl is-active --quiet mme.service
+          sudo test -s /root/mme-thong-tin-dang-nhap.txt
+          sudo grep -Fqx "Password: $recovery_password" /root/mme-thong-tin-dang-nhap.txt
+          EMAIL='admin@example.com' PASSWORD="$recovery_password" python3 -c \
+            'import json,os; print(json.dumps({"email":os.environ["EMAIL"],"password":os.environ["PASSWORD"]}))' \
+            | curl --fail --silent --show-error --header 'Content-Type: application/json' \
+                --data-binary @- http://127.0.0.1:3000/api/v1/auth/login \
+            | python3 -c \
+                'import json,sys; data=json.load(sys.stdin); assert data.get("success") is True; print(json.dumps({"success":True,"credentialFileVerified":True}))' \
+            | tee artifacts/login-recovery-deb.json
           jwt_after="$(sudo awk -F= '/^JWT_SECRET=/{print $2}' /etc/mikrotik-manager-enterprise/mme.env)"
           test -n "$jwt_before"
           test "$jwt_before" = "$jwt_after"
@@ -639,6 +676,9 @@ jobs:
           sudo mariadb --batch --skip-column-names --execute \
             'SELECT count(*) FROM `mme_ci_mariadb`.`User`' \
             | grep -Eq '^[1-9][0-9]*$'
+          sudo mme-control database-check | tee artifacts/database-check-mariadb.log
+          grep -q '^Database engine: MariaDB/MySQL$' artifacts/database-check-mariadb.log
+          grep -q '^Database status: connected$' artifacts/database-check-mariadb.log
           jwt_mariadb="$(sudo awk -F= '/^JWT_SECRET=/{print $2}' /etc/mikrotik-manager-enterprise/mme.env)"
           test "$jwt_before" = "$jwt_mariadb"
           curl --fail --silent http://127.0.0.1:3080/api/v1/topology \
@@ -664,7 +704,7 @@ jobs:
           cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md artifacts/HUONG-DAN-CAI-DAT-LINUX.md
           cp project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
           cp project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
-          cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.1.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.1.md
+          cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.2.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.2.md
 
       - name: Thu thập chẩn đoán Linux
         if: always()
@@ -686,10 +726,11 @@ jobs:
             artifacts/HUONG-DAN-CAI-DAT-LINUX.md
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
             artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
-            artifacts/HUONG-DAN-DATABASE-LINUX-5.6.1.md
+            artifacts/HUONG-DAN-DATABASE-LINUX-5.6.2.md
             artifacts/*.log
             artifacts/ready-deb-*.json
             artifacts/topology-deb-*.json
+            artifacts/login-recovery-deb.json
             artifacts/report-send-guard-deb.json
             artifacts/ubuntu20-*.txt
             artifacts/ubuntu20-*.json

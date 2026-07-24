@@ -130,7 +130,7 @@ install -d -m 0755 "$APP/runtime"
 install -m 0755 "$(command -v node)" "$APP/runtime/node"
 printf '%s\n' "$MME_PACKAGE_VERSION" > "$APP/VERSION"
 cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LINUX.md"
-cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.1.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.1.md"
+cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.2.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.2.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
 install -m 0755 packaging/linux/mme-ubuntu-install.sh "$ROOT/usr/local/bin/mme-ubuntu-install"

@@ -152,12 +152,16 @@ initialize_env() {
     [[ -n "${MME_SERVER_HOST:-}" ]] && set_env_value SERVER_HOST "$MME_SERVER_HOST"
     [[ -n "${MME_FRONTEND_HOST:-}" ]] && set_env_value FRONTEND_HOST "$MME_FRONTEND_HOST"
     [[ -n "${MME_DATABASE_URL:-}" ]] && set_env_value DATABASE_URL "$MME_DATABASE_URL"
+    [[ -n "$(read_env_value DEFAULT_ADMIN_EMAIL)" ]] ||
+      set_env_value DEFAULT_ADMIN_EMAIL admin@example.com
+    [[ -n "$(read_env_value DEFAULT_ADMIN_PASSWORD)" ]] ||
+      set_env_value DEFAULT_ADMIN_PASSWORD "$(secret 12)"
     chmod 0600 "$ENV_FILE"
     return
   fi
 
   local admin_password
-  local backend_host backend_port frontend_host frontend_port database_url dashboard_host
+  local backend_host backend_port frontend_host frontend_port database_url
   admin_password="$(secret 12)"
   backend_port="${MME_BACKEND_PORT:-3000}"
   valid_port "$backend_port" || backend_port=3000
@@ -196,13 +200,80 @@ PRISMA_CLI_PATH=$APP_DIR/node_modules/prisma/build/index.js
 LOG_LEVEL=info
 EOF
   chmod 0600 "$ENV_FILE"
+}
 
-  dashboard_host="$(public_host_for_listener "$frontend_host")"
+write_login_file() {
+  local dashboard_listener_host dashboard_host temporary
+  if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
+    dashboard_listener_host="${SERVER_HOST:-127.0.0.1}"
+  else
+    dashboard_listener_host="${FRONTEND_HOST:-127.0.0.1}"
+  fi
+  dashboard_host="$(public_host_for_listener "$dashboard_listener_host")"
   [[ -n "$dashboard_host" ]] || dashboard_host=127.0.0.1
-  printf 'URL: http://%s:%s\nBackend API: http://127.0.0.1:%s\nEmail: admin@example.com\nPassword: %s\n' \
-    "$dashboard_host" "$frontend_port" "$backend_port" "$admin_password" \
-    > "$LOGIN_FILE"
-  chmod 0600 "$LOGIN_FILE"
+  temporary="$(mktemp)"
+  printf 'URL: http://%s:%s\nBackend API: http://127.0.0.1:%s\nEmail: %s\nPassword: %s\n' \
+    "$dashboard_host" "$FRONTEND_PORT" "$BACKEND_PORT" \
+    "$DEFAULT_ADMIN_EMAIL" "$DEFAULT_ADMIN_PASSWORD" \
+    > "$temporary"
+  install -m 0600 "$temporary" "$LOGIN_FILE"
+  rm -f "$temporary"
+}
+
+ensure_login_file() {
+  if [[ -s "$LOGIN_FILE" ]]; then
+    chmod 0600 "$LOGIN_FILE"
+    return
+  fi
+
+  local credential_script="$APP_DIR/dist/scripts/ensure-login-credentials.js"
+  [[ -f "$credential_script" ]] || {
+    echo 'The MME payload is incomplete: ensure-login-credentials.js is missing.' >&2
+    return 1
+  }
+  MME_REPAIR_LOGIN_CREDENTIALS=1 "$NODE" "$credential_script"
+  write_login_file
+  echo "Initial sign-in details were created at $LOGIN_FILE."
+}
+
+database_check() {
+  require_root
+  require_systemd
+  local database_url engine server_host check_host check_url_host
+  database_url="$(read_env_value DATABASE_URL)"
+  case "$database_url" in
+    file:*) engine='SQLite' ;;
+    postgresql://* | postgres://*) engine='PostgreSQL' ;;
+    mysql://*) engine='MariaDB/MySQL' ;;
+    '')
+      echo "DATABASE_URL is missing from $ENV_FILE." >&2
+      return 1
+      ;;
+    *)
+      echo "Unsupported DATABASE_URL in $ENV_FILE." >&2
+      return 1
+      ;;
+  esac
+
+  server_host="$(read_env_value SERVER_HOST)"
+  [[ -n "$server_host" ]] || server_host=127.0.0.1
+  if [[ "$server_host" == '0.0.0.0' || "$server_host" == '::' ]]; then
+    check_host=127.0.0.1
+  else
+    check_host="$server_host"
+  fi
+  [[ "$check_host" == *:* ]] && check_url_host="[$check_host]" || check_url_host="$check_host"
+
+  echo "Database engine: $engine"
+  echo "Configuration file: $ENV_FILE"
+  if systemctl is-active --quiet "$SERVICE" &&
+    curl --fail --silent --max-time 5 "http://$check_url_host:$BACKEND_PORT/ready" |
+      grep -q '"database":true'; then
+    echo 'Database status: connected'
+  else
+    echo 'Database status: not verified'
+    return 1
+  fi
 }
 
 backup_state() {
@@ -357,6 +428,7 @@ install_or_upgrade() {
   fi
 
   trap - ERR
+  ensure_login_file
   local dashboard_listener_host dashboard_public_host
   if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
     dashboard_listener_host="${SERVER_HOST:-127.0.0.1}"
@@ -402,6 +474,17 @@ case "$ACTION" in
   network-check)
     network_check
     ;;
+  database-check)
+    database_check
+    ;;
+  login-info)
+    require_root
+    [[ -s "$LOGIN_FILE" ]] || {
+      echo "Sign-in details file is missing: $LOGIN_FILE" >&2
+      exit 1
+    }
+    cat "$LOGIN_FILE"
+    ;;
   logs)
     require_systemd
     journalctl -u "$SERVICE" --no-pager -n "${2:-300}"
@@ -421,7 +504,7 @@ case "$ACTION" in
     installed_version
     ;;
   *)
-    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|logs [lines]|backup|uninstall|version}' >&2
+    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|database-check|login-info|logs [lines]|backup|uninstall|version}' >&2
     exit 2
     ;;
 esac

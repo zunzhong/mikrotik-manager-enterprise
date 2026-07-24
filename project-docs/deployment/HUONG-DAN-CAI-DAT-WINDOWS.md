@@ -64,7 +64,7 @@ Kết quả mong đợi: Service có trạng thái `Running`, API trả về `st
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.6.1-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.6.2-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -72,7 +72,7 @@ Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.6.1-x64.exe' `
 Đặt cổng riêng khi cài im lặng:
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.6.1-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.6.2-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
     '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
   -Wait
