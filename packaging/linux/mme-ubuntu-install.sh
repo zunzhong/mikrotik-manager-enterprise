@@ -454,7 +454,7 @@ verify_checksum() {
 install_dependencies() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install --yes --no-install-recommends ca-certificates curl openssl procps systemd
+  apt-get install --yes --no-install-recommends ca-certificates curl iputils-ping openssl procps systemd
   if [[ "$PROVISION_LOCAL_POSTGRESQL" == 1 ]]; then
     apt-get install --yes --no-install-recommends postgresql postgresql-client
   elif [[ "$USE_CONFIGURED_POSTGRESQL" == 1 ]]; then

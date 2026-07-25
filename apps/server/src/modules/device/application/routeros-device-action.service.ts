@@ -1,4 +1,4 @@
-import { RouterOsClient } from '@mme/routeros-sdk';
+import { RouterClient } from '@mme/routeros-core';
 import { spawn } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
@@ -232,8 +232,11 @@ export class RouterOsDeviceActionService {
     }
 
     return this.withClient(deviceId, 'terminal', async (client) => ({
-      message: `Đã thực thi: ${input.command}`,
-      data: await client.command(parsed.path, parsed.params, { timeoutMs: 60000 }),
+      message: `Executed through RouterOS API: ${input.command}`,
+      data: await client.command(parsed.path, parsed.params, {
+        queries: parsed.queries,
+        timeoutMs: 60000,
+      }),
     }));
   }
 
@@ -287,7 +290,7 @@ export class RouterOsDeviceActionService {
   private async withClient(
     deviceId: string,
     action: string,
-    run: (client: RouterOsClient) => Promise<{ message: string; data?: unknown }>,
+    run: (client: RouterClient) => Promise<{ message: string; data?: unknown }>,
   ): Promise<DeviceActionResult> {
     const device = await deviceRepository.findById(deviceId);
 
@@ -296,12 +299,13 @@ export class RouterOsDeviceActionService {
     }
 
     const startedAt = now();
-    const client = new RouterOsClient({
+    const client = new RouterClient({
       host: device.host,
       port: device.port,
       username: device.username,
       password: encryptionService.decrypt(device.passwordEncrypted),
       tls: device.useTls,
+      loginMode: device.loginMode as 'auto' | 'modern' | 'legacy',
       timeoutMs: 15000,
       rejectUnauthorized: false,
     });
@@ -332,7 +336,7 @@ export class RouterOsDeviceActionService {
         message: error instanceof Error ? error.message : `RouterOS ${action} action failed`,
       };
     } finally {
-      client.close();
+      await client.close();
     }
   }
 }
@@ -403,6 +407,7 @@ const COMMAND_WORDS = new Set([
 export function parseRouterOsApiCommand(command: string): {
   path: string;
   params: Record<string, string | boolean>;
+  queries: string[];
 } {
   const words = tokenizeCommand(command);
   let path = words.shift();
@@ -423,13 +428,59 @@ export function parseRouterOsApiCommand(command: string): {
   if (pathParts.length > 0) path = `${path}/${pathParts.join('/')}`;
 
   const params: Record<string, string | boolean> = {};
+  const queries: string[] = [];
+  let where = false;
   for (const word of words) {
+    if (word.toLowerCase() === 'where') {
+      where = true;
+      continue;
+    }
+    if (word.toLowerCase() === 'and' || word === '&&') {
+      continue;
+    }
+    if (word.startsWith('?')) {
+      queries.push(word);
+      continue;
+    }
+    if (where) {
+      queries.push(toRouterOsQueryWord(word));
+      continue;
+    }
     const normalized = word.replace(/^=/, '');
     const separator = normalized.indexOf('=');
     if (separator < 0) params[normalized] = true;
     else params[normalized.slice(0, separator)] = normalized.slice(separator + 1);
   }
-  return { path: normalizeApiPath(path), params };
+  return { path: normalizeApiPath(path), params, queries };
+}
+
+function toRouterOsQueryWord(expression: string): string {
+  const match = /^([^=<>~!\s]+)(!=|>=|<=|=|>|<|~)(.*)$/.exec(expression);
+  if (!match) {
+    throw new Error(
+      `Unsupported RouterOS where expression "${expression}". Use key=value, key~value, key>value, key<value, or REST Script mode for advanced CLI syntax.`,
+    );
+  }
+
+  const [, key, operator, value] = match;
+  switch (operator) {
+    case '=':
+      return `?${key}=${value}`;
+    case '~':
+      return `?${key}~${value}`;
+    case '>':
+    case '>=':
+      return `?>${key}=${value}`;
+    case '<':
+    case '<=':
+      return `?<${key}=${value}`;
+    case '!=':
+      throw new Error(
+        'The RouterOS API terminal does not safely translate !=. Use REST Script mode for this expression.',
+      );
+    default:
+      throw new Error(`Unsupported RouterOS query operator: ${operator}`);
+  }
 }
 
 function normalizeApiPath(path: string): string {

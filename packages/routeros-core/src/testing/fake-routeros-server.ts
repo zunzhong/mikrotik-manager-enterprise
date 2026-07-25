@@ -10,6 +10,8 @@ export interface FakeRouterOsServerOptions {
   loginMode?: 'modern' | 'legacy';
   challengeHex?: string;
   resource?: Record<string, string>;
+  responses?: Record<string, Array<Record<string, string>>>;
+  unknownCommand?: 'trap' | 'empty';
 }
 
 /**
@@ -20,6 +22,7 @@ export interface FakeRouterOsServerOptions {
 export class FakeRouterOsServer {
   private server: Server | null = null;
   private readonly sockets = new Set<Socket>();
+  public readonly receivedSentences: RouterOsSentence[] = [];
 
   public constructor(private readonly options: FakeRouterOsServerOptions = {}) {}
 
@@ -84,6 +87,7 @@ export class FakeRouterOsServer {
   }
 
   private handleSentence(socket: Socket, sentence: RouterOsSentence): void {
+    this.receivedSentences.push([...sentence]);
     const command = sentence[0];
 
     if (command === '/login') {
@@ -96,12 +100,39 @@ export class FakeRouterOsServer {
       return;
     }
 
+    const configuredRows = this.options.responses?.[command];
+    if (configuredRows) {
+      this.handleConfiguredResponse(socket, sentence, configuredRows);
+      return;
+    }
+
+    if (this.options.unknownCommand === 'empty') {
+      this.write(socket, ['!done', this.getTagWord(sentence)]);
+      return;
+    }
+
     this.write(socket, [
       '!trap',
       '=message=no such command',
       '=category=0',
       this.getTagWord(sentence),
     ]);
+  }
+
+  private handleConfiguredResponse(
+    socket: Socket,
+    sentence: RouterOsSentence,
+    rows: Array<Record<string, string>>,
+  ): void {
+    const tagWord = this.getTagWord(sentence);
+    for (const row of rows) {
+      this.write(socket, [
+        '!re',
+        ...Object.entries(row).map(([key, value]) => `=${key}=${value}`),
+        tagWord,
+      ]);
+    }
+    this.write(socket, ['!done', tagWord]);
   }
 
   private handleLogin(socket: Socket, sentence: RouterOsSentence): void {

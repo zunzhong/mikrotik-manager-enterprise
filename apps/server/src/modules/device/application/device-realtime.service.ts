@@ -1,4 +1,4 @@
-import { RouterOsClient } from '@mme/routeros-sdk';
+import { RouterClient } from '@mme/routeros-core';
 import { createHash } from 'node:crypto';
 import { HttpError } from '../../../errors/http-error.js';
 import { encryptionService } from '../../../security/encryption.service.js';
@@ -54,11 +54,11 @@ const DEFAULT_TTL_MS = 5000;
 const ROUTEROS_LOG_POLL_INTERVAL_MS = 10000;
 
 async function safePrint<T extends object = object>(
-  client: RouterOsClient,
+  client: RouterClient,
   path: string,
 ): Promise<T[]> {
   try {
-    return (await client.print(path)) as T[];
+    return (await client.command(path)).rows as T[];
   } catch {
     return [];
   }
@@ -180,7 +180,7 @@ export function routerOsLogAlertMessage(log: object): string {
 
 export class DeviceRealtimeService {
   private readonly cache = new Map<string, DeviceRealtimeCacheEntry>();
-  private readonly clients = new Map<string, { key: string; client: RouterOsClient }>();
+  private readonly clients = new Map<string, { key: string; client: RouterClient }>();
   private readonly refreshes = new Map<string, Promise<DeviceRealtimeView>>();
   private readonly lastOnlineState = new Map<string, boolean>();
   private readonly lastHealthFingerprint = new Map<string, string>();
@@ -224,6 +224,7 @@ export class DeviceRealtimeService {
       ttlMs?: number;
       source?: DeviceRealtimeCacheEntry['source'];
       pollIntervalMs?: number;
+      forceNewConnection?: boolean;
     },
   ): Promise<DeviceRealtimeView> {
     const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
@@ -235,7 +236,8 @@ export class DeviceRealtimeService {
     }
 
     const startedAt = Date.now();
-    let client: RouterOsClient | undefined;
+    let client: RouterClient | undefined;
+    let reusedClient = false;
 
     try {
       const password = encryptionService.decrypt(device.passwordEncrypted);
@@ -251,16 +253,18 @@ export class DeviceRealtimeService {
         )
         .digest('hex');
       const existing = this.clients.get(deviceId);
-      if (existing?.key === connectionKey) {
+      if (existing?.key === connectionKey && !options.forceNewConnection) {
         client = existing.client;
+        reusedClient = true;
       } else {
-        existing?.client.close();
-        client = new RouterOsClient({
+        void existing?.client.close();
+        client = new RouterClient({
           host: device.host,
           port: device.port,
           username: device.username,
           password,
           tls: device.useTls,
+          loginMode: device.loginMode as 'auto' | 'modern' | 'legacy',
           timeoutMs: 10000,
           rejectUnauthorized: false,
         });
@@ -270,7 +274,9 @@ export class DeviceRealtimeService {
 
       // Do not overlap commands on one RouterOS sentence stream.
       const identity = (await safePrint(client, '/system/identity/print'))[0] ?? {};
-      const resource = { ...(await client.system.resource()) } as RouterOsResourceLike;
+      const resource = {
+        ...((await client.command('/system/resource/print')).rows[0] ?? {}),
+      } as RouterOsResourceLike;
       const routerboard = (await safePrint(client, '/system/routerboard/print'))[0] ?? {};
       const health = await safePrint<RouterOsHealthLike>(client, '/system/health/print');
       const interfaces = await safePrint(client, '/interface/print');
@@ -322,8 +328,14 @@ export class DeviceRealtimeService {
 
       return this.storeSnapshot(deviceId, snapshot, ttlMs, source, options.pollIntervalMs);
     } catch (error) {
-      client?.close();
+      await client?.close().catch(() => undefined);
       this.clients.delete(deviceId);
+      if (reusedClient) {
+        return this.performRefreshSnapshot(deviceId, {
+          ...options,
+          forceNewConnection: true,
+        });
+      }
       const snapshot: DeviceRealtimeSnapshot = {
         deviceId,
         deviceName: device.name,
@@ -356,7 +368,7 @@ export class DeviceRealtimeService {
   }
 
   public clear(deviceId: string): void {
-    this.clients.get(deviceId)?.client.close();
+    void this.clients.get(deviceId)?.client.close();
     this.clients.delete(deviceId);
     this.cache.delete(deviceId);
     this.lastOnlineState.delete(deviceId);
@@ -367,7 +379,7 @@ export class DeviceRealtimeService {
   }
 
   public clearAll(): void {
-    for (const { client } of this.clients.values()) client.close();
+    for (const { client } of this.clients.values()) void client.close();
     this.clients.clear();
     this.cache.clear();
     this.lastOnlineState.clear();

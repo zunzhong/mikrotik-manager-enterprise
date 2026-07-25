@@ -12,7 +12,38 @@ export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; dev
   const [restBody, setRestBody] = useState('{}');
   const [output, setOutput] = useState('');
   const [running, setRunning] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+
+  async function checkConnection() {
+    setChecking(true);
+    setOutput('Checking the saved RouterOS API connection...');
+    try {
+      const result = await deviceApi.testSaved(deviceId, { timeoutMs: 15000 });
+      setOutput(
+        result.online
+          ? [
+              'ROUTEROS API CONNECTION: READY',
+              `Identity: ${result.identity ?? 'N/A'}`,
+              `RouterOS: ${result.version ?? 'N/A'}`,
+              `Uptime: ${result.uptime ?? 'N/A'}`,
+              `Response time: ${result.responseTimeMs ?? result.latencyMs ?? 0} ms`,
+            ].join('\n')
+          : [
+              'ROUTEROS API CONNECTION: FAILED',
+              `Code: ${result.code ?? 'UNKNOWN_ERROR'}`,
+              `Reason: ${result.reason ?? result.error ?? 'No response from RouterOS'}`,
+              'Verify the device host/port, API or API-SSL service, username/password, and RouterOS read/write policies.',
+            ].join('\n'),
+      );
+    } catch (error) {
+      setOutput(
+        `CONNECTION CHECK ERROR: ${error instanceof Error ? error.message : 'Unable to test RouterOS API.'}`,
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function execute() {
     const value = command.trim();
@@ -62,6 +93,14 @@ export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; dev
           <p className="device-dashboard__eyebrow">New Terminal</p>
           <h3>RouterOS CLI — {deviceName}</h3>
         </div>
+        <button
+          className="small-button"
+          type="button"
+          onClick={() => void checkConnection()}
+          disabled={checking || running}
+        >
+          {checking ? 'Checking...' : 'Check API connection'}
+        </button>
       </header>
       <div className="terminal-mode-row">
         <label>
@@ -167,7 +206,7 @@ export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; dev
           {
             label: 'Lọc log error',
             command: '/log print where message~"error"',
-            mode: 'script' as const,
+            mode: 'api' as const,
           },
           {
             label: 'Ghi log MME',
@@ -200,6 +239,13 @@ export function DeviceTerminal({ deviceId, deviceName }: { deviceId: string; dev
           REST yêu cầu bật <code>www-ssl</code> (khuyến nghị) hoặc <code>www</code> và tài khoản
           RouterOS có policy <code>rest-api</code>. HTTPS tự ký được MME chấp nhận trong mạng quản
           trị.
+        </div>
+      ) : null}
+      {transport === 'api' ? (
+        <div className="terminal-rest-note">
+          API mode uses the host, port and API/API-SSL credentials saved for this device. The
+          RouterOS account needs at least <code>read</code>, <code>api</code> and, for configuration
+          commands, <code>write</code> policy.
         </div>
       ) : null}
       {history.length > 0 ? (

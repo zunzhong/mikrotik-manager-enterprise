@@ -362,6 +362,69 @@ network_check() {
   fi
 }
 
+feature_check() {
+  require_root
+  require_systemd
+  local server_host frontend_host listener_host check_host check_url_host index_file asset assets
+  systemctl is-active --quiet "$SERVICE" || {
+    echo 'MME service is not active.' >&2
+    return 1
+  }
+  database_check
+  command -v ping >/dev/null 2>&1 || {
+    echo 'Linux ping support is missing. Reinstall the DEB so iputils-ping is installed.' >&2
+    return 1
+  }
+
+  server_host="$(read_env_value SERVER_HOST)"
+  frontend_host="$(read_env_value FRONTEND_HOST)"
+  [[ -n "$server_host" ]] || server_host=127.0.0.1
+  [[ -n "$frontend_host" ]] || frontend_host="$server_host"
+  if [[ "$FRONTEND_PORT" == "$BACKEND_PORT" ]]; then
+    listener_host="$server_host"
+  else
+    listener_host="$frontend_host"
+  fi
+  if [[ "$listener_host" == '0.0.0.0' || "$listener_host" == '::' ]]; then
+    check_host=127.0.0.1
+  else
+    check_host="$listener_host"
+  fi
+  [[ "$check_host" == *:* ]] && check_url_host="[$check_host]" || check_url_host="$check_host"
+
+  index_file="$(mktemp)"
+  curl --fail --silent --show-error --max-time 10 \
+    "http://$check_url_host:$FRONTEND_PORT/" > "$index_file"
+  grep -q '<div id="root"></div>' "$index_file" || {
+    rm -f "$index_file"
+    echo 'The dashboard HTML is incomplete.' >&2
+    return 1
+  }
+  assets="$(grep -oE '/assets/[^" ]+\.(css|js)' "$index_file" | sort -u)"
+  rm -f "$index_file"
+  [[ -n "$assets" ]] || {
+    echo 'The dashboard does not reference its CSS/JavaScript assets.' >&2
+    return 1
+  }
+  while IFS= read -r asset; do
+    curl --fail --silent --show-error --max-time 15 \
+      --output /dev/null "http://$check_url_host:$FRONTEND_PORT$asset"
+  done <<< "$assets"
+
+  curl --fail --silent --show-error --max-time 10 \
+    "http://127.0.0.1:$BACKEND_PORT/api/v1/topology" |
+    grep -q '"success":true' || {
+      echo 'The Topology API did not pass its platform check.' >&2
+      return 1
+    }
+
+  echo 'MME Linux platform feature check: PASS'
+  echo 'Dashboard HTML/CSS/JavaScript: ready'
+  echo 'Backend proxy and Topology API: ready'
+  echo 'Linux ping runtime: ready'
+  echo 'Use “Check API connection” in each device Terminal to verify that router credentials and RouterOS policies permit device operations.'
+}
+
 install_or_upgrade() {
   require_root
   require_systemd
@@ -474,6 +537,9 @@ case "$ACTION" in
   network-check)
     network_check
     ;;
+  feature-check)
+    feature_check
+    ;;
   database-check)
     database_check
     ;;
@@ -504,7 +570,7 @@ case "$ACTION" in
     installed_version
     ;;
   *)
-    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|database-check|login-info|logs [lines]|backup|uninstall|version}' >&2
+    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|feature-check|database-check|login-info|logs [lines]|backup|uninstall|version}' >&2
     exit 2
     ;;
 esac

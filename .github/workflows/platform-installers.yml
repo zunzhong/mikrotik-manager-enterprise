@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.6.2
+        default: 5.7.0
       platform:
         description: Nền tảng cần build
         required: true
@@ -513,7 +513,7 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install --yes --no-install-recommends \
-                ca-certificates curl xz-utils git python3 make g++ openssl libssl1.1
+                ca-certificates curl iputils-ping xz-utils git python3 make g++ openssl libssl1.1
               node_version=22.17.1
               node_archive="node-v${node_version}-linux-x64.tar.xz"
               curl --fail --silent --show-error --location \
@@ -573,6 +573,12 @@ jobs:
           /opt/mikrotik-manager-enterprise/runtime/node packaging/smoke-frontend-assets.mjs \
             http://127.0.0.1:3080 | tee artifacts/frontend-assets-deb-separate-smoke.json
           curl --fail --silent http://127.0.0.1:3080/ready | tee artifacts/ready-deb-frontend-proxy.json
+          sudo mme-control feature-check | tee artifacts/feature-check-deb.log
+          smoke_password="$(sudo awk -F': ' '/^Password:/{print $2; exit}' /root/mme-thong-tin-dang-nhap.txt)"
+          test -n "$smoke_password"
+          MME_SMOKE_EMAIL=admin@example.com MME_SMOKE_PASSWORD="$smoke_password" \
+            node packaging/smoke-routeros-features.mjs http://127.0.0.1:3000 \
+            | tee artifacts/routeros-features-deb-smoke.json
           curl --fail --silent http://127.0.0.1:3000/api/v1/topology | tee artifacts/topology-deb-smoke.json
           node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('artifacts/topology-deb-smoke.json'));if(!x.success||x.data.summary.confirmedLinks===undefined||x.data.inventoryScheduler.intervalMs!==1800000)process.exit(1)"
           report_status="$(curl --silent --output artifacts/report-send-guard-deb.json --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{}' http://127.0.0.1:3000/api/v1/reports/schedules/ci-smoke/send)"
@@ -613,7 +619,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.6.2!'
+          recovery_password='MME-Recovery-5.7.0!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path
@@ -705,6 +711,7 @@ jobs:
           cp project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
           cp project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
           cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.2.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.2.md
+          cp project-docs/deployment/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md artifacts/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md
 
       - name: Thu thập chẩn đoán Linux
         if: always()
@@ -727,9 +734,11 @@ jobs:
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
             artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
             artifacts/HUONG-DAN-DATABASE-LINUX-5.6.2.md
+            artifacts/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md
             artifacts/*.log
             artifacts/ready-deb-*.json
             artifacts/topology-deb-*.json
+            artifacts/routeros-features-deb-smoke.json
             artifacts/login-recovery-deb.json
             artifacts/report-send-guard-deb.json
             artifacts/ubuntu20-*.txt

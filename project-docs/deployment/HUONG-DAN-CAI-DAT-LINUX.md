@@ -141,6 +141,23 @@ Database status: connected
 
 Các kết quả engine có thể là `SQLite`, `PostgreSQL` hoặc `MariaDB/MySQL`.
 
+## Kiểm tra các tính năng sau cài đặt
+
+Chạy quality gate cục bộ của MME:
+
+```bash
+sudo mme-control feature-check
+```
+
+Lệnh kiểm tra service, kết nối database, HTML/CSS/JavaScript của dashboard, proxy frontend,
+Topology API và binary Ping của Linux. Sau đó vào từng thiết bị, mở **Terminal** và bấm
+**Check API connection** để xác minh chính xác host/cổng/tài khoản RouterOS đã lưu.
+
+Để Overview và Terminal đọc được dữ liệu, RouterOS phải bật `api` hoặc `api-ssl`, cổng đó phải
+đến được từ Ubuntu, và tài khoản dùng cho MME cần policy `read,api`; lệnh thay đổi cấu hình cần
+thêm `write`. Overview ưu tiên dữ liệu realtime trực tiếp, đồng thời dùng snapshot Inventory gần
+nhất làm dữ liệu dự phòng nếu router tạm mất kết nối.
+
 ## Kiểm tra backend và dashboard
 
 Backend và frontend đã chạy dưới dạng systemd service ngay sau khi cài. Với cổng mặc định:
@@ -150,6 +167,7 @@ sudo systemctl status mme.service --no-pager
 sudo mme-control status
 sudo mme-control health
 sudo mme-control network-check
+sudo mme-control feature-check
 sudo mme-control database-check
 curl --fail http://127.0.0.1:3000/ready
 ```
@@ -240,6 +258,7 @@ sudo mme-control restart
 sudo mme-control status
 sudo mme-control health
 sudo mme-control network-check
+sudo mme-control feature-check
 sudo mme-control database-check
 sudo mme-control login-info
 sudo mme-control logs 300

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
 import type { InventorySnapshotSummary } from './device-inventory.types';
 import { formatBytes, formatMaybe, snapshotSummary } from './device-dashboard.utils';
+import { mergeOverviewSnapshot } from './device-dashboard.utils';
+import type { DeviceRealtimeSnapshot } from './device-realtime.types';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 export interface DeviceDashboardProps {
@@ -11,6 +13,7 @@ export interface DeviceDashboardProps {
 export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
   const { formatDateTime } = useLanguage();
   const [snapshot, setSnapshot] = useState<InventorySnapshotSummary | null>(null);
+  const [realtime, setRealtime] = useState<DeviceRealtimeSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,9 +23,35 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
     setError(null);
 
     try {
-      setSnapshot(await deviceApi.latestInventorySnapshot(deviceId));
+      const [inventoryResult, realtimeResult] = await Promise.allSettled([
+        deviceApi.latestInventorySnapshot(deviceId),
+        deviceApi.getRealtimeSnapshot(deviceId),
+      ]);
+      const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : null;
+      const live = realtimeResult.status === 'fulfilled' ? realtimeResult.value : null;
+      setRealtime(live);
+      setSnapshot(mergeOverviewSnapshot(inventory, live));
+
+      if (!live?.online) {
+        const reason =
+          live?.error ??
+          (realtimeResult.status === 'rejected'
+            ? realtimeResult.reason instanceof Error
+              ? realtimeResult.reason.message
+              : 'Realtime request failed'
+            : 'RouterOS did not return realtime data');
+        setError(
+          inventory
+            ? `Realtime RouterOS data is unavailable (${reason}). Showing the latest saved Inventory snapshot.`
+            : `Cannot read RouterOS data: ${reason}`,
+        );
+      } else if (inventoryResult.status === 'rejected') {
+        setError(
+          'Realtime data is available, but the saved Inventory snapshot could not be loaded.',
+        );
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Cannot load inventory snapshot');
+      setError(err instanceof Error ? err.message : 'Cannot load device overview');
     } finally {
       setLoading(false);
     }
@@ -33,7 +62,8 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
     setError(null);
 
     try {
-      await deviceApi.collectInventory(deviceId);
+      const result = await deviceApi.collectInventory(deviceId);
+      if (result.error) throw new Error(result.error);
       await loadLatest();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot sync inventory');
@@ -64,8 +94,8 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
           <p className="device-dashboard__eyebrow">Device Dashboard</p>
           <h2>{info.identity}</h2>
           <p className="device-dashboard__muted">
-            Latest inventory:{' '}
-            {snapshot?.collectedAt ? formatDateTime(snapshot.collectedAt) : 'No snapshot yet'}
+            Data source: {snapshot?.source === 'realtime' ? 'RouterOS realtime' : 'saved Inventory'}{' '}
+            · {snapshot?.collectedAt ? formatDateTime(snapshot.collectedAt) : 'No snapshot yet'}
           </p>
         </div>
 
@@ -80,6 +110,11 @@ export function DeviceDashboard({ deviceId }: DeviceDashboardProps) {
       </header>
 
       {error ? <div className="device-dashboard__error">{error}</div> : null}
+      {realtime?.online ? (
+        <div className="device-dashboard__online">
+          RouterOS API connected · {realtime.latencyMs} ms
+        </div>
+      ) : null}
 
       <div className="device-dashboard__grid">
         <MetricCard label="RouterOS" value={formatMaybe(info.version)} />

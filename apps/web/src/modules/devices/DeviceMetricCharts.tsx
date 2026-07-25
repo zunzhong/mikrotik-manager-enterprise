@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { deviceApi } from './device.api';
 import type { InventorySnapshotSummary } from './device-inventory.types';
 import { buildDeviceFacts, buildDeviceMetricBars } from './device-metric-chart.utils';
+import { mergeOverviewSnapshot } from './device-dashboard.utils';
 
 export interface DeviceMetricChartsProps {
   deviceId: string;
@@ -17,7 +18,21 @@ export function DeviceMetricCharts({ deviceId }: DeviceMetricChartsProps) {
     setError(null);
 
     try {
-      setSnapshot(await deviceApi.latestInventorySnapshot(deviceId));
+      const [inventoryResult, realtimeResult] = await Promise.allSettled([
+        deviceApi.latestInventorySnapshot(deviceId),
+        deviceApi.getRealtimeSnapshot(deviceId),
+      ]);
+      const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : null;
+      const realtime = realtimeResult.status === 'fulfilled' ? realtimeResult.value : null;
+      setSnapshot(mergeOverviewSnapshot(inventory, realtime));
+      if (!realtime?.online && !inventory) {
+        setError(
+          realtime?.error ??
+            (realtimeResult.status === 'rejected' && realtimeResult.reason instanceof Error
+              ? realtimeResult.reason.message
+              : 'No RouterOS realtime or Inventory data is available.'),
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cannot load device metrics');
     } finally {

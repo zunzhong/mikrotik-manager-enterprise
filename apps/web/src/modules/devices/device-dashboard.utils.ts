@@ -1,4 +1,5 @@
 import type { InventorySnapshotSummary } from './device-inventory.types';
+import type { DeviceRealtimeSnapshot } from './device-realtime.types';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -9,7 +10,47 @@ function asRecord(value: unknown): UnknownRecord {
 }
 
 function text(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+export function mergeOverviewSnapshot(
+  inventory: InventorySnapshotSummary | null,
+  realtime: DeviceRealtimeSnapshot | null,
+): InventorySnapshotSummary | null {
+  if (!realtime?.online) return inventory;
+
+  const inventorySummary = asRecord(inventory?.summary);
+  return {
+    id: inventory?.id ?? `realtime:${realtime.deviceId}`,
+    deviceId: realtime.deviceId,
+    collectedAt: realtime.collectedAt,
+    source: 'realtime',
+    status: 'completed',
+    summary: {
+      ...inventorySummary,
+      identity: {
+        ...asRecord(inventorySummary.identity),
+        ...asRecord(realtime.identity),
+      },
+      resource: {
+        ...asRecord(inventorySummary.resource),
+        ...asRecord(realtime.resource),
+      },
+      routerboard: {
+        ...asRecord(inventorySummary.routerboard),
+        ...asRecord(realtime.routerboard),
+      },
+      health:
+        realtime.health && realtime.health.length > 0
+          ? realtime.health
+          : (inventorySummary.health ?? []),
+    },
+    sectionCount: inventory?.sectionCount ?? 0,
+    itemCount: inventory?.itemCount ?? 0,
+    sections: inventory?.sections ?? [],
+  };
 }
 
 export function snapshotSummary(snapshot: InventorySnapshotSummary | null | undefined) {

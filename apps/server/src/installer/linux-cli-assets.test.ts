@@ -38,6 +38,8 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('MME_DATABASE_ENGINE=mariadb');
     expect(linuxJob).toContain('topology-deb-mariadb-smoke.json');
     expect(linuxJob).toContain('SELECT count(*) FROM `mme_ci_mariadb`.`User`');
+    expect(linuxJob).toContain('smoke-routeros-features.mjs');
+    expect(linuxJob).toContain('routeros-features-deb-smoke.json');
     expect(linuxJob).not.toMatch(/^\s+test -f \/(?:var\/lib|etc)\/mikrotik-manager-enterprise/m);
     expect(linuxJob).not.toContain('windows-installer');
   });
@@ -56,12 +58,14 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(build).toContain('schema.postgresql.prisma');
     expect(build).toContain('prisma-client-mysql');
     expect(build).toContain('schema.mysql.prisma');
+    expect(build).toContain('iputils-ping');
     const smoke = read('packaging/linux/smoke-ubuntu20.sh');
     expect(smoke).toContain('export FRONTEND_PORT=3180');
     expect(smoke).toContain('http://127.0.0.1:3180/ready');
     expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3100');
     expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3180');
     expect(smoke).toContain('ubuntu20-mysql-schema-validate.log');
+    expect(smoke).toContain('ubuntu20-routeros-features.json');
     const frontendSmoke = read('packaging/smoke-frontend-assets.mjs');
     expect(frontendSmoke).toContain("url.pathname.endsWith('.css')");
     expect(frontendSmoke).toContain('upgrade-insecure-requests');
@@ -106,6 +110,7 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(installer).toContain('PROVISION_LOCAL_MYSQL=1');
     expect(installer).toContain('USE_INSTALLED_MYSQL=1');
     expect(installer).toContain('mariadb-server mariadb-client');
+    expect(installer).toContain('iputils-ping');
     expect(installer).toContain('MME_ALLOW_EXISTING_MYSQL');
     expect(installer).toContain('role_name="mme_$(openssl rand -hex 4)"');
     expect(installer).not.toContain('ALTER ROLE mme');
@@ -129,6 +134,8 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('SERVER_HOST=$backend_host');
     expect(control).toContain('FRONTEND_HOST=$frontend_host');
     expect(control).toContain('network-check)');
+    expect(control).toContain('feature-check)');
+    expect(control).toContain('MME Linux platform feature check: PASS');
     expect(control).toContain('Configured dashboard listener');
     expect(control).toContain('database-check)');
     expect(control).toContain('Database engine:');

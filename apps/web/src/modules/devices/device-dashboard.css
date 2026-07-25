@@ -44,6 +44,14 @@
   color: #b42318;
 }
 
+.device-dashboard__online {
+  border: 1px solid #6ce9a6;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ecfdf3;
+  color: #027a48;
+}
+
 .device-dashboard__table {
   width: 100%;
   border-collapse: collapse;

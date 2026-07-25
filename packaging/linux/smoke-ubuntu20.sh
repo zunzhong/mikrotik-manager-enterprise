@@ -96,6 +96,9 @@ curl --fail --silent --show-error http://127.0.0.1:3180/topology \
   | tee artifacts/ubuntu20-backend-assets.json
 "$NODE" packaging/smoke-frontend-assets.mjs http://127.0.0.1:3180 \
   | tee artifacts/ubuntu20-frontend-assets.json
+MME_SMOKE_EMAIL="$DEFAULT_ADMIN_EMAIL" MME_SMOKE_PASSWORD="$DEFAULT_ADMIN_PASSWORD" \
+  "$NODE" packaging/smoke-routeros-features.mjs http://127.0.0.1:3100 \
+  | tee artifacts/ubuntu20-routeros-features.json
 
 curl --fail --silent --show-error http://127.0.0.1:3100/api/v1/topology \
   | tee artifacts/ubuntu20-topology.json
