@@ -33,7 +33,10 @@ describe('Windows in-place upgrade assets', () => {
     expect(installer).toContain('AfterInstall: RunPostInstall');
     expect(installer).toContain('MME-PostInstall.marker');
     expect(installer).toContain('procedure RunPostInstall()');
-    expect(installer).toContain('RaiseException(');
+    expect(installer).toContain('function GetCustomSetupExitCode: Integer');
+    expect(installer).toContain('PostInstallFailed := True');
+    expect(installer).toContain('Result := 100');
+    expect(installer).not.toContain('RaiseException(');
     expect(installer).toContain('(ResultCode <> 0)');
     expect(installer).not.toContain('[Run]');
   });
@@ -111,7 +114,7 @@ describe('Windows in-place upgrade assets', () => {
     expect(workflow).toContain("smoke-syslog.mjs 'http://127.0.0.1:3000'");
     expect(workflow).toContain('syslog-windows-smoke.json');
     expect(workflow).toContain('SYSLOG_PORT_LOCKED');
-    expect(workflow).toContain('Installer vẫn trả exit code 0');
+    expect(workflow).toContain('Installer phải trả exit code 100');
     expect(workflow).toContain('install-state.json');
   });
 });

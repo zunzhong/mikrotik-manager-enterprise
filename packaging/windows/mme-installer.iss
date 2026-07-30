@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.8.3"
+  #define MyAppVersion "5.8.4"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -36,8 +36,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "MME-PreInstall.ps1"; Flags: dontcopy
 Source: "..\..\artifacts\payload\*"; DestDir: "{app}\releases\{#MyAppVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Process this explicit final file only after the complete payload has been extracted.
-; Raising from RunPostInstall keeps Setup transactional instead of silently
-; registering a broken application when PowerShell returns a non-zero exit code.
+; RunPostInstall records any bootstrap failure. GetCustomSetupExitCode then
+; guarantees that Setup.exe returns MME's dedicated non-zero exit code 100.
 Source: "..\..\artifacts\payload\packaging\windows\MME-PostInstall.marker"; DestDir: "{app}\releases\{#MyAppVersion}\packaging\windows"; Flags: ignoreversion; AfterInstall: RunPostInstall
 
 [Dirs]
@@ -66,6 +66,9 @@ var
   UpgradeGuardLogPath: String;
   PortPage: TInputQueryWizardPage;
   UseDefaultPortsCheck: TNewCheckBox;
+  PostInstallFailed: Boolean;
+  PostInstallChildExitCode: Integer;
+  PostInstallFailureMessage: String;
 
 procedure TogglePortInputs(Sender: TObject);
 begin
@@ -175,11 +178,29 @@ begin
     ResultCode
   )) or (ResultCode <> 0) then
   begin
-    RaiseException(
-      'MME initialization failed (exit code ' + IntToStr(ResultCode) +
-      '). Setup did not complete. Review: ' + BootstrapLogPath
-    );
+    PostInstallFailed := True;
+    PostInstallChildExitCode := ResultCode;
+    PostInstallFailureMessage :=
+      'MME initialization failed (child exit code ' + IntToStr(ResultCode) +
+      '). Setup will return exit code 100. Review: ' + BootstrapLogPath;
+    Log(PostInstallFailureMessage);
+    if not WizardSilent then
+      MsgBox(PostInstallFailureMessage, mbError, MB_OK);
   end;
+end;
+
+function GetCustomSetupExitCode: Integer;
+begin
+  if PostInstallFailed then
+  begin
+    Log(
+      'Returning MME bootstrap failure exit code 100; child exit code was ' +
+      IntToStr(PostInstallChildExitCode)
+    );
+    Result := 100;
+  end
+  else
+    Result := 0;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

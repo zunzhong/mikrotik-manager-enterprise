@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.8.3
+        default: 5.8.4
       platform:
         description: Nền tảng cần build
         required: true
@@ -366,8 +366,8 @@ jobs:
           } finally {
             $backendBlocker.Stop()
           }
-          if ($negativeInstall.ExitCode -eq 0) {
-            throw 'Installer vẫn trả exit code 0 dù bước hậu cài đặt thất bại.'
+          if ($negativeInstall.ExitCode -ne 100) {
+            throw "Installer phải trả exit code 100 khi hậu cài đặt thất bại, thực tế: $($negativeInstall.ExitCode)."
           }
           $ready = Wait-MMEReady 60
           if ((Get-Service MME).Status -ne 'Running') {
@@ -721,7 +721,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.8.3!'
+          recovery_password='MME-Recovery-5.8.4!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path

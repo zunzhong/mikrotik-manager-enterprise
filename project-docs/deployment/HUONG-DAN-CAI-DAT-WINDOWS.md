@@ -63,7 +63,8 @@ Test-Path 'C:\ProgramData\MikroTik Manager Enterprise\data\mme.db'
 
 Kết quả mong đợi: Service có trạng thái `Running`, API trả về `status: ready`, database tồn tại.
 File `install-state.json` chỉ được tạo sau khi cả service, API và database đã được xác minh. Nếu bước
-hậu cài đặt thất bại, installer trả mã lỗi thay vì vẫn xuất hiện như một ứng dụng đã cài thành công.
+hậu cài đặt thất bại, installer trả mã `100` thay vì mã thành công `0`; dữ liệu và service cũ được
+phục hồi trước khi tiến trình cài đặt kết thúc.
 
 Syslog mặc định dùng UDP/TCP `514`. Nếu cổng này đã bị phần mềm khác chiếm, installer tự kiểm tra và
 chọn lần lượt `5514`, `6514` hoặc `10514`; cổng thực tế được ghi trong `mme.env` và
@@ -73,7 +74,7 @@ chọn lần lượt `5514`, `6514` hoặc `10514`; cổng thực tế được 
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.3-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.4-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -81,7 +82,7 @@ Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.3-x64.exe' `
 Đặt cổng riêng khi cài im lặng:
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.3-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.4-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
     '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
   -Wait
