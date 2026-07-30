@@ -6,6 +6,7 @@ DEB_PATH="${2:-}"
 CHECKSUM_PATH="${3:-}"
 BACKEND_PORT="${MME_BACKEND_PORT:-}"
 FRONTEND_PORT="${MME_FRONTEND_PORT:-}"
+SYSLOG_PORT="${MME_SYSLOG_PORT:-514}"
 LAN_ACCESS_REQUEST="${MME_LAN_ACCESS:-}"
 LAN_ACCESS=0
 PRESERVE_NETWORK_HOSTS=0
@@ -37,7 +38,7 @@ Management:
 
 Non-interactive/automation:
   MME_BACKEND_PORT=3000 MME_FRONTEND_PORT=8080 MME_DATABASE_ENGINE=sqlite sudo -E bash mme-ubuntu-install.sh install ...
-  MME_LAN_ACCESS=1 MME_FRONTEND_PORT=8080 sudo -E bash mme-ubuntu-install.sh install ...
+  MME_LAN_ACCESS=1 MME_FRONTEND_PORT=8080 MME_SYSLOG_PORT=514 sudo -E bash mme-ubuntu-install.sh install ...
   MME_DATABASE_ENGINE=postgresql MME_DATABASE_NAME=mme sudo -E bash mme-ubuntu-install.sh install ...
   MME_DATABASE_ENGINE=mariadb MME_DATABASE_NAME=mme sudo -E bash mme-ubuntu-install.sh install ...
 EOF
@@ -120,7 +121,8 @@ configure_ports() {
 
   valid_port "$BACKEND_PORT" || fail "Invalid backend port: $BACKEND_PORT"
   valid_port "$FRONTEND_PORT" || fail "Invalid frontend port: $FRONTEND_PORT"
-  export MME_BACKEND_PORT="$BACKEND_PORT" MME_FRONTEND_PORT="$FRONTEND_PORT"
+  valid_port "$SYSLOG_PORT" || fail "Invalid Syslog port: $SYSLOG_PORT"
+  export MME_BACKEND_PORT="$BACKEND_PORT" MME_FRONTEND_PORT="$FRONTEND_PORT" MME_SYSLOG_PORT="$SYSLOG_PORT"
 }
 
 parse_boolean() {
@@ -211,6 +213,37 @@ configure_firewall() {
   else
     ufw allow "$FRONTEND_PORT/tcp" comment 'MME dashboard'
     echo "UFW allows MME dashboard access on TCP port $FRONTEND_PORT."
+  fi
+}
+
+configure_syslog_firewall() {
+  if ! command -v ufw >/dev/null 2>&1; then
+    echo 'UFW is not installed; custom firewalls must allow the MME Syslog UDP/TCP port from managed networks.'
+    return
+  fi
+  if ! LC_ALL=C ufw status | grep -q '^Status: active$'; then
+    echo 'UFW is inactive; no Syslog firewall rule was added.'
+    return
+  fi
+
+  local default_interface lan_network
+  if command -v ip >/dev/null 2>&1; then
+    default_interface="$(ip -o -4 route show default 2>/dev/null | awk '{print $5; exit}')"
+  fi
+  if [[ -n "${default_interface:-}" ]]; then
+    lan_network="$(
+      ip -o -4 route show dev "$default_interface" scope link 2>/dev/null |
+        awk '$1 ~ /^[0-9.]+\/[0-9]+$/ && $1 !~ /^127\./ {print $1; exit}'
+    )"
+  fi
+  if [[ -n "${lan_network:-}" ]]; then
+    ufw allow from "$lan_network" to any port "$SYSLOG_PORT" proto udp comment 'MME Syslog UDP'
+    ufw allow from "$lan_network" to any port "$SYSLOG_PORT" proto tcp comment 'MME Syslog TCP'
+    echo "UFW allows MME Syslog from $lan_network on UDP/TCP port $SYSLOG_PORT."
+  else
+    ufw allow "$SYSLOG_PORT/udp" comment 'MME Syslog UDP'
+    ufw allow "$SYSLOG_PORT/tcp" comment 'MME Syslog TCP'
+    echo "UFW allows MME Syslog on UDP/TCP port $SYSLOG_PORT."
   fi
 }
 
@@ -454,7 +487,7 @@ verify_checksum() {
 install_dependencies() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install --yes --no-install-recommends ca-certificates curl iputils-ping openssl procps systemd
+  apt-get install --yes --no-install-recommends ca-certificates curl iproute2 iputils-ping openssl procps systemd
   if [[ "$PROVISION_LOCAL_POSTGRESQL" == 1 ]]; then
     apt-get install --yes --no-install-recommends postgresql postgresql-client
   elif [[ "$USE_CONFIGURED_POSTGRESQL" == 1 ]]; then
@@ -684,6 +717,7 @@ install_package() {
   configure_database_choice
   install_dependencies
   configure_firewall
+  configure_syslog_firewall
   prepare_postgresql
   prepare_mysql
   prepare_sqlite

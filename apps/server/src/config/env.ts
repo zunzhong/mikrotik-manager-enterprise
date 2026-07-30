@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+const envBoolean = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  if (['1', 'true', 'yes', 'on'].includes(value.toLowerCase())) return true;
+  if (['0', 'false', 'no', 'off'].includes(value.toLowerCase())) return false;
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_NAME: z.string().min(1).default('mikrotik-manager-enterprise'),
@@ -24,6 +31,14 @@ const envSchema = z.object({
   PRISMA_MYSQL_CLIENT_PATH: z.string().optional(),
   PRISMA_MYSQL_SCHEMA: z.string().optional(),
   PRISMA_CLI_PATH: z.string().optional(),
+  SYSLOG_ENABLED: envBoolean.default(true),
+  SYSLOG_UDP_ENABLED: envBoolean.default(true),
+  SYSLOG_TCP_ENABLED: envBoolean.default(true),
+  SYSLOG_BIND_ADDRESS: z.string().min(1).default('0.0.0.0'),
+  SYSLOG_PORT: z.coerce.number().int().min(1).max(65535).default(514),
+  SYSLOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
+  SYSLOG_MAX_RECORDS: z.coerce.number().int().min(1000).max(10000000).default(500000),
+  SYSLOG_ACCEPT_UNMATCHED: envBoolean.default(true),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

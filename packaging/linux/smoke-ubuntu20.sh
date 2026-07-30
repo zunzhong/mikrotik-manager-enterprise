@@ -58,6 +58,14 @@ export JWT_SECRET=ubuntu20-smoke-jwt-secret-2026-000000000000000000
 export ENCRYPTION_KEY=ubuntu20-smoke-encryption-key-2026
 export DEFAULT_ADMIN_EMAIL=ubuntu20-smoke@example.com
 export DEFAULT_ADMIN_PASSWORD=MME-Ubuntu20-Smoke-Password-2026
+export SYSLOG_ENABLED=true
+export SYSLOG_UDP_ENABLED=true
+export SYSLOG_TCP_ENABLED=true
+export SYSLOG_BIND_ADDRESS=127.0.0.1
+export SYSLOG_PORT=15514
+export SYSLOG_RETENTION_DAYS=30
+export SYSLOG_MAX_RECORDS=500000
+export SYSLOG_ACCEPT_UNMATCHED=true
 export BACKUP_STORAGE_PATH="$DATA/backups"
 export WEB_DIST_PATH="$APP/web"
 export SQLITE_SCHEMA_SQL="$APP/prisma/schema.sqlite.sql"
@@ -99,6 +107,10 @@ curl --fail --silent --show-error http://127.0.0.1:3180/topology \
 MME_SMOKE_EMAIL="$DEFAULT_ADMIN_EMAIL" MME_SMOKE_PASSWORD="$DEFAULT_ADMIN_PASSWORD" \
   "$NODE" packaging/smoke-routeros-features.mjs http://127.0.0.1:3100 \
   | tee artifacts/ubuntu20-routeros-features.json
+MME_SMOKE_EMAIL="$DEFAULT_ADMIN_EMAIL" MME_SMOKE_PASSWORD="$DEFAULT_ADMIN_PASSWORD" \
+  MME_SMOKE_SYSLOG_HOST=127.0.0.1 MME_SMOKE_SYSLOG_PORT="$SYSLOG_PORT" \
+  "$NODE" packaging/smoke-syslog.mjs http://127.0.0.1:3100 \
+  | tee artifacts/ubuntu20-syslog.json
 
 curl --fail --silent --show-error http://127.0.0.1:3100/api/v1/topology \
   | tee artifacts/ubuntu20-topology.json

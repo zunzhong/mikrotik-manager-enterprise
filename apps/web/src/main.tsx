@@ -16,6 +16,7 @@ import { LoginPage } from './pages/LoginPage';
 import { ReportPage } from './pages/ReportPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SetupPage } from './pages/SetupPage';
+import { SyslogPage } from './pages/SyslogPage';
 import { TopologyPage } from './pages/TopologyPage';
 import { LanguageProvider } from './i18n/LanguageContext';
 import './styles.css';
@@ -29,6 +30,7 @@ import './modules/devices/device-metric-charts.css';
 import './modules/devices/device-realtime-monitor.css';
 import './backup.css';
 import './alerts.css';
+import './syslog.css';
 import './dashboard-refresh.css';
 import './topology.css';
 import './report.css';
@@ -58,6 +60,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/syslog" element={<SyslogPage />} />
             <Route path="/reports" element={<ReportPage />} />
             <Route path="/backup-center" element={<BackupCenterPage />} />
             <Route path="/topology" element={<TopologyPage />} />

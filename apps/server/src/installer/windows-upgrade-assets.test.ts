@@ -82,4 +82,18 @@ describe('Windows in-place upgrade assets', () => {
     expect(workflow).toContain("smoke-frontend-assets.mjs 'http://127.0.0.1:3000'");
     expect(workflow).toContain("smoke-frontend-assets.mjs 'http://127.0.0.1:3080'");
   });
+
+  it('installs and verifies the centralized Syslog listener on Windows', () => {
+    const control = read('packaging/windows/MME-Control.ps1');
+    const workflow = read('.github/workflows/platform-installers.yml');
+
+    expect(control).toContain('SYSLOG_PORT=$DefaultSyslogPort');
+    expect(control).toContain('Ensure-SyslogFirewall');
+    expect(control).toContain("New-NetFirewallRule -DisplayName 'MME Syslog UDP'");
+    expect(control).toContain("New-NetFirewallRule -DisplayName 'MME Syslog TCP'");
+    expect(control).toContain('Remove-SyslogFirewall');
+    expect(workflow).toContain('Assert-Syslog');
+    expect(workflow).toContain("smoke-syslog.mjs 'http://127.0.0.1:3000'");
+    expect(workflow).toContain('syslog-windows-smoke.json');
+  });
 });

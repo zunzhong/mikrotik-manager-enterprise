@@ -32,6 +32,7 @@ import {
 import { routerosRoutes } from './modules/routeros/index.js';
 import { reportRoutes } from './modules/report/index.js';
 import { systemRoutes } from './modules/system/index.js';
+import { syslogRoutes } from './modules/syslog/index.js';
 import { topologyRoutes } from './modules/topology/index.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { createSecurityHeaderOptions } from './plugins/security-headers.js';
@@ -75,6 +76,7 @@ export async function buildApp() {
   await app.register(dashboardRoutes);
   await app.register(backupRoutes);
   await app.register(topologyRoutes);
+  await app.register(syslogRoutes);
   await app.register(systemRoutes);
 
   await moduleRegistry.loadAll(app);

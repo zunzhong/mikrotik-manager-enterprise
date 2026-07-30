@@ -4,6 +4,7 @@ export const routes = [
   '/inventory',
   '/devices',
   '/alerts',
+  '/syslog',
   '/compliance',
   '/backup-center',
   '/topology',

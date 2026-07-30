@@ -40,6 +40,8 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(linuxJob).toContain('SELECT count(*) FROM `mme_ci_mariadb`.`User`');
     expect(linuxJob).toContain('smoke-routeros-features.mjs');
     expect(linuxJob).toContain('routeros-features-deb-smoke.json');
+    expect(linuxJob).toContain('syslog-deb-smoke.json');
+    expect(linuxJob).toContain('mme-control syslog-check');
     expect(linuxJob).not.toMatch(/^\s+test -f \/(?:var\/lib|etc)\/mikrotik-manager-enterprise/m);
     expect(linuxJob).not.toContain('windows-installer');
   });
@@ -66,6 +68,7 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(smoke).toContain('smoke-frontend-assets.mjs http://127.0.0.1:3180');
     expect(smoke).toContain('ubuntu20-mysql-schema-validate.log');
     expect(smoke).toContain('ubuntu20-routeros-features.json');
+    expect(smoke).toContain('ubuntu20-syslog.json');
     const frontendSmoke = read('packaging/smoke-frontend-assets.mjs');
     expect(frontendSmoke).toContain("url.pathname.endsWith('.css')");
     expect(frontendSmoke).toContain('upgrade-insecure-requests');
@@ -99,6 +102,8 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(installer).toContain('Allow other devices on the LAN to access the MME dashboard?');
     expect(installer).toContain("comment 'MME dashboard'");
     expect(installer).toContain('UFW allows MME dashboard access');
+    expect(installer).toContain("comment 'MME Syslog UDP'");
+    expect(installer).toContain("comment 'MME Syslog TCP'");
     expect(installer).toContain('Databases supported by MME Linux');
     expect(installer).toContain('Built-in SQLite');
     expect(installer).toContain('PostgreSQL 12 or newer');
@@ -135,6 +140,8 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('FRONTEND_HOST=$frontend_host');
     expect(control).toContain('network-check)');
     expect(control).toContain('feature-check)');
+    expect(control).toContain('syslog-check)');
+    expect(control).toContain('MME Syslog listener check: PASS');
     expect(control).toContain('MME Linux platform feature check: PASS');
     expect(control).toContain('Configured dashboard listener');
     expect(control).toContain('database-check)');

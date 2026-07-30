@@ -57,6 +57,17 @@ export class ConfigService {
   public readonly logging = {
     level: env.LOG_LEVEL,
   };
+
+  public readonly syslog = {
+    enabled: env.SYSLOG_ENABLED,
+    udpEnabled: env.SYSLOG_UDP_ENABLED,
+    tcpEnabled: env.SYSLOG_TCP_ENABLED,
+    bindAddress: env.SYSLOG_BIND_ADDRESS,
+    port: env.SYSLOG_PORT,
+    retentionDays: env.SYSLOG_RETENTION_DAYS,
+    maxRecords: env.SYSLOG_MAX_RECORDS,
+    acceptUnmatched: env.SYSLOG_ACCEPT_UNMATCHED,
+  };
 }
 
 export const config = new ConfigService();

@@ -11,6 +11,7 @@ NODE="$APP_DIR/runtime/node"
 SERVICE="mme.service"
 BACKEND_PORT=3000
 FRONTEND_PORT=3000
+SYSLOG_PORT=514
 
 valid_port() {
   [[ "${1:-}" =~ ^[0-9]+$ ]] && (( 1 <= $1 && $1 <= 65535 ))
@@ -31,15 +32,17 @@ load_environment_file() {
 }
 
 refresh_runtime_ports() {
-  local configured_backend configured_frontend
+  local configured_backend configured_frontend configured_syslog
   configured_backend="$(read_env_value SERVER_PORT)"
   configured_frontend="$(read_env_value FRONTEND_PORT)"
+  configured_syslog="$(read_env_value SYSLOG_PORT)"
   valid_port "$configured_backend" && BACKEND_PORT="$configured_backend"
   if valid_port "$configured_frontend"; then
     FRONTEND_PORT="$configured_frontend"
   else
     FRONTEND_PORT="$BACKEND_PORT"
   fi
+  valid_port "$configured_syslog" && SYSLOG_PORT="$configured_syslog"
 }
 
 set_env_value() {
@@ -152,6 +155,18 @@ initialize_env() {
     [[ -n "${MME_SERVER_HOST:-}" ]] && set_env_value SERVER_HOST "$MME_SERVER_HOST"
     [[ -n "${MME_FRONTEND_HOST:-}" ]] && set_env_value FRONTEND_HOST "$MME_FRONTEND_HOST"
     [[ -n "${MME_DATABASE_URL:-}" ]] && set_env_value DATABASE_URL "$MME_DATABASE_URL"
+    [[ -n "$(read_env_value SYSLOG_ENABLED)" ]] || set_env_value SYSLOG_ENABLED true
+    [[ -n "$(read_env_value SYSLOG_UDP_ENABLED)" ]] || set_env_value SYSLOG_UDP_ENABLED true
+    [[ -n "$(read_env_value SYSLOG_TCP_ENABLED)" ]] || set_env_value SYSLOG_TCP_ENABLED true
+    [[ -n "$(read_env_value SYSLOG_BIND_ADDRESS)" ]] || set_env_value SYSLOG_BIND_ADDRESS 0.0.0.0
+    if valid_port "${MME_SYSLOG_PORT:-}"; then
+      set_env_value SYSLOG_PORT "$MME_SYSLOG_PORT"
+    elif ! valid_port "$(read_env_value SYSLOG_PORT)"; then
+      set_env_value SYSLOG_PORT 514
+    fi
+    [[ -n "$(read_env_value SYSLOG_RETENTION_DAYS)" ]] || set_env_value SYSLOG_RETENTION_DAYS 30
+    [[ -n "$(read_env_value SYSLOG_MAX_RECORDS)" ]] || set_env_value SYSLOG_MAX_RECORDS 500000
+    [[ -n "$(read_env_value SYSLOG_ACCEPT_UNMATCHED)" ]] || set_env_value SYSLOG_ACCEPT_UNMATCHED true
     [[ -n "$(read_env_value DEFAULT_ADMIN_EMAIL)" ]] ||
       set_env_value DEFAULT_ADMIN_EMAIL admin@example.com
     [[ -n "$(read_env_value DEFAULT_ADMIN_PASSWORD)" ]] ||
@@ -161,7 +176,7 @@ initialize_env() {
   fi
 
   local admin_password
-  local backend_host backend_port frontend_host frontend_port database_url
+  local backend_host backend_port frontend_host frontend_port database_url syslog_port
   admin_password="$(secret 12)"
   backend_port="${MME_BACKEND_PORT:-3000}"
   valid_port "$backend_port" || backend_port=3000
@@ -176,6 +191,8 @@ initialize_env() {
   fi
   frontend_host="${MME_FRONTEND_HOST:-0.0.0.0}"
   database_url="${MME_DATABASE_URL:-file:$DATA_DIR/data/mme.db}"
+  syslog_port="${MME_SYSLOG_PORT:-514}"
+  valid_port "$syslog_port" || syslog_port=514
   cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
@@ -189,6 +206,14 @@ JWT_SECRET=$(secret 32)
 ENCRYPTION_KEY=$(secret 32)
 DEFAULT_ADMIN_EMAIL=admin@example.com
 DEFAULT_ADMIN_PASSWORD=$admin_password
+SYSLOG_ENABLED=true
+SYSLOG_UDP_ENABLED=true
+SYSLOG_TCP_ENABLED=true
+SYSLOG_BIND_ADDRESS=0.0.0.0
+SYSLOG_PORT=$syslog_port
+SYSLOG_RETENTION_DAYS=30
+SYSLOG_MAX_RECORDS=500000
+SYSLOG_ACCEPT_UNMATCHED=true
 BACKUP_STORAGE_PATH=$DATA_DIR/backups
 WEB_DIST_PATH=$APP_DIR/web
 SQLITE_SCHEMA_SQL=$APP_DIR/prisma/schema.sqlite.sql
@@ -362,6 +387,56 @@ network_check() {
   fi
 }
 
+syslog_check() {
+  require_root
+  require_systemd
+  refresh_runtime_ports
+  local enabled udp_enabled tcp_enabled
+  enabled="$(read_env_value SYSLOG_ENABLED)"
+  udp_enabled="$(read_env_value SYSLOG_UDP_ENABLED)"
+  tcp_enabled="$(read_env_value SYSLOG_TCP_ENABLED)"
+  if [[ "$enabled" != true ]]; then
+    echo 'Syslog receiver: disabled'
+    return 0
+  fi
+  systemctl is-active --quiet "$SERVICE" || {
+    echo 'MME service is not active.' >&2
+    return 1
+  }
+  command -v ss >/dev/null 2>&1 || {
+    echo 'The ss utility is required to validate Syslog listeners.' >&2
+    return 1
+  }
+  if [[ "$udp_enabled" == true ]]; then
+    ss --listening --numeric --udp |
+      awk -v suffix=":$SYSLOG_PORT" 'NR > 1 && index($5, suffix) == length($5) - length(suffix) + 1 {found=1} END {exit !found}' || {
+        echo "Syslog UDP listener is missing on port $SYSLOG_PORT." >&2
+        return 1
+      }
+  fi
+  if [[ "$tcp_enabled" == true ]]; then
+    ss --listening --numeric --tcp |
+      awk -v suffix=":$SYSLOG_PORT" 'NR > 1 && index($4, suffix) == length($4) - length(suffix) + 1 {found=1} END {exit !found}' || {
+        echo "Syslog TCP listener is missing on port $SYSLOG_PORT." >&2
+        return 1
+      }
+  fi
+  echo "MME Syslog listener check: PASS (UDP=$udp_enabled TCP=$tcp_enabled port=$SYSLOG_PORT)"
+}
+
+remove_syslog_firewall_rules() {
+  command -v ufw >/dev/null 2>&1 || return 0
+  LC_ALL=C ufw status | grep -q '^Status: active$' || return 0
+  local rule
+  while IFS= read -r rule; do
+    [[ -n "$rule" ]] && ufw --force delete "$rule" >/dev/null 2>&1 || true
+  done < <(
+    LC_ALL=C ufw status numbered |
+      sed -n 's/^\[[[:space:]]*\([0-9][0-9]*\)\].*MME Syslog.*/\1/p' |
+      sort -rn
+  )
+}
+
 feature_check() {
   require_root
   require_systemd
@@ -417,6 +492,9 @@ feature_check() {
       echo 'The Topology API did not pass its platform check.' >&2
       return 1
     }
+  if [[ "$(read_env_value SYSLOG_ENABLED)" == true ]]; then
+    syslog_check
+  fi
 
   echo 'MME Linux platform feature check: PASS'
   echo 'Dashboard HTML/CSS/JavaScript: ready'
@@ -537,6 +615,9 @@ case "$ACTION" in
   network-check)
     network_check
     ;;
+  syslog-check)
+    syslog_check
+    ;;
   feature-check)
     feature_check
     ;;
@@ -564,13 +645,14 @@ case "$ACTION" in
     require_root
     require_systemd
     systemctl disable --now "$SERVICE" || true
+    remove_syslog_firewall_rules
     echo 'The service was stopped. The database, backups, and configuration were preserved.'
     ;;
   version)
     installed_version
     ;;
   *)
-    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|feature-check|database-check|login-info|logs [lines]|backup|uninstall|version}' >&2
+    echo 'Usage: mme-control {install|upgrade|start|stop|restart|status|health|network-check|syslog-check|feature-check|database-check|login-info|logs [lines]|backup|uninstall|version}' >&2
     exit 2
     ;;
 esac

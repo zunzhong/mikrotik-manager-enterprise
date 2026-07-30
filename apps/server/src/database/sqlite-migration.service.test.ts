@@ -51,6 +51,11 @@ describe('SQLite migration service', () => {
         `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'Topology%' ORDER BY name`,
       )
       .all() as Array<{ name: string }>;
+    const syslogTables = database
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'Syslog%' ORDER BY name`,
+      )
+      .all() as Array<{ name: string }>;
     database.close();
     expect(trafficTable?.name).toBe('TrafficSample');
     expect(alertRuleConfigTable?.name).toBe('DeviceAlertRuleConfig');
@@ -62,6 +67,11 @@ describe('SQLite migration service', () => {
       'TopologyManualLink',
       'TopologyNodeLayout',
       'TopologySnapshot',
+    ]);
+    expect(syslogTables.map((table) => table.name)).toEqual([
+      'SyslogMessage',
+      'SyslogSetting',
+      'SyslogSourceAlias',
     ]);
     expect(alertRuleColumns.map((column) => column.name)).toEqual(
       expect.arrayContaining(['channelIds', 'notifyAllChannels']),

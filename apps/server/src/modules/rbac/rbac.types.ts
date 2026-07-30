@@ -1,5 +1,13 @@
 export type RbacResource =
-  'system' | 'device' | 'event' | 'alert' | 'notification' | 'audit' | 'rbac' | 'dashboard';
+  | 'system'
+  | 'device'
+  | 'event'
+  | 'alert'
+  | 'syslog'
+  | 'notification'
+  | 'audit'
+  | 'rbac'
+  | 'dashboard';
 
 export type RbacAction =
   'read' | 'create' | 'update' | 'delete' | 'manage' | 'export' | 'prune' | 'assign';

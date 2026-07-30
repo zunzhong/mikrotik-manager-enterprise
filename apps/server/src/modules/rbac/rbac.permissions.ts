@@ -20,6 +20,9 @@ export const RBAC_PERMISSIONS = {
   ALERT_UPDATE: 'alert:update',
   ALERT_MANAGE: 'alert:manage',
 
+  SYSLOG_READ: 'syslog:read',
+  SYSLOG_MANAGE: 'syslog:manage',
+
   NOTIFICATION_READ: 'notification:read',
   NOTIFICATION_CREATE: 'notification:create',
   NOTIFICATION_UPDATE: 'notification:update',

@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-export const CURRENT_SQLITE_SCHEMA_VERSION = 10;
+export const CURRENT_SQLITE_SCHEMA_VERSION = 11;
 
 interface Migration {
   version: number;
@@ -140,6 +140,62 @@ const migrations: Migration[] = [
   {
     version: 10,
     statements: [],
+  },
+  {
+    version: 11,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS "SyslogMessage" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "deviceId" TEXT,
+        "receivedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "eventTime" DATETIME,
+        "sourceAddress" TEXT NOT NULL,
+        "sourcePort" INTEGER,
+        "protocol" TEXT NOT NULL,
+        "hostname" TEXT,
+        "appName" TEXT,
+        "processId" TEXT,
+        "messageId" TEXT,
+        "facility" INTEGER NOT NULL,
+        "facilityLabel" TEXT NOT NULL,
+        "severity" INTEGER NOT NULL,
+        "severityLabel" TEXT NOT NULL,
+        "priority" INTEGER NOT NULL,
+        "tag" TEXT,
+        "message" TEXT NOT NULL,
+        "rawMessage" TEXT NOT NULL,
+        "structuredData" JSONB,
+        CONSTRAINT "SyslogMessage_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+      )`,
+      'CREATE INDEX IF NOT EXISTS "SyslogMessage_receivedAt_idx" ON "SyslogMessage"("receivedAt")',
+      'CREATE INDEX IF NOT EXISTS "SyslogMessage_deviceId_receivedAt_idx" ON "SyslogMessage"("deviceId", "receivedAt")',
+      'CREATE INDEX IF NOT EXISTS "SyslogMessage_severity_receivedAt_idx" ON "SyslogMessage"("severity", "receivedAt")',
+      'CREATE INDEX IF NOT EXISTS "SyslogMessage_sourceAddress_receivedAt_idx" ON "SyslogMessage"("sourceAddress", "receivedAt")',
+      'CREATE INDEX IF NOT EXISTS "SyslogMessage_hostname_idx" ON "SyslogMessage"("hostname")',
+      `CREATE TABLE IF NOT EXISTS "SyslogSourceAlias" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "alias" TEXT NOT NULL,
+        "aliasNormalized" TEXT NOT NULL,
+        "deviceId" TEXT NOT NULL,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        CONSTRAINT "SyslogSourceAlias_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`,
+      'CREATE UNIQUE INDEX IF NOT EXISTS "SyslogSourceAlias_aliasNormalized_key" ON "SyslogSourceAlias"("aliasNormalized")',
+      'CREATE INDEX IF NOT EXISTS "SyslogSourceAlias_deviceId_idx" ON "SyslogSourceAlias"("deviceId")',
+      `CREATE TABLE IF NOT EXISTS "SyslogSetting" (
+        "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'global',
+        "enabled" BOOLEAN NOT NULL DEFAULT true,
+        "udpEnabled" BOOLEAN NOT NULL DEFAULT true,
+        "tcpEnabled" BOOLEAN NOT NULL DEFAULT true,
+        "bindAddress" TEXT NOT NULL DEFAULT '0.0.0.0',
+        "port" INTEGER NOT NULL DEFAULT 514,
+        "retentionDays" INTEGER NOT NULL DEFAULT 30,
+        "maxRecords" INTEGER NOT NULL DEFAULT 500000,
+        "acceptUnmatched" BOOLEAN NOT NULL DEFAULT true,
+        "updatedAt" DATETIME NOT NULL
+      )`,
+    ],
   },
 ];
 

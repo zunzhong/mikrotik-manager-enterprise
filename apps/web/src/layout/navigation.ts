@@ -20,6 +20,7 @@ export function createNavigationItems(t: (key: TranslationKey) => string): Navig
     { label: t('inventory'), path: '/inventory', icon: '▤' },
     { label: t('compliance'), path: '/compliance', icon: '✓' },
     { label: t('alerts'), path: '/alerts', icon: '!' },
+    { label: t('syslog'), path: '/syslog', icon: '≋' },
     { label: t('reports'), path: '/reports', icon: '▥' },
     { label: t('backupCenter'), path: '/backup-center', icon: '↥' },
     { label: t('topology'), path: '/topology', icon: '⌘' },

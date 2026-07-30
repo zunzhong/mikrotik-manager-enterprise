@@ -119,6 +119,8 @@ model Device {
   trafficSamples          TrafficSample[]
   alertRuleConfigs        DeviceAlertRuleConfig[]
   routerOsLogFingerprints RouterOsLogFingerprint[]
+  syslogMessages          SyslogMessage[]
+  syslogAliases           SyslogSourceAlias[]
 
   @@index([host])
   @@index([status])
@@ -485,4 +487,61 @@ model TopologyNodeLayout {
 
   @@unique([scope, nodeId])
   @@index([scope])
+}
+
+model SyslogMessage {
+  id             String    @id @default(cuid())
+  deviceId       String?
+  receivedAt     DateTime  @default(now())
+  eventTime      DateTime?
+  sourceAddress  String
+  sourcePort     Int?
+  protocol       String
+  hostname       String?
+  appName        String?
+  processId      String?
+  messageId      String?
+  facility       Int
+  facilityLabel  String
+  severity       Int
+  severityLabel  String
+  priority       Int
+  tag            String?
+  message        String
+  rawMessage     String
+  structuredData Json?
+
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([receivedAt])
+  @@index([deviceId, receivedAt])
+  @@index([severity, receivedAt])
+  @@index([sourceAddress, receivedAt])
+  @@index([hostname])
+}
+
+model SyslogSourceAlias {
+  id              String   @id @default(cuid())
+  alias            String
+  aliasNormalized  String   @unique
+  deviceId         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}
+
+model SyslogSetting {
+  id              String   @id @default("global")
+  enabled         Boolean  @default(true)
+  udpEnabled      Boolean  @default(true)
+  tcpEnabled      Boolean  @default(true)
+  bindAddress     String   @default("0.0.0.0")
+  port            Int      @default(514)
+  retentionDays   Int      @default(30)
+  maxRecords      Int      @default(500000)
+  acceptUnmatched Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
 }

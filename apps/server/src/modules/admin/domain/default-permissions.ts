@@ -10,6 +10,8 @@ export const defaultPermissions = [
   ['compliance.run', 'Run Compliance', 'Run compliance scans', 'compliance'],
   ['alert.read', 'Read Alerts', 'View alerts', 'alert'],
   ['alert.write', 'Write Alerts', 'Acknowledge and manage alerts', 'alert'],
+  ['syslog.read', 'Read Syslog', 'View centralized device logs', 'syslog'],
+  ['syslog.manage', 'Manage Syslog', 'Configure receivers, mappings and retention', 'syslog'],
   ['user.read', 'Read Users', 'View users', 'iam'],
   ['user.write', 'Write Users', 'Create and update users', 'iam'],
   ['role.read', 'Read Roles', 'View roles', 'iam'],

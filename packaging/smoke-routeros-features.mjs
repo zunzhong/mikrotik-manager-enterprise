@@ -39,6 +39,10 @@ const fake = new FakeRouterOsServer({
     ],
     '/system/health/print': [{ name: 'temperature', value: '42' }],
     '/system/clock/print': [{ date: '2026-07-25', time: '12:00:00' }],
+    '/system/logging/action/print': [],
+    '/system/logging/action/add': [],
+    '/system/logging/print': [],
+    '/system/logging/add': [],
     '/interface/print': [
       {
         '.id': '*1',
@@ -198,6 +202,38 @@ try {
   assert(latest?.summary?.identity?.name === 'MME-LINUX-CI', 'Inventory identity is missing.');
   assert(latest?.summary?.resource?.version === '7.19.1', 'Inventory resource data is missing.');
 
+  const syslogConfiguration = await request('/api/v1/syslog/routeros/configure', {
+    method: 'POST',
+    token,
+    body: {
+      deviceIds: [deviceId],
+      serverAddress: '192.0.2.10',
+      port: 514,
+      topics: 'info,!account,!debug',
+      confirm: true,
+    },
+  });
+  assert(
+    syslogConfiguration?.succeeded === 1 && syslogConfiguration?.failed === 0,
+    'RouterOS Syslog configuration failed.',
+  );
+  assert(
+    fake.receivedSentences.some(
+      (sentence) =>
+        sentence[0] === '/system/logging/action/add' &&
+        sentence.includes('=name=mme-syslog') &&
+        sentence.includes('=remote=192.0.2.10'),
+    ),
+    'RouterOS Syslog action was not sent to the device.',
+  );
+  assert(
+    fake.receivedSentences.some(
+      (sentence) =>
+        sentence[0] === '/system/logging/add' && sentence.includes('=action=mme-syslog'),
+    ),
+    'RouterOS Syslog logging rule was not sent to the device.',
+  );
+
   log(
     JSON.stringify({
       status: 'ready',
@@ -212,6 +248,7 @@ try {
         routerBackup: true,
         routerSupout: true,
         inventory: true,
+        routerOsSyslogConfiguration: true,
       },
       routerOs: {
         identity: connection.identity,

@@ -133,6 +133,8 @@ cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LI
 cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.2.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.2.md"
 cp project-docs/deployment/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md \
   "$APP/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md"
+cp project-docs/deployment/HUONG-DAN-SYSLOG-5.8.0.md \
+  "$APP/HUONG-DAN-SYSLOG-5.8.0.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
 install -m 0755 packaging/linux/mme-ubuntu-install.sh "$ROOT/usr/local/bin/mme-ubuntu-install"
@@ -144,7 +146,7 @@ Version: $MME_PACKAGE_VERSION
 Section: admin
 Priority: optional
 Architecture: amd64
-Depends: ca-certificates, curl, iputils-ping, openssl, procps, systemd
+Depends: ca-certificates, curl, iproute2, iputils-ping, openssl, procps, systemd
 Maintainer: MikroTik Manager Enterprise Community
 Description: Enterprise MikroTik controller and monitoring platform
  SQLite, PostgreSQL, or MariaDB/MySQL build for Ubuntu Server 20.04 or newer.

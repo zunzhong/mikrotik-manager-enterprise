@@ -5,6 +5,7 @@ import { deviceRealtimeSchedulerService } from './modules/device/application/dev
 import { backupSchedulerService } from './modules/backup/application/backup-scheduler.service.js';
 import { inventorySchedulerService } from './modules/inventory/application/inventory-scheduler.service.js';
 import { reportSchedulerService } from './modules/report/index.js';
+import { syslogService } from './modules/syslog/index.js';
 import { deviceRepository } from './modules/device/infrastructure/device.repository.js';
 import { resolve } from 'node:path';
 import type { Server } from 'node:http';
@@ -20,6 +21,7 @@ const shutdown = async () => {
   backupSchedulerService.stop();
   inventorySchedulerService.stop();
   reportSchedulerService.stop();
+  await syslogService.stop();
   if (frontendServer) {
     await new Promise<void>((resolveClose, reject) =>
       frontendServer?.close((error) => (error ? reject(error) : resolveClose())),
@@ -66,9 +68,11 @@ try {
   reportSchedulerService.start((error) => {
     app.log.error(error, 'Periodic Telegram report scheduler failed');
   });
+  await syslogService.start();
   app.log.info('RouterOS realtime synchronization scheduler started');
   app.log.info('Automatic inventory scheduler started with a 30-minute interval');
   app.log.info('Periodic Telegram report scheduler started');
+  app.log.info((await syslogService.overview()).receiver, 'MME Syslog receiver started');
 } catch (error) {
   app.log.error(error, 'Failed to start server');
   process.exit(1);

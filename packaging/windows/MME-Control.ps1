@@ -33,6 +33,7 @@ $ConfigFile = Join-Path $DataDir 'config\mme.env'
 $BootstrapLog = Join-Path $LogDir 'bootstrap.log'
 $UpgradeStateFile = Join-Path $DataDir 'config\upgrade-state.json'
 $DefaultPort = 3000
+$DefaultSyslogPort = 514
 $BackendRuntimePort = if ($BackendPort -gt 0) { $BackendPort } else { $DefaultPort }
 $FrontendRuntimePort = if ($FrontendPort -gt 0) { $FrontendPort } else { $BackendRuntimePort }
 
@@ -140,9 +141,9 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.7.0')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.8.0')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.7.0`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.8.0`r`n"
     }
     $backendForFrontend = $DefaultPort
     if ($BackendPort -gt 0) {
@@ -195,6 +196,20 @@ function Initialize-Environment {
     } else {
       $existingConfig = $existingConfig.TrimEnd() + "`r`nSQLITE_SCHEMA_SQL=$sqliteSchemaPath`r`n"
     }
+    foreach ($syslogDefault in @{
+      SYSLOG_ENABLED = 'true'
+      SYSLOG_UDP_ENABLED = 'true'
+      SYSLOG_TCP_ENABLED = 'true'
+      SYSLOG_BIND_ADDRESS = '0.0.0.0'
+      SYSLOG_PORT = [string]$DefaultSyslogPort
+      SYSLOG_RETENTION_DAYS = '30'
+      SYSLOG_MAX_RECORDS = '500000'
+      SYSLOG_ACCEPT_UNMATCHED = 'true'
+    }.GetEnumerator()) {
+      if ($existingConfig -notmatch "(?m)^$([Text.RegularExpressions.Regex]::Escape($syslogDefault.Key))=") {
+        $existingConfig = Set-EnvironmentContentValue $existingConfig $syslogDefault.Key $syslogDefault.Value
+      }
+    }
     [IO.File]::WriteAllText($ConfigFile, $existingConfig, (New-Object Text.UTF8Encoding($false)))
     return
   }
@@ -202,7 +217,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.7.0
+APP_VERSION=5.8.0
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$BackendRuntimePort
 FRONTEND_HOST=127.0.0.1
@@ -212,6 +227,14 @@ JWT_SECRET=$(New-Secret 32)
 ENCRYPTION_KEY=$(New-Secret 32)
 DEFAULT_ADMIN_EMAIL=admin@example.com
 DEFAULT_ADMIN_PASSWORD=$adminPassword
+SYSLOG_ENABLED=true
+SYSLOG_UDP_ENABLED=true
+SYSLOG_TCP_ENABLED=true
+SYSLOG_BIND_ADDRESS=0.0.0.0
+SYSLOG_PORT=$DefaultSyslogPort
+SYSLOG_RETENTION_DAYS=30
+SYSLOG_MAX_RECORDS=500000
+SYSLOG_ACCEPT_UNMATCHED=true
 BACKUP_STORAGE_DIR=$($BackupDir.Replace('\','/'))
 BACKUP_STORAGE_PATH=$($BackupDir.Replace('\','/'))
 WEB_DIST_PATH=$((Join-Path $AppDir 'web').Replace('\','/'))
@@ -231,6 +254,61 @@ function Set-ProcessEnvironment {
   foreach ($item in (Read-Environment).GetEnumerator()) {
     [Environment]::SetEnvironmentVariable($item.Key, $item.Value, 'Process')
   }
+}
+
+function Ensure-SyslogFirewall {
+  $values = Read-Environment
+  if (-not $values.ContainsKey('SYSLOG_ENABLED') -or $values['SYSLOG_ENABLED'] -ne 'true') {
+    return
+  }
+  $port = $DefaultSyslogPort
+  if ($values.ContainsKey('SYSLOG_PORT')) {
+    $configured = 0
+    if ([int]::TryParse([string]$values['SYSLOG_PORT'], [ref]$configured) -and
+      $configured -ge 1 -and $configured -le 65535) {
+      $port = $configured
+    }
+  }
+  Get-NetFirewallRule -DisplayName 'MME Syslog UDP' -ErrorAction SilentlyContinue |
+    Remove-NetFirewallRule -ErrorAction SilentlyContinue
+  Get-NetFirewallRule -DisplayName 'MME Syslog TCP' -ErrorAction SilentlyContinue |
+    Remove-NetFirewallRule -ErrorAction SilentlyContinue
+  New-NetFirewallRule -DisplayName 'MME Syslog UDP' -Group 'MikroTik Manager Enterprise Syslog' `
+    -Direction Inbound -Action Allow -Protocol UDP -LocalPort $port -Profile Domain,Private | Out-Null
+  New-NetFirewallRule -DisplayName 'MME Syslog TCP' -Group 'MikroTik Manager Enterprise Syslog' `
+    -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -Profile Domain,Private | Out-Null
+  Write-BootstrapLog "Windows Firewall cho phép Syslog UDP/TCP cổng $port trên Domain/Private."
+}
+
+function Assert-SyslogPortAvailable {
+  $values = Read-Environment
+  if (-not $values.ContainsKey('SYSLOG_ENABLED') -or $values['SYSLOG_ENABLED'] -ne 'true') {
+    return
+  }
+  $port = $DefaultSyslogPort
+  if ($values.ContainsKey('SYSLOG_PORT')) {
+    $configured = 0
+    if ([int]::TryParse([string]$values['SYSLOG_PORT'], [ref]$configured) -and
+      $configured -ge 1 -and $configured -le 65535) {
+      $port = $configured
+    }
+  }
+  $tcp = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Any, $port)
+  $udp = $null
+  try {
+    $tcp.Start()
+    $udp = New-Object Net.Sockets.UdpClient($port)
+  } catch {
+    throw "Cổng Syslog UDP/TCP $port đang được tiến trình khác sử dụng."
+  } finally {
+    try { $tcp.Stop() } catch { }
+    if ($udp) { try { $udp.Close() } catch { } }
+  }
+}
+
+function Remove-SyslogFirewall {
+  Get-NetFirewallRule -Group 'MikroTik Manager Enterprise Syslog' -ErrorAction SilentlyContinue |
+    Remove-NetFirewallRule -ErrorAction SilentlyContinue
 }
 
 function Backup-Data {
@@ -478,6 +556,8 @@ function Install-MME {
     if ($FrontendRuntimePort -ne $BackendRuntimePort) {
       Assert-PortAvailable $FrontendRuntimePort 'Cổng frontend/dashboard'
     }
+    Assert-SyslogPortAvailable
+    Ensure-SyslogFirewall
   } catch {
     Restore-Data $backup
     Restore-PreviousReleaseService
@@ -540,7 +620,7 @@ try {
     'open' { Start-Process "http://localhost:$FrontendRuntimePort" }
     'status' { Get-Service -Name MME -ErrorAction SilentlyContinue | Format-List; Read-Host 'Nhấn Enter để đóng' }
     'backup' { Assert-Administrator; Backup-Data }
-    'uninstall' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe uninstall }
+    'uninstall' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe uninstall; Remove-SyslogFirewall }
     'validate' { Write-BootstrapLog 'Windows PowerShell validation đạt.' }
   }
 } catch {
