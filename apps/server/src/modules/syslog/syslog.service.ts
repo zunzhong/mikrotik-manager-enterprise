@@ -1,5 +1,6 @@
 import dgram from 'node:dgram';
 import net from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
 import { config } from '../../config/config.service.js';
 import { syslogRepository, type StoredSyslogInput } from './syslog.repository.js';
 import { SyslogReceiver } from './syslog.receiver.js';
@@ -112,7 +113,10 @@ export class SyslogService {
       };
     }
 
-    const payload = `<134>1 ${new Date().toISOString()} mme-self-test MME ${process.pid} SYSLOG_TEST - MME Syslog receiver test`;
+    const marker = `mme-syslog-self-test-${process.pid}-${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}`;
+    const payload = `<134>1 ${new Date().toISOString()} mme-self-test MME ${process.pid} SYSLOG_TEST - ${marker}`;
     if (before.udpListening) {
       await new Promise<void>((resolve, reject) => {
         const socket = dgram.createSocket(
@@ -152,15 +156,26 @@ export class SyslogService {
       });
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    await this.receiver.flush();
+    let stored = false;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      await delay(100);
+      await this.receiver.flush();
+      const result = await syslogRepository.list({
+        page: 1,
+        pageSize: 1,
+        search: marker,
+      });
+      if (result.total > 0) {
+        stored = true;
+        break;
+      }
+    }
     const after = this.receiver.status();
     return {
-      success: after.stored > before.stored,
-      message:
-        after.stored > before.stored
-          ? 'A test message passed through the Syslog listener, parser and database.'
-          : (after.lastError ?? 'The test message was not stored.'),
+      success: stored,
+      message: stored
+        ? 'A test message passed through the Syslog listener, parser and database.'
+        : (after.lastError ?? 'The test message was not stored within 5 seconds.'),
       receiver: after,
     };
   }

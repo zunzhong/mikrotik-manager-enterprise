@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.8.1
+        default: 5.8.2
       platform:
         description: Nền tảng cần build
         required: true
@@ -649,7 +649,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.8.1!'
+          recovery_password='MME-Recovery-5.8.2!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path

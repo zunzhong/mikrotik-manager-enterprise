@@ -412,7 +412,7 @@ syslog_check() {
   }
   if [[ "$udp_enabled" == true ]]; then
     ss --listening --numeric --udp |
-      awk -v suffix=":$SYSLOG_PORT" 'NR > 1 && index($5, suffix) == length($5) - length(suffix) + 1 {found=1} END {exit !found}' || {
+      awk -v suffix=":$SYSLOG_PORT" 'NR > 1 && index($4, suffix) == length($4) - length(suffix) + 1 {found=1} END {exit !found}' || {
         echo "Syslog UDP listener is missing on port $SYSLOG_PORT." >&2
         return 1
       }

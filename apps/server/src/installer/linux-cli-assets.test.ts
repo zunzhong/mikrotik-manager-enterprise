@@ -145,6 +145,12 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('feature-check)');
     expect(control).toContain('syslog-check)');
     expect(control).toContain('MME Syslog listener check: PASS');
+    const syslogCheck = control.slice(
+      control.indexOf('syslog_check()'),
+      control.indexOf('remove_syslog_firewall_rules()'),
+    );
+    expect(syslogCheck.match(/index\(\$4, suffix\)/g)).toHaveLength(2);
+    expect(syslogCheck).not.toContain('index($5, suffix)');
     expect(control).toContain('MME Linux platform feature check: PASS');
     expect(control).toContain('Configured dashboard listener');
     expect(control).toContain('database-check)');

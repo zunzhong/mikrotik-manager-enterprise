@@ -17,6 +17,11 @@ describe('Centralized Syslog release assets', () => {
     expect(smoke).toContain('/api/v1/syslog/test');
     expect(smoke).toContain('udpReceiver: true');
     expect(smoke).toContain('tcpReceiver: true');
+    const service = read('apps/server/src/modules/syslog/syslog.service.ts');
+    expect(service).toContain('mme-syslog-self-test-');
+    expect(service).toContain('search: marker');
+    expect(service).toContain('for (let attempt = 0; attempt < 50; attempt += 1)');
+    expect(service).not.toContain('after.stored > before.stored');
   });
 
   it('ships the Syslog guide in both installer artifacts', () => {
