@@ -30,6 +30,12 @@ describe('Windows in-place upgrade assets', () => {
     expect(installer).toContain(
       '{app}\\releases\\{#MyAppVersion}\\packaging\\windows\\MME-Control.ps1',
     );
+    expect(installer).toContain('AfterInstall: RunPostInstall');
+    expect(installer).toContain('MME-PostInstall.marker');
+    expect(installer).toContain('procedure RunPostInstall()');
+    expect(installer).toContain('RaiseException(');
+    expect(installer).toContain('(ResultCode <> 0)');
+    expect(installer).not.toContain('[Run]');
   });
 
   it('guards every executable/native file class and restores the old service on failure', () => {
@@ -69,8 +75,8 @@ describe('Windows in-place upgrade assets', () => {
     expect(installer).toContain('UseDefaultPortsCheck.Checked := True');
     expect(installer).toContain('{param:BACKENDPORT|}');
     expect(installer).toContain('{param:FRONTENDPORT|}');
-    expect(installer).toContain('-BackendPort {code:GetBackendPort}');
-    expect(installer).toContain('-FrontendPort {code:GetFrontendPort}');
+    expect(installer).toContain(`'" -BackendPort ' + GetBackendPort('')`);
+    expect(installer).toContain(`' -FrontendPort ' + GetFrontendPort('')`);
     expect(installer).toContain('Port := StrToIntDef(Trim(Value), -1)');
     expect(installer).not.toContain('TryStrToInt');
     expect(control).toContain('[int]$BackendPort = 0');
@@ -92,8 +98,20 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain("New-NetFirewallRule -DisplayName 'MME Syslog UDP'");
     expect(control).toContain("New-NetFirewallRule -DisplayName 'MME Syslog TCP'");
     expect(control).toContain('Remove-SyslogFirewall');
+    expect(control).toContain('Resolve-SyslogPort');
+    expect(control).toContain('Test-SyslogPortAvailable');
+    expect(control).toContain('@(5514, 6514, 10514)');
+    expect(control).toContain('Write-InstallState');
+    expect(control).toContain('Write-InitialCredentials');
+    expect(control).toContain('Write-InitialCredentials -FreshDatabase:(-not $hadDatabase)');
+    expect(control).toContain('Restore-InstallTransaction');
+    expect(control).toContain('Remove-Item $Database, "$Database-wal", "$Database-shm"');
+    expect(control).toContain("Join-Path $DataDir 'MME-Thong-Tin-Dang-Nhap.txt'");
     expect(workflow).toContain('Assert-Syslog');
     expect(workflow).toContain("smoke-syslog.mjs 'http://127.0.0.1:3000'");
     expect(workflow).toContain('syslog-windows-smoke.json');
+    expect(workflow).toContain('SYSLOG_PORT_LOCKED');
+    expect(workflow).toContain('Installer vẫn trả exit code 0');
+    expect(workflow).toContain('install-state.json');
   });
 });

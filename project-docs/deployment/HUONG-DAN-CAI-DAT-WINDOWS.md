@@ -35,17 +35,19 @@ if ($actual -ne $expected) { throw 'Checksum không khớp. Không được ch�
 
 Dashboard chạy tại cổng frontend đã chọn. Nếu bỏ qua bước cấu hình, URL là
 `http://localhost:3000`. Thông tin đăng nhập ban đầu được ghi vào file
-`MME-Thong-Tin-Dang-Nhap.txt` trên Desktop. Hãy đổi mật khẩu ngay sau lần đăng nhập đầu tiên.
+`MME-Thong-Tin-Dang-Nhap.txt` trên Desktop và trong `%ProgramData%\MikroTik Manager Enterprise`.
+Hãy đổi mật khẩu ngay sau lần đăng nhập đầu tiên.
 
 ## 4. Vị trí dữ liệu
 
-| Nội dung      | Đường dẫn                                                  |
-| ------------- | ---------------------------------------------------------- |
-| Chương trình  | `%ProgramFiles%\MikroTik Manager Enterprise`               |
-| Cơ sở dữ liệu | `%ProgramData%\MikroTik Manager Enterprise\data\mme.db`    |
-| Cấu hình      | `%ProgramData%\MikroTik Manager Enterprise\config\mme.env` |
-| Bản sao lưu   | `%ProgramData%\MikroTik Manager Enterprise\backups`        |
-| Nhật ký       | `%ProgramData%\MikroTik Manager Enterprise\logs`           |
+| Nội dung      | Đường dẫn                                                      |
+| ------------- | -------------------------------------------------------------- |
+| Chương trình  | `%ProgramFiles%\MikroTik Manager Enterprise`                   |
+| Cơ sở dữ liệu | `%ProgramData%\MikroTik Manager Enterprise\data\mme.db`        |
+| Cấu hình      | `%ProgramData%\MikroTik Manager Enterprise\config\mme.env`     |
+| Bản sao lưu   | `%ProgramData%\MikroTik Manager Enterprise\backups`            |
+| Nhật ký       | `%ProgramData%\MikroTik Manager Enterprise\logs`               |
+| Biên nhận cài | `%ProgramData%\MikroTik Manager Enterprise\install-state.json` |
 
 Dữ liệu được tách khỏi thư mục chương trình để nâng cấp hoặc gỡ ứng dụng không làm mất database.
 
@@ -60,11 +62,18 @@ Test-Path 'C:\ProgramData\MikroTik Manager Enterprise\data\mme.db'
 ```
 
 Kết quả mong đợi: Service có trạng thái `Running`, API trả về `status: ready`, database tồn tại.
+File `install-state.json` chỉ được tạo sau khi cả service, API và database đã được xác minh. Nếu bước
+hậu cài đặt thất bại, installer trả mã lỗi thay vì vẫn xuất hiện như một ứng dụng đã cài thành công.
+
+Syslog mặc định dùng UDP/TCP `514`. Nếu cổng này đã bị phần mềm khác chiếm, installer tự kiểm tra và
+chọn lần lượt `5514`, `6514` hoặc `10514`; cổng thực tế được ghi trong `mme.env` và
+`install-state.json`. Không cấu hình được rule Windows Firewall sẽ được ghi cảnh báo vào
+`bootstrap.log` nhưng không làm hỏng service MME chính.
 
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.2-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.3-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -72,7 +81,7 @@ Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.2-x64.exe' `
 Đặt cổng riêng khi cài im lặng:
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.2-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.3-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
     '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
   -Wait
@@ -101,6 +110,7 @@ Kiểm tra theo thứ tự:
 ```powershell
 Get-Service MME
 Get-Content 'C:\ProgramData\MikroTik Manager Enterprise\logs\bootstrap.log' -Tail 200
+Get-Content 'C:\ProgramData\MikroTik Manager Enterprise\install-state.json' -Raw
 Get-ChildItem 'C:\ProgramData\MikroTik Manager Enterprise\logs'
 Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
 ```

@@ -30,7 +30,9 @@ $Database = Join-Path $DataDir 'data\mme.db'
 $BackupDir = Join-Path $DataDir 'backups'
 $LogDir = Join-Path $DataDir 'logs'
 $ConfigFile = Join-Path $DataDir 'config\mme.env'
+$CredentialsFile = Join-Path $DataDir 'MME-Thong-Tin-Dang-Nhap.txt'
 $BootstrapLog = Join-Path $LogDir 'bootstrap.log'
+$InstallStateFile = Join-Path $DataDir 'install-state.json'
 $UpgradeStateFile = Join-Path $DataDir 'config\upgrade-state.json'
 $DefaultPort = 3000
 $DefaultSyslogPort = 514
@@ -120,6 +122,35 @@ function Resolve-RuntimePorts {
   }
 }
 
+function Write-InitialCredentials([switch]$FreshDatabase) {
+  # Never overwrite credentials for an existing database: the administrator
+  # may already have changed the password in MME. This path specifically
+  # repairs fresh/partial installs where configuration exists but mme.db does not.
+  if (-not $FreshDatabase) { return }
+  $values = Read-Environment
+  if (-not $values.ContainsKey('DEFAULT_ADMIN_EMAIL') -or
+    -not $values.ContainsKey('DEFAULT_ADMIN_PASSWORD')) {
+    throw 'Thiếu thông tin quản trị ban đầu trong cấu hình MME.'
+  }
+  $content = @"
+URL: http://localhost:$FrontendRuntimePort
+Backend API: http://localhost:$BackendRuntimePort
+Email: $($values['DEFAULT_ADMIN_EMAIL'])
+Mat khau: $($values['DEFAULT_ADMIN_PASSWORD'])
+
+Hay doi mat khau ngay sau lan dang nhap dau tien.
+"@
+  [IO.File]::WriteAllText($CredentialsFile, $content, (New-Object Text.UTF8Encoding($false)))
+  $desktop = [Environment]::GetFolderPath('Desktop')
+  if (-not [string]::IsNullOrWhiteSpace($desktop) -and (Test-Path $desktop)) {
+    [IO.File]::WriteAllText(
+      (Join-Path $desktop 'MME-Thong-Tin-Dang-Nhap.txt'),
+      $content,
+      (New-Object Text.UTF8Encoding($false))
+    )
+  }
+}
+
 function Assert-PortAvailable([int]$Port, [string]$Name) {
   $listener = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, $Port)
   try {
@@ -141,9 +172,9 @@ function Initialize-Environment {
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.8.2')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.8.3')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.8.2`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.8.3`r`n"
     }
     $backendForFrontend = $DefaultPort
     if ($BackendPort -gt 0) {
@@ -217,7 +248,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.8.2
+APP_VERSION=5.8.3
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$BackendRuntimePort
 FRONTEND_HOST=127.0.0.1
@@ -242,12 +273,6 @@ SQLITE_SCHEMA_SQL=$((Join-Path $AppDir 'prisma\schema.sqlite.sql').Replace('\','
 LOG_LEVEL=info
 "@
   [IO.File]::WriteAllText($ConfigFile, $content, (New-Object Text.UTF8Encoding($false)))
-  $credentialsDirectory = [Environment]::GetFolderPath('Desktop')
-  if ([string]::IsNullOrWhiteSpace($credentialsDirectory) -or -not (Test-Path $credentialsDirectory)) {
-    $credentialsDirectory = Split-Path $ConfigFile
-  }
-  $credentials = Join-Path $credentialsDirectory 'MME-Thong-Tin-Dang-Nhap.txt'
-  [IO.File]::WriteAllText($credentials, "URL: http://localhost:$FrontendRuntimePort`r`nBackend API: http://localhost:$BackendRuntimePort`r`nEmail: admin@example.com`r`nMat khau: $adminPassword`r`n`r`nHay doi mat khau ngay sau lan dang nhap dau tien.", (New-Object Text.UTF8Encoding($false)))
 }
 
 function Set-ProcessEnvironment {
@@ -280,10 +305,27 @@ function Ensure-SyslogFirewall {
   Write-BootstrapLog "Windows Firewall cho phép Syslog UDP/TCP cổng $port trên Domain/Private."
 }
 
-function Assert-SyslogPortAvailable {
+function Test-SyslogPortAvailable([int]$Port) {
+  $tcp = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Any, $Port)
+  $udp = $null
+  $available = $false
+  try {
+    $tcp.Start()
+    $udp = New-Object Net.Sockets.UdpClient($Port)
+    $available = $true
+  } catch {
+    $available = $false
+  } finally {
+    try { $tcp.Stop() } catch { }
+    if ($udp) { try { $udp.Close() } catch { } }
+  }
+  return $available
+}
+
+function Resolve-SyslogPort {
   $values = Read-Environment
   if (-not $values.ContainsKey('SYSLOG_ENABLED') -or $values['SYSLOG_ENABLED'] -ne 'true') {
-    return
+    return 0
   }
   $port = $DefaultSyslogPort
   if ($values.ContainsKey('SYSLOG_PORT')) {
@@ -293,17 +335,20 @@ function Assert-SyslogPortAvailable {
       $port = $configured
     }
   }
-  $tcp = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Any, $port)
-  $udp = $null
-  try {
-    $tcp.Start()
-    $udp = New-Object Net.Sockets.UdpClient($port)
-  } catch {
-    throw "Cổng Syslog UDP/TCP $port đang được tiến trình khác sử dụng."
-  } finally {
-    try { $tcp.Stop() } catch { }
-    if ($udp) { try { $udp.Close() } catch { } }
+
+  if (Test-SyslogPortAvailable $port) { return $port }
+
+  foreach ($fallbackPort in @(5514, 6514, 10514)) {
+    if ($fallbackPort -eq $port) { continue }
+    if (Test-SyslogPortAvailable $fallbackPort) {
+      $content = [IO.File]::ReadAllText($ConfigFile)
+      $content = Set-EnvironmentContentValue $content 'SYSLOG_PORT' ([string]$fallbackPort)
+      [IO.File]::WriteAllText($ConfigFile, $content, (New-Object Text.UTF8Encoding($false)))
+      Write-BootstrapLog "Cổng Syslog $port đang bận; tự động chuyển sang cổng $fallbackPort."
+      return $fallbackPort
+    }
   }
+  throw "Không tìm được cổng Syslog UDP/TCP khả dụng trong danh sách: $port, 5514, 6514, 10514."
 }
 
 function Remove-SyslogFirewall {
@@ -318,6 +363,8 @@ function Backup-Data {
     $paths += @($dataFiles | ForEach-Object { $_.FullName })
   }
   if (Test-Path $ConfigFile) { $paths += $ConfigFile }
+  if (Test-Path $CredentialsFile) { $paths += $CredentialsFile }
+  if (Test-Path $InstallStateFile) { $paths += $InstallStateFile }
   if ($paths.Count -eq 0) { return $null }
   New-Item -ItemType Directory -Force $BackupDir | Out-Null
   $target = Join-Path $BackupDir "mme-before-upgrade-$(Get-Date -Format 'yyyyMMdd-HHmmss').zip"
@@ -336,8 +383,34 @@ function Restore-Data([string]$Archive) {
     $backupConfig = Join-Path $temporary 'mme.env'
     if (-not (Test-Path $backupConfig)) { $backupConfig = Join-Path $temporary 'config\mme.env' }
     if (Test-Path $backupConfig) { Copy-Item $backupConfig $ConfigFile -Force }
+    $backupCredentials = Join-Path $temporary 'MME-Thong-Tin-Dang-Nhap.txt'
+    if (Test-Path $backupCredentials) { Copy-Item $backupCredentials $CredentialsFile -Force }
+    $backupInstallState = Join-Path $temporary 'install-state.json'
+    if (Test-Path $backupInstallState) { Copy-Item $backupInstallState $InstallStateFile -Force }
   } finally {
     Remove-Item $temporary -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Restore-InstallTransaction(
+  [string]$Archive,
+  [bool]$HadDatabase,
+  [bool]$HadConfig,
+  [bool]$HadCredentials,
+  [bool]$HadInstallState
+) {
+  Restore-Data $Archive
+  if (-not $HadDatabase) {
+    Remove-Item $Database, "$Database-wal", "$Database-shm" -Force -ErrorAction SilentlyContinue
+  }
+  if (-not $HadConfig) {
+    Remove-Item $ConfigFile -Force -ErrorAction SilentlyContinue
+  }
+  if (-not $HadCredentials) {
+    Remove-Item $CredentialsFile -Force -ErrorAction SilentlyContinue
+  }
+  if (-not $HadInstallState) {
+    Remove-Item $InstallStateFile -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -520,6 +593,43 @@ function Wait-MMEHealthy([int]$TimeoutSeconds = 60) {
   throw "Dịch vụ MME không sẵn sàng sau $TimeoutSeconds giây (trạng thái: $state). Xem log tại: $LogDir"
 }
 
+function Write-InstallState {
+  $service = Get-CimInstance Win32_Service -Filter "Name='MME'" -ErrorAction SilentlyContinue
+  if (-not $service -or $service.State -ne 'Running') {
+    throw 'Windows Service MME chưa ở trạng thái Running.'
+  }
+  if ($service.StartMode -ne 'Auto') {
+    throw "Windows Service MME không ở chế độ tự khởi động: $($service.StartMode)."
+  }
+  if (-not (Test-Path $ConfigFile)) { throw 'Thiếu file cấu hình MME sau cài đặt.' }
+  if (-not (Test-Path $Database)) { throw 'Thiếu SQLite database MME sau cài đặt.' }
+  if ((Get-Item $Database).Length -le 0) { throw 'SQLite database MME rỗng sau cài đặt.' }
+
+  $values = Read-Environment
+  $installedSyslogPort = 0
+  if ($values.ContainsKey('SYSLOG_PORT')) {
+    [void][int]::TryParse([string]$values['SYSLOG_PORT'], [ref]$installedSyslogPort)
+  }
+  $state = [ordered]@{
+    version = [string]$values['APP_VERSION']
+    installedAt = (Get-Date).ToUniversalTime().ToString('o')
+    serviceName = 'MME'
+    serviceState = [string]$service.State
+    serviceStartMode = [string]$service.StartMode
+    backendPort = $BackendRuntimePort
+    frontendPort = $FrontendRuntimePort
+    syslogPort = $installedSyslogPort
+    credentialsFile = $CredentialsFile
+    configFile = $ConfigFile
+    databaseFile = $Database
+  }
+  [IO.File]::WriteAllText(
+    $InstallStateFile,
+    ($state | ConvertTo-Json -Depth 3),
+    (New-Object Text.UTF8Encoding($false))
+  )
+}
+
 function Remove-StaleReleases {
   $releasesRoot = Split-Path -Parent $AppDir
   if ((Split-Path -Leaf $releasesRoot) -ine 'releases' -or -not (Test-Path $releasesRoot)) {
@@ -546,20 +656,32 @@ function Install-MME {
   Write-BootstrapLog 'Preflight đạt.'
   Stop-MMERuntime
   Write-BootstrapLog 'Đã dừng hoàn toàn runtime MME cũ.'
+  $hadDatabase = Test-Path $Database
+  $hadConfig = Test-Path $ConfigFile
+  $hadCredentials = Test-Path $CredentialsFile
+  $hadInstallState = Test-Path $InstallStateFile
   $backup = Backup-Data
   Initialize-Environment
   Resolve-RuntimePorts
   Write-BootstrapLog 'Đã khởi tạo cấu hình và thư mục dữ liệu.'
-  Set-ProcessEnvironment
   try {
     Assert-PortAvailable $BackendRuntimePort 'Cổng backend/API'
     if ($FrontendRuntimePort -ne $BackendRuntimePort) {
       Assert-PortAvailable $FrontendRuntimePort 'Cổng frontend/dashboard'
     }
-    Assert-SyslogPortAvailable
-    Ensure-SyslogFirewall
+    $resolvedSyslogPort = Resolve-SyslogPort
+    if ($resolvedSyslogPort -gt 0) {
+      try {
+        Ensure-SyslogFirewall
+      } catch {
+        Write-BootstrapLog "CẢNH BÁO: Không thể tự cấu hình Windows Firewall cho Syslog: $($_.Exception.Message)"
+      }
+    }
+    # Resolve-SyslogPort can persist a fallback port. Load the final values only
+    # after all runtime ports have been validated and normalized.
+    Set-ProcessEnvironment
   } catch {
-    Restore-Data $backup
+    Restore-InstallTransaction $backup $hadDatabase $hadConfig $hadCredentials $hadInstallState
     Restore-PreviousReleaseService
     throw "Kiểm tra cổng thất bại; cấu hình và service cũ đã được phục hồi. $($_.Exception.Message)"
   }
@@ -579,9 +701,10 @@ function Install-MME {
     }
     if ($setupOutput) { $setupOutput | Out-String | Add-Content $BootstrapLog -Encoding UTF8 }
     if ($setupExitCode -ne 0) { throw "Khởi tạo SQLite hoặc tài khoản quản trị thất bại (exit code: $setupExitCode)." }
+    Write-InitialCredentials -FreshDatabase:(-not $hadDatabase)
     Write-BootstrapLog 'Khởi tạo SQLite đạt.'
   } catch {
-    Restore-Data $backup
+    Restore-InstallTransaction $backup $hadDatabase $hadConfig $hadCredentials $hadInstallState
     Restore-PreviousReleaseService
     throw "Nâng cấp thất bại; dữ liệu đã được rollback. $($_.Exception.Message)"
   }
@@ -595,10 +718,11 @@ function Install-MME {
     if ($LASTEXITCODE -ne 0) { throw 'Không thể khởi động Windows Service MME.' }
     Write-BootstrapLog 'Windows Service đã nhận lệnh khởi động.'
     Wait-MMEHealthy
+    Write-InstallState
   } catch {
     try { & $ServiceExe stop *> $null } catch { }
     try { & $ServiceExe uninstall *> $null } catch { }
-    Restore-Data $backup
+    Restore-InstallTransaction $backup $hadDatabase $hadConfig $hadCredentials $hadInstallState
     Restore-PreviousReleaseService
     throw
   }

@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.8.2
+        default: 5.8.3
       platform:
         description: Nền tảng cần build
         required: true
@@ -248,21 +248,28 @@ jobs:
             $configFile = "$env:ProgramData\MikroTik Manager Enterprise\config\mme.env"
             $passwordLine = Get-Content $configFile | Where-Object { $_ -like 'DEFAULT_ADMIN_PASSWORD=*' } | Select-Object -First 1
             if (-not $passwordLine) { throw 'Thiếu mật khẩu quản trị để smoke test Syslog.' }
+            $syslogPortLine = Get-Content $configFile | Where-Object { $_ -like 'SYSLOG_PORT=*' } | Select-Object -First 1
+            if (-not $syslogPortLine) { throw 'Thiếu SYSLOG_PORT trong cấu hình sau cài đặt.' }
+            $syslogPort = 0
+            if (-not [int]::TryParse(($syslogPortLine -split '=', 2)[1], [ref]$syslogPort)) {
+              throw 'SYSLOG_PORT sau cài đặt không hợp lệ.'
+            }
             $env:MME_SMOKE_EMAIL = 'admin@example.com'
             $env:MME_SMOKE_PASSWORD = ($passwordLine -split '=', 2)[1]
             $env:MME_SMOKE_SYSLOG_HOST = '127.0.0.1'
-            $env:MME_SMOKE_SYSLOG_PORT = '514'
+            $env:MME_SMOKE_SYSLOG_PORT = [string]$syslogPort
             node packaging/smoke-syslog.mjs 'http://127.0.0.1:3000' |
               Set-Content artifacts/syslog-windows-smoke.json -Encoding utf8
             if ($LASTEXITCODE -ne 0) { throw 'Smoke test Syslog UDP/TCP trên Windows thất bại.' }
-            if (-not (Get-NetUDPEndpoint -LocalPort 514 -ErrorAction SilentlyContinue)) {
-              throw 'Không tìm thấy listener Syslog UDP cổng 514.'
+            if (-not (Get-NetUDPEndpoint -LocalPort $syslogPort -ErrorAction SilentlyContinue)) {
+              throw "Không tìm thấy listener Syslog UDP cổng $syslogPort."
             }
-            if (-not (Get-NetTCPConnection -State Listen -LocalPort 514 -ErrorAction SilentlyContinue)) {
-              throw 'Không tìm thấy listener Syslog TCP cổng 514.'
+            if (-not (Get-NetTCPConnection -State Listen -LocalPort $syslogPort -ErrorAction SilentlyContinue)) {
+              throw "Không tìm thấy listener Syslog TCP cổng $syslogPort."
             }
             $rules = @(Get-NetFirewallRule -Group 'MikroTik Manager Enterprise Syslog' -ErrorAction SilentlyContinue)
             if ($rules.Count -lt 2) { throw 'Thiếu rule Windows Firewall cho Syslog UDP/TCP.' }
+            $script:InstalledSyslogPort = $syslogPort
           }
           function Assert-InstalledCriticalFiles {
             $payloadRoot = (Resolve-Path 'artifacts/payload').Path.TrimEnd('\')
@@ -280,9 +287,42 @@ jobs:
             }
           }
 
-          $freshInstall = Start-Process -FilePath $installer.FullName `
-            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/FRONTENDPORT=3080', "/LOG=$artifactDir\install-fresh.log") `
-            -Wait -PassThru
+          # Reproduce a real workstation where another Syslog receiver already
+          # owns port 514. Core MME installation must still finish and choose a
+          # verified fallback instead of leaving an orphaned Programs entry.
+          $syslogConflictJob = Start-Job -ScriptBlock {
+            $tcp = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Any, 514)
+            $udp = $null
+            try {
+              $tcp.Start()
+              $udp = New-Object Net.Sockets.UdpClient(514)
+              Write-Output 'SYSLOG_PORT_LOCKED'
+              Start-Sleep -Seconds 180
+            } finally {
+              try { $tcp.Stop() } catch { }
+              if ($udp) { try { $udp.Close() } catch { } }
+            }
+          }
+          $syslogLockDeadline = (Get-Date).AddSeconds(15)
+          do {
+            $syslogLockSignal = @(Receive-Job $syslogConflictJob -Keep -ErrorAction SilentlyContinue)
+            if ($syslogLockSignal -contains 'SYSLOG_PORT_LOCKED') { break }
+            Start-Sleep -Milliseconds 250
+          } while ((Get-Date) -lt $syslogLockDeadline)
+          if ($syslogLockSignal -notcontains 'SYSLOG_PORT_LOCKED') {
+            Stop-Job $syslogConflictJob -ErrorAction SilentlyContinue
+            Remove-Job $syslogConflictJob -Force -ErrorAction SilentlyContinue
+            throw 'Không mô phỏng được xung đột Syslog cổng 514.'
+          }
+
+          try {
+            $freshInstall = Start-Process -FilePath $installer.FullName `
+              -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/FRONTENDPORT=3080', "/LOG=$artifactDir\install-fresh.log") `
+              -Wait -PassThru
+          } finally {
+            Stop-Job $syslogConflictJob -ErrorAction SilentlyContinue
+            Remove-Job $syslogConflictJob -Force -ErrorAction SilentlyContinue
+          }
           if ($freshInstall.ExitCode -ne 0) {
             Write-MMEDiagnostics
             throw "Cài mới thất bại: exit code $($freshInstall.ExitCode)"
@@ -293,6 +333,9 @@ jobs:
           Assert-ReportSendGuard
           Assert-SeparateFrontendPort
           Assert-Syslog
+          if ($script:InstalledSyslogPort -ne 5514) {
+            throw "Installer không tự chuyển Syslog từ cổng 514 bị chiếm sang 5514: $script:InstalledSyslogPort."
+          }
           if ((Get-Service MME).Status -ne 'Running') { throw 'Windows Service MME không chạy.' }
           if ((Get-CimInstance Win32_Service -Filter "Name='MME'").StartMode -ne 'Auto') { throw 'Windows Service MME không tự khởi động cùng Windows.' }
           $installRoot = Join-Path $env:ProgramFiles 'MikroTik Manager Enterprise'
@@ -300,7 +343,36 @@ jobs:
           $installedServer = Join-Path $releaseDir 'dist\server.js'
           if (-not (Test-Path $installedServer)) { throw 'Ứng dụng không được cài vào Program Files của ổ hệ thống.' }
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\data\mme.db")) { throw 'SQLite database chưa được tạo.' }
+          if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\MME-Thong-Tin-Dang-Nhap.txt")) {
+            throw 'Thiếu file thông tin đăng nhập bền vững trong ProgramData.'
+          }
+          $installState = "$env:ProgramData\MikroTik Manager Enterprise\install-state.json"
+          if (-not (Test-Path $installState)) { throw 'Thiếu biên nhận cài đặt thành công.' }
+          $installStateData = Get-Content $installState -Raw | ConvertFrom-Json
+          if ($installStateData.serviceState -ne 'Running' -or $installStateData.syslogPort -ne 5514) {
+            throw 'Biên nhận cài đặt không phản ánh đúng service/cổng Syslog.'
+          }
           Assert-InstalledCriticalFiles
+
+          # A failed post-install command must make Setup return non-zero and
+          # restore the already working service, never register a broken install.
+          $blockedBackendPort = 39876
+          $backendBlocker = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, $blockedBackendPort)
+          $backendBlocker.Start()
+          try {
+            $negativeInstall = Start-Process -FilePath $installer.FullName `
+              -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/BACKENDPORT=$blockedBackendPort", "/LOG=$artifactDir\install-postinstall-negative.log") `
+              -Wait -PassThru
+          } finally {
+            $backendBlocker.Stop()
+          }
+          if ($negativeInstall.ExitCode -eq 0) {
+            throw 'Installer vẫn trả exit code 0 dù bước hậu cài đặt thất bại.'
+          }
+          $ready = Wait-MMEReady 60
+          if ((Get-Service MME).Status -ne 'Running') {
+            throw 'Service hợp lệ không được phục hồi sau hậu cài đặt thất bại.'
+          }
 
           $externalLockFile = Join-Path $releaseDir 'upgrade-external-lock-test.dll'
           [IO.File]::WriteAllBytes($externalLockFile, [byte[]](1, 2, 3, 4))
@@ -649,7 +721,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.8.2!'
+          recovery_password='MME-Recovery-5.8.3!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path

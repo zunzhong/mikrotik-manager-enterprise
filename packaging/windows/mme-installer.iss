@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.8.2"
+  #define MyAppVersion "5.8.3"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -35,6 +35,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "MME-PreInstall.ps1"; Flags: dontcopy
 Source: "..\..\artifacts\payload\*"; DestDir: "{app}\releases\{#MyAppVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Process this explicit final file only after the complete payload has been extracted.
+; Raising from RunPostInstall keeps Setup transactional instead of silently
+; registering a broken application when PowerShell returns a non-zero exit code.
+Source: "..\..\artifacts\payload\packaging\windows\MME-PostInstall.marker"; DestDir: "{app}\releases\{#MyAppVersion}\packaging\windows"; Flags: ignoreversion; AfterInstall: RunPostInstall
 
 [Dirs]
 Name: "{commonappdata}\MikroTik Manager Enterprise"
@@ -51,9 +55,6 @@ Name: "{group}\Service Status"; Filename: "powershell.exe"; Parameters: "-NoProf
 Name: "{group}\Backup Data"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" backup"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
 Name: "{group}\Open Data Folder"; Filename: "explorer.exe"; Parameters: """{commonappdata}\MikroTik Manager Enterprise"""; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
 Name: "{autodesktop}\MikroTik Manager Enterprise"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" open"; IconFilename: "{app}\releases\{#MyAppVersion}\packaging\windows\mme-logo.ico"
-
-[Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" install -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"" -BackendPort {code:GetBackendPort} -FrontendPort {code:GetFrontendPort}"; Description: "Khởi tạo và chạy MikroTik Manager Enterprise"; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1"" uninstall -NoOpen -DataRoot ""{commonappdata}\MikroTik Manager Enterprise"""; Flags: runhidden waituntilterminated; RunOnceId: "StopMMEService"
@@ -144,6 +145,41 @@ begin
   else if CommandLinePort <> '' then Result := '-1'
   else if UseDefaultPortsCheck.Checked then Result := '0'
   else Result := Trim(PortPage.Values[1]);
+end;
+
+procedure RunPostInstall();
+var
+  ResultCode: Integer;
+  Parameters: String;
+  BootstrapLogPath: String;
+begin
+  ResultCode := -1;
+  BootstrapLogPath := ExpandConstant(
+    '{commonappdata}\MikroTik Manager Enterprise\logs\bootstrap.log'
+  );
+  Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+    ExpandConstant(
+      '{app}\releases\{#MyAppVersion}\packaging\windows\MME-Control.ps1'
+    ) +
+    '" install -NoOpen -DataRoot "' +
+    ExpandConstant('{commonappdata}\MikroTik Manager Enterprise') +
+    '" -BackendPort ' + GetBackendPort('') +
+    ' -FrontendPort ' + GetFrontendPort('');
+
+  if (not Exec(
+    'powershell.exe',
+    Parameters,
+    '',
+    SW_HIDE,
+    ewWaitUntilTerminated,
+    ResultCode
+  )) or (ResultCode <> 0) then
+  begin
+    RaiseException(
+      'MME initialization failed (exit code ' + IntToStr(ResultCode) +
+      '). Setup did not complete. Review: ' + BootstrapLogPath
+    );
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
