@@ -218,11 +218,19 @@ try {
     'RouterOS Syslog configuration failed.',
   );
   assert(
+    syslogConfiguration?.results?.[0]?.routerOsVersion === '7.19.1' &&
+      syslogConfiguration?.results?.[0]?.configurationProfile === 'routeros-7.18+',
+    'RouterOS Syslog did not select the 7.18+ configuration profile.',
+  );
+  assert(
     fake.receivedSentences.some(
       (sentence) =>
         sentence[0] === '/system/logging/action/add' &&
         sentence.includes('=name=mme-syslog') &&
-        sentence.includes('=remote=192.0.2.10'),
+        sentence.includes('=remote-log-format=syslog') &&
+        sentence.includes('=remote-protocol=udp') &&
+        sentence.includes('=remote-port=192.0.2.10:514') &&
+        !sentence.includes('=bsd-syslog=yes'),
     ),
     'RouterOS Syslog action was not sent to the device.',
   );
