@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.8.4
+        default: 5.8.7
       platform:
         description: Nền tảng cần build
         required: true
@@ -287,6 +287,22 @@ jobs:
             }
           }
 
+          # Simulate an interrupted legacy installation: mme.env survived, but
+          # the database and mandatory secrets/initial administrator values did
+          # not. The installer must repair this state instead of returning 100.
+          $partialDataRoot = "$env:ProgramData\MikroTik Manager Enterprise"
+          $partialConfigDir = Join-Path $partialDataRoot 'config'
+          New-Item -ItemType Directory -Force $partialConfigDir | Out-Null
+          @'
+          NODE_ENV=production
+          APP_NAME=mikrotik-manager-enterprise
+          APP_VERSION=5.8.2
+          SERVER_PORT=3000
+          FRONTEND_PORT=3080
+          DATABASE_URL=file:./legacy-partial.db
+          '@ | ForEach-Object { $_ -replace '^          ', '' } |
+            Set-Content (Join-Path $partialConfigDir 'mme.env') -Encoding utf8
+
           # Reproduce a real workstation where another Syslog receiver already
           # owns port 514. Core MME installation must still finish and choose a
           # verified fallback instead of leaving an orphaned Programs entry.
@@ -346,6 +362,13 @@ jobs:
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\MME-Thong-Tin-Dang-Nhap.txt")) {
             throw 'Thiếu file thông tin đăng nhập bền vững trong ProgramData.'
           }
+          $installedConfig = Get-Content "$env:ProgramData\MikroTik Manager Enterprise\config\mme.env" -Raw
+          if ($installedConfig -notmatch '(?m)^DATABASE_URL=file:.+/data/mme\.db$' -or
+            $installedConfig -notmatch '(?m)^JWT_SECRET=.+$' -or
+            $installedConfig -notmatch '(?m)^ENCRYPTION_KEY=.+$' -or
+            $installedConfig -notmatch '(?m)^DEFAULT_ADMIN_PASSWORD=.+$') {
+            throw 'Installer không sửa hoàn chỉnh cấu hình còn sót lại từ lần cài dở.'
+          }
           $installState = "$env:ProgramData\MikroTik Manager Enterprise\install-state.json"
           if (-not (Test-Path $installState)) { throw 'Thiếu biên nhận cài đặt thành công.' }
           $installStateData = Get-Content $installState -Raw | ConvertFrom-Json
@@ -368,6 +391,12 @@ jobs:
           }
           if ($negativeInstall.ExitCode -ne 100) {
             throw "Installer phải trả exit code 100 khi hậu cài đặt thất bại, thực tế: $($negativeInstall.ExitCode)."
+          }
+          $bootstrapFailure = "$env:ProgramData\MikroTik Manager Enterprise\logs\bootstrap-error.txt"
+          if (-not (Test-Path $bootstrapFailure) -or
+            -not (Select-String -Path $bootstrapFailure -Pattern 'validate-network-ports' -Quiet) -or
+            -not (Select-String -Path $bootstrapFailure -Pattern ([string]$blockedBackendPort) -Quiet)) {
+            throw 'Installer không ghi đúng giai đoạn và nguyên nhân hậu cài đặt thất bại.'
           }
           $ready = Wait-MMEReady 60
           if ((Get-Service MME).Status -ne 'Running') {
@@ -721,7 +750,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.8.4!'
+          recovery_password='MME-Recovery-5.8.7!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path

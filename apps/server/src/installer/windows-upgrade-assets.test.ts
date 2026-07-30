@@ -36,6 +36,8 @@ describe('Windows in-place upgrade assets', () => {
     expect(installer).toContain('function GetCustomSetupExitCode: Integer');
     expect(installer).toContain('PostInstallFailed := True');
     expect(installer).toContain('Result := 100');
+    expect(installer).toContain('bootstrap-error.txt');
+    expect(installer).toContain('LoadStringsFromFile(BootstrapFailurePath, FailureLines)');
     expect(installer).not.toContain('RaiseException(');
     expect(installer).toContain('(ResultCode <> 0)');
     expect(installer).not.toContain('[Run]');
@@ -106,7 +108,9 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain('@(5514, 6514, 10514)');
     expect(control).toContain('Write-InstallState');
     expect(control).toContain('Write-InitialCredentials');
-    expect(control).toContain('Write-InitialCredentials -FreshDatabase:(-not $hadDatabase)');
+    expect(control).toContain(
+      'Write-InitialCredentials -FreshDatabase:(-not $databaseAvailableBeforeSetup)',
+    );
     expect(control).toContain('Restore-InstallTransaction');
     expect(control).toContain('Remove-Item $Database, "$Database-wal", "$Database-shm"');
     expect(control).toContain("Join-Path $DataDir 'MME-Thong-Tin-Dang-Nhap.txt'");
@@ -116,5 +120,25 @@ describe('Windows in-place upgrade assets', () => {
     expect(workflow).toContain('SYSLOG_PORT_LOCKED');
     expect(workflow).toContain('Installer phải trả exit code 100');
     expect(workflow).toContain('install-state.json');
+  });
+
+  it('repairs interrupted legacy installs before bootstrapping SQLite', () => {
+    const control = read('packaging/windows/MME-Control.ps1');
+    const workflow = read('.github/workflows/platform-installers.yml');
+
+    expect(control).toContain('Resolve-LegacySqlitePath');
+    expect(control).toContain('Import-LegacySqliteDatabase');
+    expect(control).toContain("Set-EnvironmentContentValue $existingConfig 'DATABASE_URL'");
+    expect(control).toContain('Repaired missing required setting:');
+    expect(control).toContain('$databaseAvailableBeforeSetup = Test-Path $Database');
+    expect(control).toContain(
+      'Write-InitialCredentials -FreshDatabase:(-not $databaseAvailableBeforeSetup)',
+    );
+    expect(control).toContain('Write-BootstrapFailure $_');
+    expect(control).toContain("Set-InstallStage 'initialize-database'");
+    expect(control).toContain('Invoke-ServiceWrapper');
+    expect(control).toContain('Get-ServiceLogSummary');
+    expect(workflow).toContain('Simulate an interrupted legacy installation');
+    expect(workflow).toContain('bootstrap-error.txt');
   });
 });

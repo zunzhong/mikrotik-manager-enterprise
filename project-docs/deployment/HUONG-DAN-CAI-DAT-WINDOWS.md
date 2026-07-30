@@ -50,6 +50,10 @@ Hãy đổi mật khẩu ngay sau lần đăng nhập đầu tiên.
 | Biên nhận cài | `%ProgramData%\MikroTik Manager Enterprise\install-state.json` |
 
 Dữ liệu được tách khỏi thư mục chương trình để nâng cấp hoặc gỡ ứng dụng không làm mất database.
+Khi phát hiện cấu hình còn sót lại từ một lần cài chưa hoàn tất, bộ cài tự bổ sung các khóa bắt buộc
+và chuẩn hóa `DATABASE_URL` về file SQLite trong ProgramData. Nếu database SQLite của phiên bản cũ
+còn nằm trong thư mục chương trình, bộ cài nhập cả database và các file WAL/SHM vào vùng dữ liệu bền
+vững trước khi nâng cấp.
 
 ## 5. Kiểm tra sau cài đặt
 
@@ -74,7 +78,7 @@ chọn lần lượt `5514`, `6514` hoặc `10514`; cổng thực tế được 
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.6-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.7-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -82,7 +86,7 @@ Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.6-x64.exe' `
 Đặt cổng riêng khi cài im lặng:
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.6-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.7-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
     '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
   -Wait
@@ -110,6 +114,7 @@ Kiểm tra theo thứ tự:
 
 ```powershell
 Get-Service MME
+Get-Content 'C:\ProgramData\MikroTik Manager Enterprise\logs\bootstrap-error.txt'
 Get-Content 'C:\ProgramData\MikroTik Manager Enterprise\logs\bootstrap.log' -Tail 200
 Get-Content 'C:\ProgramData\MikroTik Manager Enterprise\install-state.json' -Raw
 Get-ChildItem 'C:\ProgramData\MikroTik Manager Enterprise\logs'
@@ -119,6 +124,10 @@ Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
 Nếu cổng `3000` đang bị ứng dụng khác chiếm dụng, hãy dừng ứng dụng đó rồi dùng shortcut
 **Start MME**. Không đăng công khai file `mme.env`, database hoặc thông tin đăng nhập vì chúng chứa
 dữ liệu nhạy cảm.
+
+Từ bản 5.8.7, hộp thoại lỗi hiển thị trực tiếp giai đoạn bootstrap và nguyên nhân cuối cùng.
+`bootstrap-error.txt` là bản tóm tắt ngắn; `bootstrap.log` giữ toàn bộ đầu ra của bước khởi tạo
+database/service để chẩn đoán chi tiết.
 
 Để mở nhanh thư mục dữ liệu, dùng shortcut **Open Data Folder** trong Start Menu hoặc chạy:
 

@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "5.8.6"
+  #define MyAppVersion "5.8.7"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"
@@ -155,10 +155,17 @@ var
   ResultCode: Integer;
   Parameters: String;
   BootstrapLogPath: String;
+  BootstrapFailurePath: String;
+  FailureDetails: String;
+  FailureLines: TArrayOfString;
+  FailureLineIndex: Integer;
 begin
   ResultCode := -1;
   BootstrapLogPath := ExpandConstant(
     '{commonappdata}\MikroTik Manager Enterprise\logs\bootstrap.log'
+  );
+  BootstrapFailurePath := ExpandConstant(
+    '{commonappdata}\MikroTik Manager Enterprise\logs\bootstrap-error.txt'
   );
   Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
     ExpandConstant(
@@ -180,9 +187,25 @@ begin
   begin
     PostInstallFailed := True;
     PostInstallChildExitCode := ResultCode;
+    FailureDetails := '';
+    if LoadStringsFromFile(BootstrapFailurePath, FailureLines) then
+    begin
+      for FailureLineIndex := 0 to GetArrayLength(FailureLines) - 1 do
+      begin
+        if FailureDetails <> '' then
+          FailureDetails := FailureDetails + #13#10;
+        FailureDetails := FailureDetails + FailureLines[FailureLineIndex];
+      end;
+      if Length(FailureDetails) > 1600 then
+        FailureDetails := Copy(FailureDetails, 1, 1600) + '...';
+    end;
     PostInstallFailureMessage :=
       'MME initialization failed (child exit code ' + IntToStr(ResultCode) +
-      '). Setup will return exit code 100. Review: ' + BootstrapLogPath;
+      '). Setup will return exit code 100.' + #13#10 + #13#10;
+    if FailureDetails <> '' then
+      PostInstallFailureMessage := PostInstallFailureMessage + FailureDetails + #13#10 + #13#10;
+    PostInstallFailureMessage := PostInstallFailureMessage +
+      'Full diagnostic log: ' + BootstrapLogPath;
     Log(PostInstallFailureMessage);
     if not WizardSilent then
       MsgBox(PostInstallFailureMessage, mbError, MB_OK);

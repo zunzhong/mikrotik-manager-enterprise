@@ -1,6 +1,6 @@
 {
   "name": "mikrotik-manager-enterprise",
-  "version": "5.8.6",
+  "version": "5.8.7",
   "private": true,
   "type": "module",
   "scripts": {

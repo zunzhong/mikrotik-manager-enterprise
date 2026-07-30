@@ -32,16 +32,46 @@ $LogDir = Join-Path $DataDir 'logs'
 $ConfigFile = Join-Path $DataDir 'config\mme.env'
 $CredentialsFile = Join-Path $DataDir 'MME-Thong-Tin-Dang-Nhap.txt'
 $BootstrapLog = Join-Path $LogDir 'bootstrap.log'
+$BootstrapFailureFile = Join-Path $LogDir 'bootstrap-error.txt'
 $InstallStateFile = Join-Path $DataDir 'install-state.json'
 $UpgradeStateFile = Join-Path $DataDir 'config\upgrade-state.json'
 $DefaultPort = 3000
 $DefaultSyslogPort = 514
 $BackendRuntimePort = if ($BackendPort -gt 0) { $BackendPort } else { $DefaultPort }
 $FrontendRuntimePort = if ($FrontendPort -gt 0) { $FrontendPort } else { $BackendRuntimePort }
+$script:InstallStage = 'startup'
 
 function Write-BootstrapLog([string]$Message) {
   New-Item -ItemType Directory -Force $LogDir | Out-Null
   "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff') $Message" | Add-Content $BootstrapLog -Encoding UTF8
+}
+
+function Set-InstallStage([string]$Stage) {
+  $script:InstallStage = $Stage
+  Write-BootstrapLog "STAGE: $Stage"
+}
+
+function Write-BootstrapFailure([System.Management.Automation.ErrorRecord]$Failure) {
+  try {
+    New-Item -ItemType Directory -Force $LogDir | Out-Null
+    $message = if ($Failure -and $Failure.Exception) {
+      [string]$Failure.Exception.Message
+    } else {
+      [string]$Failure
+    }
+    $content = @"
+Stage: $script:InstallStage
+Error: $message
+Diagnostic log: $BootstrapLog
+"@
+    [IO.File]::WriteAllText(
+      $BootstrapFailureFile,
+      $content.Trim(),
+      (New-Object Text.UTF8Encoding($true))
+    )
+  } catch {
+    # The original bootstrap error must remain the installer result.
+  }
 }
 
 function Assert-Administrator {
@@ -94,6 +124,72 @@ function Set-EnvironmentContentValue([string]$Content, [string]$Name, [string]$V
     )
   }
   return $Content.TrimEnd() + "`r`n$Name=$Value`r`n"
+}
+
+function Get-EnvironmentContentValue([string]$Content, [string]$Name) {
+  $pattern = "(?m)^$([Text.RegularExpressions.Regex]::Escape($Name))=(.*)$"
+  if ($Content -match $pattern) { return $Matches[1].Trim() }
+  return $null
+}
+
+function Resolve-LegacySqlitePath([string]$DatabaseUrl) {
+  $candidates = New-Object 'System.Collections.Generic.List[string]'
+  $path = $null
+  if (-not [string]::IsNullOrWhiteSpace($DatabaseUrl) -and
+    $DatabaseUrl.StartsWith('file:', [StringComparison]::OrdinalIgnoreCase)) {
+    $path = $DatabaseUrl.Substring(5).Trim().Replace('/', '\')
+    if (-not [string]::IsNullOrWhiteSpace($path)) {
+      if ([IO.Path]::IsPathRooted($path)) {
+        [void]$candidates.Add($path)
+      } else {
+        foreach ($basePath in @($InstallRoot, $AppDir, $DataDir)) {
+          if (-not [string]::IsNullOrWhiteSpace($basePath)) {
+            [void]$candidates.Add((Join-Path $basePath $path))
+          }
+        }
+      }
+    }
+  }
+
+  foreach ($conventionalPath in @(
+    (Join-Path $InstallRoot 'data\mme.db'),
+    (Join-Path $InstallRoot 'mme.db')
+  )) {
+    [void]$candidates.Add($conventionalPath)
+  }
+  $releasesRoot = Join-Path $InstallRoot 'releases'
+  if (Test-Path $releasesRoot) {
+    foreach ($release in @(Get-ChildItem $releasesRoot -Directory -ErrorAction SilentlyContinue)) {
+      if (-not [string]::IsNullOrWhiteSpace($path)) {
+        [void]$candidates.Add((Join-Path $release.FullName $path))
+      }
+      [void]$candidates.Add((Join-Path $release.FullName 'data\mme.db'))
+      [void]$candidates.Add((Join-Path $release.FullName 'mme.db'))
+    }
+  }
+  foreach ($candidate in $candidates) {
+    try {
+      $fullPath = [IO.Path]::GetFullPath($candidate)
+      if ((Test-Path $fullPath -PathType Leaf) -and
+        -not $fullPath.Equals($Database, [StringComparison]::OrdinalIgnoreCase)) {
+        return $fullPath
+      }
+    } catch {
+      # Continue to the next compatibility location.
+    }
+  }
+  return $null
+}
+
+function Import-LegacySqliteDatabase([string]$LegacyDatabase) {
+  if ([string]::IsNullOrWhiteSpace($LegacyDatabase) -or (Test-Path $Database)) { return }
+  New-Item -ItemType Directory -Force (Split-Path $Database) | Out-Null
+  Copy-Item $LegacyDatabase $Database -Force
+  foreach ($suffix in @('-wal', '-shm')) {
+    $sidecar = "$LegacyDatabase$suffix"
+    if (Test-Path $sidecar) { Copy-Item $sidecar "$Database$suffix" -Force }
+  }
+  Write-BootstrapLog "Imported legacy SQLite database into persistent storage: $LegacyDatabase"
 }
 
 function Resolve-RuntimePorts {
@@ -171,10 +267,37 @@ function Initialize-Environment {
   }
   if (Test-Path $ConfigFile) {
     $existingConfig = [IO.File]::ReadAllText($ConfigFile)
+    $databaseUrl = Get-EnvironmentContentValue $existingConfig 'DATABASE_URL'
+    if ($databaseUrl -and
+      -not $databaseUrl.StartsWith('file:', [StringComparison]::OrdinalIgnoreCase)) {
+      throw "The Windows installer supports the built-in SQLite database only. Existing DATABASE_URL uses another database engine; no data was changed."
+    }
+    if (-not (Test-Path $Database)) {
+      Import-LegacySqliteDatabase (Resolve-LegacySqlitePath $databaseUrl)
+    }
+    $existingConfig = Set-EnvironmentContentValue $existingConfig 'DATABASE_URL' "file:$($Database.Replace('\','/'))"
+    $existingConfig = Set-EnvironmentContentValue $existingConfig 'NODE_ENV' 'production'
+    $existingConfig = Set-EnvironmentContentValue $existingConfig 'APP_NAME' 'mikrotik-manager-enterprise'
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.8.6')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.8.7')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.8.6`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.8.7`r`n"
+    }
+    foreach ($requiredValue in @{
+      SERVER_HOST = '127.0.0.1'
+      FRONTEND_HOST = '127.0.0.1'
+      JWT_SECRET = (New-Secret 32)
+      ENCRYPTION_KEY = (New-Secret 32)
+      DEFAULT_ADMIN_EMAIL = 'admin@example.com'
+      DEFAULT_ADMIN_PASSWORD = (New-Secret 12)
+      LOG_LEVEL = 'info'
+    }.GetEnumerator()) {
+      if ([string]::IsNullOrWhiteSpace(
+        [string](Get-EnvironmentContentValue $existingConfig $requiredValue.Key)
+      )) {
+        $existingConfig = Set-EnvironmentContentValue $existingConfig $requiredValue.Key $requiredValue.Value
+        Write-BootstrapLog "Repaired missing required setting: $($requiredValue.Key)"
+      }
     }
     $backendForFrontend = $DefaultPort
     if ($BackendPort -gt 0) {
@@ -248,7 +371,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.8.6
+APP_VERSION=5.8.7
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$BackendRuntimePort
 FRONTEND_HOST=127.0.0.1
@@ -279,6 +402,50 @@ function Set-ProcessEnvironment {
   foreach ($item in (Read-Environment).GetEnumerator()) {
     [Environment]::SetEnvironmentVariable($item.Key, $item.Value, 'Process')
   }
+}
+
+function Get-NativeOutputSummary($Output, [int]$MaximumLines = 12) {
+  if (-not $Output) { return 'No diagnostic output was produced.' }
+  $lines = @(
+    ($Output | Out-String) -split "`r?`n" |
+      ForEach-Object { $_.Trim() } |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+  )
+  if ($lines.Count -eq 0) { return 'No diagnostic output was produced.' }
+  return (($lines | Select-Object -Last $MaximumLines) -join ' | ')
+}
+
+function Invoke-ServiceWrapper([string]$Command) {
+  $previousErrorActionPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    $output = & $ServiceExe $Command 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  Write-BootstrapLog "WinSW command '$Command' returned exit code $exitCode."
+  if ($output) { $output | Out-String | Add-Content $BootstrapLog -Encoding UTF8 }
+  return [PSCustomObject]@{
+    Command = $Command
+    ExitCode = $exitCode
+    Output = $output
+  }
+}
+
+function Get-ServiceLogSummary([int]$MaximumLines = 20) {
+  if (-not (Test-Path $LogDir)) { return 'No Windows Service log exists.' }
+  $lines = @()
+  foreach ($file in @(
+    Get-ChildItem $LogDir -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -match '(?i)^MME.*\.(err|out|wrapper)\.log$' } |
+      Sort-Object LastWriteTime |
+      Select-Object -Last 3
+  )) {
+    $lines += "[$($file.Name)]"
+    $lines += @(Get-Content $file.FullName -Tail $MaximumLines -ErrorAction SilentlyContinue)
+  }
+  return Get-NativeOutputSummary $lines $MaximumLines
 }
 
 function Ensure-SyslogFirewall {
@@ -590,7 +757,8 @@ function Wait-MMEHealthy([int]$TimeoutSeconds = 60) {
 
   $service = Get-Service -Name MME -ErrorAction SilentlyContinue
   $state = if ($service) { $service.Status } else { 'không tồn tại' }
-  throw "Dịch vụ MME không sẵn sàng sau $TimeoutSeconds giây (trạng thái: $state). Xem log tại: $LogDir"
+  $serviceDetail = Get-ServiceLogSummary
+  throw "MME service was not ready after $TimeoutSeconds seconds (state: $state). $serviceDetail"
 }
 
 function Write-InstallState {
@@ -651,20 +819,27 @@ function Remove-StaleReleases {
 }
 
 function Install-MME {
-  Write-BootstrapLog 'Bắt đầu preflight.'
+  Remove-Item $BootstrapFailureFile -Force -ErrorAction SilentlyContinue
+  Write-BootstrapLog '============================================================'
+  Set-InstallStage 'preflight'
   Assert-Prerequisites
-  Write-BootstrapLog 'Preflight đạt.'
+  Write-BootstrapLog 'Preflight passed.'
+  Set-InstallStage 'stop-old-runtime'
   Stop-MMERuntime
-  Write-BootstrapLog 'Đã dừng hoàn toàn runtime MME cũ.'
+  Write-BootstrapLog 'Previous MME runtime stopped.'
   $hadDatabase = Test-Path $Database
   $hadConfig = Test-Path $ConfigFile
   $hadCredentials = Test-Path $CredentialsFile
   $hadInstallState = Test-Path $InstallStateFile
+  Set-InstallStage 'backup-existing-data'
   $backup = Backup-Data
-  Initialize-Environment
-  Resolve-RuntimePorts
-  Write-BootstrapLog 'Đã khởi tạo cấu hình và thư mục dữ liệu.'
   try {
+    Set-InstallStage 'repair-and-normalize-configuration'
+    Initialize-Environment
+    $databaseAvailableBeforeSetup = Test-Path $Database
+    Resolve-RuntimePorts
+    Write-BootstrapLog 'Configuration and persistent data paths are ready.'
+    Set-InstallStage 'validate-network-ports'
     Assert-PortAvailable $BackendRuntimePort 'Cổng backend/API'
     if ($FrontendRuntimePort -ne $BackendRuntimePort) {
       Assert-PortAvailable $FrontendRuntimePort 'Cổng frontend/dashboard'
@@ -683,10 +858,11 @@ function Install-MME {
   } catch {
     Restore-InstallTransaction $backup $hadDatabase $hadConfig $hadCredentials $hadInstallState
     Restore-PreviousReleaseService
-    throw "Kiểm tra cổng thất bại; cấu hình và service cũ đã được phục hồi. $($_.Exception.Message)"
+    throw "Bootstrap validation failed; the previous configuration and service were restored. $($_.Exception.Message)"
   }
   try {
-    Write-BootstrapLog 'Bắt đầu khởi tạo SQLite.'
+    Set-InstallStage 'initialize-database'
+    Write-BootstrapLog 'Starting SQLite initialization.'
     # Windows PowerShell 5.1 chuyển mọi nội dung stderr của native process thành
     # ErrorRecord. Node.js hiện ghi cảnh báo SQLite experimental ra stderr dù
     # tiến trình kết thúc thành công, vì vậy tạm cho phép thu thập cả hai luồng
@@ -700,24 +876,34 @@ function Install-MME {
       $ErrorActionPreference = $previousErrorActionPreference
     }
     if ($setupOutput) { $setupOutput | Out-String | Add-Content $BootstrapLog -Encoding UTF8 }
-    if ($setupExitCode -ne 0) { throw "Khởi tạo SQLite hoặc tài khoản quản trị thất bại (exit code: $setupExitCode)." }
-    Write-InitialCredentials -FreshDatabase:(-not $hadDatabase)
-    Write-BootstrapLog 'Khởi tạo SQLite đạt.'
+    if ($setupExitCode -ne 0) {
+      $setupDetail = Get-NativeOutputSummary $setupOutput
+      throw "Database or administrator initialization failed (exit code $setupExitCode). $setupDetail"
+    }
+    Write-InitialCredentials -FreshDatabase:(-not $databaseAvailableBeforeSetup)
+    Write-BootstrapLog 'SQLite initialization passed.'
   } catch {
     Restore-InstallTransaction $backup $hadDatabase $hadConfig $hadCredentials $hadInstallState
     Restore-PreviousReleaseService
     throw "Nâng cấp thất bại; dữ liệu đã được rollback. $($_.Exception.Message)"
   }
   try {
+    Set-InstallStage 'register-windows-service'
     Write-ServiceConfiguration
     Write-BootstrapLog 'Đã tạo cấu hình Windows Service.'
-    & $ServiceExe uninstall *> $null
-    & $ServiceExe install
-    if ($LASTEXITCODE -ne 0) { throw 'Không thể đăng ký Windows Service MME.' }
-    & $ServiceExe start
-    if ($LASTEXITCODE -ne 0) { throw 'Không thể khởi động Windows Service MME.' }
+    [void](Invoke-ServiceWrapper 'uninstall')
+    $serviceInstall = Invoke-ServiceWrapper 'install'
+    if ($serviceInstall.ExitCode -ne 0) {
+      throw "Unable to register the MME Windows Service. $(Get-NativeOutputSummary $serviceInstall.Output)"
+    }
+    $serviceStart = Invoke-ServiceWrapper 'start'
+    if ($serviceStart.ExitCode -ne 0) {
+      throw "Unable to start the MME Windows Service. $(Get-NativeOutputSummary $serviceStart.Output)"
+    }
     Write-BootstrapLog 'Windows Service đã nhận lệnh khởi động.'
+    Set-InstallStage 'wait-for-ready-endpoint'
     Wait-MMEHealthy
+    Set-InstallStage 'write-install-receipt'
     Write-InstallState
   } catch {
     try { & $ServiceExe stop *> $null } catch { }
@@ -726,7 +912,8 @@ function Install-MME {
     Restore-PreviousReleaseService
     throw
   }
-  Write-BootstrapLog 'Cài đặt MME hoàn tất và API đã sẵn sàng.'
+  Set-InstallStage 'completed'
+  Write-BootstrapLog 'MME installation completed and the API is ready.'
   Clear-UpgradeState
   Remove-StaleReleases
   if (-not $NoOpen) { Start-Process "http://localhost:$FrontendRuntimePort/setup" }
@@ -748,6 +935,7 @@ try {
     'validate' { Write-BootstrapLog 'Windows PowerShell validation đạt.' }
   }
 } catch {
+  Write-BootstrapFailure $_
   try { Write-BootstrapLog "LỖI: $($_ | Out-String)" } catch { }
   if (-not $NoOpen) {
     Add-Type -AssemblyName PresentationFramework
