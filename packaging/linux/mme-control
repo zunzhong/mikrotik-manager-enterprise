@@ -42,7 +42,10 @@ refresh_runtime_ports() {
   else
     FRONTEND_PORT="$BACKEND_PORT"
   fi
-  valid_port "$configured_syslog" && SYSLOG_PORT="$configured_syslog"
+  if valid_port "$configured_syslog"; then
+    SYSLOG_PORT="$configured_syslog"
+  fi
+  return 0
 }
 
 set_env_value() {

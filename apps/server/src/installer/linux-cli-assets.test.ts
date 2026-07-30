@@ -1,4 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -153,6 +156,28 @@ describe('Ubuntu 20.04 CLI installer assets', () => {
     expect(control).toContain('PRISMA_MYSQL_CLIENT_PATH');
     expect(control).toContain('load_environment_file');
     expect(control).not.toContain('source "$ENV_FILE"');
+  });
+
+  it('starts safely before mme.env exists on a fresh Linux installation', () => {
+    const temporary = mkdtempSync(join(tmpdir(), 'mme-fresh-control-'));
+    try {
+      const output = execFileSync(
+        'bash',
+        [`${repositoryRoot}packaging/linux/mme-control`, 'version'],
+        {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            MME_HOME: `${temporary}/app`,
+            MME_DATA: `${temporary}/data`,
+            MME_CONFIG: `${temporary}/config`,
+          },
+        },
+      );
+      expect(output.trim().length).toBeGreaterThan(0);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
   });
 
   it('selects dedicated Prisma clients and schemas for every supported database engine', () => {
