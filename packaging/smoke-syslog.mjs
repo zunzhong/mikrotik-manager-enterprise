@@ -37,8 +37,55 @@ async function request(path, options = {}) {
   return body?.data;
 }
 
+async function requestFailure(path, options = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const body = await response.json().catch(() => null);
+  assert(!response.ok, `${options.method ?? 'GET'} ${path} unexpectedly succeeded.`);
+  return { status: response.status, body };
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+async function occupyTcpAndUdpPort() {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const tcp = net.createServer();
+    await new Promise((resolve, reject) => {
+      tcp.once('error', reject);
+      tcp.listen(0, '0.0.0.0', resolve);
+    });
+    const address = tcp.address();
+    const conflictPort = typeof address === 'object' && address ? address.port : 0;
+    const udp = dgram.createSocket('udp4');
+    try {
+      await new Promise((resolve, reject) => {
+        udp.once('error', reject);
+        udp.bind(conflictPort, '0.0.0.0', resolve);
+      });
+      return {
+        port: conflictPort,
+        close: async () => {
+          await Promise.all([
+            new Promise((resolve) => tcp.close(resolve)),
+            new Promise((resolve) => udp.close(resolve)),
+          ]);
+        },
+      };
+    } catch {
+      udp.close();
+      await new Promise((resolve) => tcp.close(resolve));
+    }
+  }
+  throw new Error('Unable to reserve a TCP/UDP port for the rollback smoke test.');
 }
 
 async function sendUdp(payload) {
@@ -96,6 +143,41 @@ assert(
   'Syslog facility was parsed incorrectly.',
 );
 
+const overviewBeforeRestart = await request('/api/v1/syslog/overview', { token });
+const settingsUpdate = await request('/api/v1/syslog/settings', {
+  method: 'PUT',
+  token,
+  body: overviewBeforeRestart.settings,
+});
+assert(
+  settingsUpdate?.receiver?.udpListening === overviewBeforeRestart.settings.udpEnabled &&
+    settingsUpdate?.receiver?.tcpListening === overviewBeforeRestart.settings.tcpEnabled,
+  'Manual Syslog server configuration did not restart every requested listener.',
+);
+
+const conflict = await occupyTcpAndUdpPort();
+try {
+  const rejectedUpdate = await requestFailure('/api/v1/syslog/settings', {
+    method: 'PUT',
+    token,
+    body: { ...overviewBeforeRestart.settings, port: conflict.port },
+  });
+  assert(
+    rejectedUpdate.status === 409 &&
+      rejectedUpdate.body?.error?.code === 'SYSLOG_LISTENER_START_FAILED',
+    `An unbindable Syslog configuration did not return the expected conflict: ${JSON.stringify(rejectedUpdate)}`,
+  );
+} finally {
+  await conflict.close();
+}
+const overviewAfterRollback = await request('/api/v1/syslog/overview', { token });
+assert(
+  overviewAfterRollback.receiver.port === overviewBeforeRestart.receiver.port &&
+    overviewAfterRollback.receiver.udpListening === true &&
+    overviewAfterRollback.receiver.tcpListening === true,
+  'The previous Syslog receiver was not restored after a rejected configuration.',
+);
+
 const selfTest = await request('/api/v1/syslog/test', {
   method: 'POST',
   token,
@@ -108,6 +190,30 @@ assert(overview?.receiver?.running === true, 'Syslog receiver is not running.');
 assert(overview?.receiver?.udpListening === true, 'UDP listener is not active.');
 assert(overview?.receiver?.tcpListening === true, 'TCP listener is not active.');
 
+const auditEvents = await request('/api/v1/audit?action=syslog.server.settings_updated&limit=10', {
+  token,
+});
+assert(
+  auditEvents?.some(
+    (event) =>
+      event.action === 'syslog.server.settings_updated' && event.metadata?.source === 'manual-ui',
+  ),
+  'Manual Syslog server configuration was not recorded in the Audit Log.',
+);
+const failedAuditEvents = await request(
+  '/api/v1/audit?action=syslog.server.settings_update_failed&limit=10',
+  { token },
+);
+assert(
+  failedAuditEvents?.some(
+    (event) =>
+      event.action === 'syslog.server.settings_update_failed' &&
+      event.status === 'failure' &&
+      event.metadata?.source === 'manual-ui',
+  ),
+  'A rejected manual Syslog server configuration was not recorded in the Audit Log.',
+);
+
 log(
   JSON.stringify({
     status: 'ready',
@@ -117,6 +223,11 @@ log(
       tcpReceiver: true,
       rfc5424Parser: true,
       databaseStorage: true,
+      manualSourceStorage: true,
+      manualServerConfiguration: true,
+      atomicConfigurationRollback: true,
+      manualConfigurationAudit: true,
+      failedConfigurationAudit: true,
       receiverSelfTest: true,
     },
     listener: { host, port },

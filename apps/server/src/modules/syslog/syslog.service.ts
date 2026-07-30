@@ -3,11 +3,13 @@ import net from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { config } from '../../config/config.service.js';
-import { syslogRepository, type StoredSyslogInput } from './syslog.repository.js';
+import { HttpError } from '../../errors/http-error.js';
+import { SyslogRepository, syslogRepository, type StoredSyslogInput } from './syslog.repository.js';
 import { SyslogReceiver } from './syslog.receiver.js';
 import type {
   ReceivedSyslogMessage,
   SyslogListQuery,
+  SyslogReceiverStatus,
   SyslogReceiverSettings,
 } from './syslog.types.js';
 
@@ -31,6 +33,28 @@ function settingsShape(settings: SyslogReceiverSettings): SyslogReceiverSettings
     maxRecords: settings.maxRecords,
     acceptUnmatched: settings.acceptUnmatched,
   };
+}
+
+export function receiverConfigurationError(
+  settings: SyslogReceiverSettings,
+  status: SyslogReceiverStatus,
+): string | null {
+  if (!settings.enabled) {
+    return status.running ? 'The Syslog receiver is still running after it was disabled.' : null;
+  }
+
+  const missing: string[] = [];
+  if (settings.udpEnabled && !status.udpListening) missing.push('UDP');
+  if (settings.tcpEnabled && !status.tcpListening) missing.push('TCP');
+  if (missing.length === 0) return null;
+
+  const listener = `${settings.bindAddress}:${settings.port}`;
+  return [
+    `Unable to start the requested ${missing.join(' and ')} Syslog listener(s) on ${listener}.`,
+    status.lastError,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 export function recommendedSyslogServerAddresses(
@@ -90,17 +114,25 @@ export class SyslogService {
   private identities = new Map<string, string>();
   private identityCacheAt = 0;
   private settings: SyslogReceiverSettings = config.syslog;
-  private readonly receiver = new SyslogReceiver((messages) => this.store(messages));
+  private readonly receiver: SyslogReceiver;
   private retentionTimer: NodeJS.Timeout | null = null;
+  private settingsUpdateQueue: Promise<void> = Promise.resolve();
+
+  public constructor(
+    private readonly repository: SyslogRepository = syslogRepository,
+    receiver?: SyslogReceiver,
+  ) {
+    this.receiver = receiver ?? new SyslogReceiver((messages) => this.store(messages));
+  }
 
   public async start(): Promise<void> {
-    const persisted = await syslogRepository.ensureSettings(config.syslog);
+    const persisted = await this.repository.ensureSettings(config.syslog);
     this.settings = settingsShape(persisted);
     await this.refreshIdentities();
     await this.receiver.start(this.settings);
-    await syslogRepository.purge(this.settings.retentionDays, this.settings.maxRecords);
+    await this.repository.purge(this.settings.retentionDays, this.settings.maxRecords);
     this.retentionTimer = setInterval(
-      () => void syslogRepository.purge(this.settings.retentionDays, this.settings.maxRecords),
+      () => void this.repository.purge(this.settings.retentionDays, this.settings.maxRecords),
       60 * 60_000,
     );
     this.retentionTimer.unref();
@@ -114,8 +146,8 @@ export class SyslogService {
 
   public async overview() {
     const [database, persisted] = await Promise.all([
-      syslogRepository.overview(),
-      syslogRepository.settings(),
+      this.repository.overview(),
+      this.repository.settings(),
     ]);
     return {
       ...database,
@@ -129,36 +161,79 @@ export class SyslogService {
   }
 
   public list(query: SyslogListQuery) {
-    return syslogRepository.list(query);
+    return this.repository.list(query);
   }
 
-  public async updateSettings(settings: SyslogReceiverSettings) {
-    const saved = await syslogRepository.saveSettings(settings);
-    this.settings = settingsShape(saved);
-    await this.receiver.start(this.settings);
+  public updateSettings(settings: SyslogReceiverSettings) {
+    const operation = this.settingsUpdateQueue.then(() => this.applySettings(settings));
+    this.settingsUpdateQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  private async applySettings(settings: SyslogReceiverSettings) {
+    const next = settingsShape(settings);
+    const previous = settingsShape(this.settings);
+    const nextStatus = await this.receiver.start(next);
+    const startError = receiverConfigurationError(next, nextStatus);
+
+    if (startError) {
+      const rollbackStatus = await this.receiver.start(previous);
+      const rollbackError = receiverConfigurationError(previous, rollbackStatus);
+      throw new HttpError(
+        409,
+        'SYSLOG_LISTENER_START_FAILED',
+        rollbackError
+          ? `${startError} The previous receiver configuration could not be restored: ${rollbackError}`
+          : `${startError} The previous receiver configuration was restored.`,
+      );
+    }
+
+    try {
+      const saved = await this.repository.saveSettings(next);
+      this.settings = settingsShape(saved);
+    } catch (error) {
+      const rollbackStatus = await this.receiver.start(previous);
+      this.settings = previous;
+      const rollbackError = receiverConfigurationError(previous, rollbackStatus);
+      throw new HttpError(
+        500,
+        'SYSLOG_SETTINGS_PERSIST_FAILED',
+        [
+          'The new Syslog listener started, but its settings could not be saved.',
+          rollbackError
+            ? `The previous receiver configuration could not be restored: ${rollbackError}`
+            : 'The previous receiver configuration was restored.',
+          error instanceof Error ? error.message : String(error),
+        ].join(' '),
+      );
+    }
+
     return { settings: this.settings, receiver: this.receiver.status() };
   }
 
   public async addAlias(alias: string, deviceId: string) {
     const normalized = normalizeIdentity(alias);
     if (!normalized) throw new Error('Syslog source alias cannot be empty.');
-    const saved = await syslogRepository.saveAlias(alias.trim(), normalized, deviceId);
+    const saved = await this.repository.saveAlias(alias.trim(), normalized, deviceId);
     await this.refreshIdentities(true);
     return saved;
   }
 
   public async deleteAlias(id: string) {
-    const result = await syslogRepository.deleteAlias(id);
+    const result = await this.repository.deleteAlias(id);
     await this.refreshIdentities(true);
     return result;
   }
 
   public purge() {
-    return syslogRepository.purge(this.settings.retentionDays, this.settings.maxRecords);
+    return this.repository.purge(this.settings.retentionDays, this.settings.maxRecords);
   }
 
   public clearAll() {
-    return syslogRepository.clearAll();
+    return this.repository.clearAll();
   }
 
   public async testReceiver() {
@@ -218,7 +293,7 @@ export class SyslogService {
     for (let attempt = 0; attempt < 50; attempt += 1) {
       await delay(100);
       await this.receiver.flush();
-      const result = await syslogRepository.list({
+      const result = await this.repository.list({
         page: 1,
         pageSize: 1,
         search: marker,
@@ -257,12 +332,12 @@ export class SyslogService {
       if (deviceId || this.settings.acceptUnmatched || message.messageId === 'SYSLOG_TEST')
         records.push({ ...message, deviceId });
     }
-    return syslogRepository.insertMany(records);
+    return this.repository.insertMany(records);
   }
 
   private async refreshIdentities(force = false): Promise<void> {
     if (!force && Date.now() - this.identityCacheAt < 10_000) return;
-    const devices = await syslogRepository.deviceIdentities();
+    const devices = await this.repository.deviceIdentities();
     const identities = new Map<string, string>();
     for (const device of devices) {
       for (const value of [device.host, device.name, ...device.aliases]) {

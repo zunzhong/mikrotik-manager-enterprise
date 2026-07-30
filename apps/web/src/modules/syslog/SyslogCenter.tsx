@@ -145,10 +145,11 @@ export function SyslogCenter() {
     try {
       const result = await syslogApi.saveSettings(settings);
       setSettings(result.settings);
+      setRouterPort(result.receiver.port);
       setNotice(
         tr(
-          'Đã lưu cấu hình và khởi động lại bộ nhận Syslog.',
-          'Settings saved and the Syslog receiver restarted.',
+          `Đã lưu cấu hình; bộ nhận Syslog đang lắng nghe tại ${result.receiver.bindAddress}:${result.receiver.port}.`,
+          `Settings saved; the Syslog receiver is listening on ${result.receiver.bindAddress}:${result.receiver.port}.`,
         ),
       );
       await load(true);
@@ -338,7 +339,7 @@ export function SyslogCenter() {
       ) : null}
 
       <details className="syslog-panel syslog-configuration">
-        <summary>{tr('Cấu hình bộ nhận và lưu trữ', 'Receiver and storage settings')}</summary>
+        <summary>{tr('Cấu Hình Server Syslog', 'Syslog Server Configuration')}</summary>
         {settings ? (
           <form className="syslog-settings-grid" onSubmit={(event) => void saveSettings(event)}>
             <label className="syslog-check">
@@ -414,7 +415,10 @@ export function SyslogCenter() {
                   setSettings({ ...settings, acceptUnmatched: event.target.checked })
                 }
               />
-              {tr('Lưu cả nguồn chưa gán', 'Store unmatched sources')}
+              {tr(
+                'Lưu cả nguồn chưa gán (bao gồm thiết bị cấu hình thủ công)',
+                'Store unmatched sources (including manually configured devices)',
+              )}
             </label>
             <div className="syslog-actions">
               <button type="submit" disabled={busy === 'settings'}>
@@ -439,8 +443,8 @@ export function SyslogCenter() {
         ) : null}
         <p className="syslog-hint">
           {tr(
-            'Linux/Windows Firewall phải cho phép cổng đã chọn trên cả UDP/TCP. Bộ cài mở cổng Syslog đã cấu hình.',
-            'Linux/Windows Firewall must allow the selected UDP/TCP port. The installer opens the configured Syslog port.',
+            'Cấu hình chỉ được lưu khi mọi listener đã chọn khởi động thành công; nếu lỗi, MME tự khôi phục cấu hình trước đó. Linux/Windows Firewall phải cho phép cổng này trên UDP/TCP.',
+            'Settings are saved only after every selected listener starts successfully; MME restores the previous configuration on failure. Linux/Windows Firewall must allow this UDP/TCP port.',
           )}
         </p>
       </details>

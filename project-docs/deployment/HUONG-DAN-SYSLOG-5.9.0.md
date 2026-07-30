@@ -1,6 +1,6 @@
-# Hướng dẫn Syslog tập trung MME 5.8.0
+# Hướng dẫn Syslog tập trung MME 5.9.0
 
-MME 5.8.0 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
+MME 5.9.0 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
 phân tích, ánh xạ với thiết bị đã quản lý và lưu trong database đang được MME sử dụng.
 
 ## 1. Thành phần được hỗ trợ
@@ -29,8 +29,14 @@ Mặc định:
 - Retention: 30 ngày
 - Số bản ghi tối đa: 500.000
 
-Nhấn **Kiểm thử bộ nhận**. MME chỉ báo đạt khi bản tin đã đi qua listener, parser và
-được ghi thành công vào database.
+Mở **Cấu Hình Server Syslog** để thay đổi bind address, cổng, UDP/TCP, thời gian lưu
+và giới hạn bản ghi. MME chỉ lưu cấu hình mới sau khi tất cả listener đã chọn bind
+thành công. Nếu địa chỉ hoặc cổng không dùng được, listener cũ được tự khôi phục và
+database không bị ghi cấu hình lỗi.
+
+Nhấn **Kiểm thử đầu-cuối**. MME chỉ báo đạt khi bản tin đã đi qua listener, parser và
+được ghi thành công vào database. Thao tác lưu cấu hình, kiểm thử, ánh xạ nguồn, dọn
+log và cấu hình RouterOS đều được ghi vào nhật ký ứng dụng và Audit Log.
 
 Trên Linux có thể kiểm tra thêm:
 
@@ -71,18 +77,34 @@ Có thể kiểm tra trực tiếp trên RouterOS:
 
 ## 4. Cấu hình thủ công
 
-Ví dụ RouterOS gửi UDP tới máy MME `10.0.0.11`:
+Thiết bị cấu hình thủ công vẫn được MME nhận và lưu. Nếu IP/hostname nguồn khớp thiết
+bị đã thêm, bản ghi tự gắn với thiết bị. Nếu chưa khớp, bật **Lưu cả nguồn chưa gán
+(bao gồm thiết bị cấu hình thủ công)** rồi tạo alias sau khi bản tin đầu tiên xuất hiện.
+
+RouterOS 7.18 trở lên, ví dụ gửi UDP tới máy MME `10.0.0.11:514`:
 
 ```routeros
-/system logging action add name=mme-syslog target=remote remote=10.0.0.11 remote-port=514 bsd-syslog=yes syslog-facility=local0
+/system logging action add name=mme-syslog target=remote remote-log-format=syslog remote-protocol=udp remote-port=10.0.0.11:514 syslog-facility=local0 syslog-severity=auto syslog-time-format=iso8601
 /system logging add topics=info,!account,!debug action=mme-syslog
 ```
 
-Nếu action/rule đã tồn tại, dùng `set` thay vì tạo bản ghi trùng.
+RouterOS 7.17 trở xuống:
+
+```routeros
+/system logging action add name=mme-syslog target=remote remote=10.0.0.11 remote-port=514 bsd-syslog=yes syslog-facility=local0 syslog-severity=auto
+/system logging add topics=info,!account,!debug action=mme-syslog
+```
+
+Nếu action/rule đã tồn tại, dùng `set` theo `.id` thay vì tạo bản ghi trùng. Sau đó
+tạo một sự kiện thử trên router và kiểm tra **Nhật ký tập trung**:
+
+```routeros
+:log warning "MME manual Syslog test"
+```
 
 ## 5. Ánh xạ log chưa nhận dạng
 
-Log không khớp IP/hostname vẫn được lưu nếu **Chấp nhận nguồn chưa ánh xạ** đang bật.
+Log không khớp IP/hostname vẫn được lưu nếu **Lưu cả nguồn chưa gán** đang bật.
 Trong khu vực ánh xạ, nhập hostname/IP/identity xuất hiện trong log và chọn thiết bị
 tương ứng. Các bản tin mới sau đó sẽ được gắn vào thiết bị đó.
 
@@ -110,7 +132,8 @@ Nếu trang không có log:
 
 1. Chạy self-test trên trang Syslog.
 2. Kiểm tra listener và firewall bằng các lệnh ở mục 2.
-3. Ping IP máy MME từ router.
+3. Ping IP máy MME từ router và kiểm tra đúng cổng đang hiển thị trong
+   **Cấu Hình Server Syslog**.
 4. Kiểm tra action/rule RouterOS.
 5. Xem log dịch vụ:
 

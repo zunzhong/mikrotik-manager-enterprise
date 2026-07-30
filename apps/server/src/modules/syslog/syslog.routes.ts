@@ -1,6 +1,10 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { attachAuthContextPreHandler } from '../auth/auth.context.middleware.js';
+import {
+  attachAuthContextPreHandler,
+  getRequiredAuthContext,
+} from '../auth/auth.context.middleware.js';
+import { auditService, type CreateAuditEventInput } from '../audit/index.js';
 import { rbacGuard } from '../rbac/rbac.guard.js';
 import { syslogRouterOsService } from './syslog-routeros.service.js';
 import { syslogService } from './syslog.service.js';
@@ -57,6 +61,36 @@ const configureSchema = z.object({
   confirm: z.literal(true),
 });
 
+function requestAuditActor(request: FastifyRequest) {
+  const principal = getRequiredAuthContext(request).principal;
+  return {
+    type: 'user' as const,
+    id: principal?.userId ?? 'unknown-user',
+    name: principal?.name ?? principal?.email ?? principal?.userId ?? 'Unknown user',
+    ip: request.ip,
+    userAgent: request.headers['user-agent'],
+  };
+}
+
+async function recordSyslogAudit(
+  request: FastifyRequest,
+  input: Omit<CreateAuditEventInput, 'actor'>,
+): Promise<void> {
+  try {
+    await auditService.record({
+      ...input,
+      actor: requestAuditActor(request),
+      entity: input.entity ?? {
+        type: 'config',
+        id: 'syslog-server',
+        name: 'Syslog Server',
+      },
+    });
+  } catch (error) {
+    request.log.warn({ err: error, action: input.action }, 'Unable to persist Syslog audit event');
+  }
+}
+
 export async function syslogRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/v1/syslog/overview', { preHandler: readPreHandler }, async () => ({
     success: true,
@@ -66,29 +100,109 @@ export async function syslogRoutes(app: FastifyInstance): Promise<void> {
     success: true,
     data: await syslogService.list(listQuerySchema.parse(request.query ?? {})),
   }));
-  app.put('/api/v1/syslog/settings', { preHandler: managePreHandler }, async (request) => ({
-    success: true,
-    data: await syslogService.updateSettings(settingsSchema.parse(request.body ?? {})),
-  }));
-  app.post('/api/v1/syslog/test', { preHandler: managePreHandler }, async () => ({
-    success: true,
-    data: await syslogService.testReceiver(),
-  }));
+  app.put('/api/v1/syslog/settings', { preHandler: managePreHandler }, async (request) => {
+    const settings = settingsSchema.parse(request.body ?? {});
+    try {
+      const result = await syslogService.updateSettings(settings);
+      request.log.info(
+        {
+          action: 'syslog.server.settings_updated',
+          actorId: requestAuditActor(request).id,
+          settings: result.settings,
+          receiver: result.receiver,
+        },
+        'Syslog server configuration updated manually',
+      );
+      await recordSyslogAudit(request, {
+        action: 'syslog.server.settings_updated',
+        summary: `Updated Syslog server listener to ${result.settings.bindAddress}:${result.settings.port}`,
+        status: 'success',
+        metadata: {
+          settings: result.settings,
+          receiver: result.receiver,
+          source: 'manual-ui',
+        },
+      });
+      return { success: true, data: result };
+    } catch (error) {
+      request.log.warn(
+        {
+          err: error,
+          action: 'syslog.server.settings_update_failed',
+          actorId: requestAuditActor(request).id,
+          requestedSettings: settings,
+        },
+        'Manual Syslog server configuration failed',
+      );
+      await recordSyslogAudit(request, {
+        action: 'syslog.server.settings_update_failed',
+        summary: `Failed to update Syslog server listener to ${settings.bindAddress}:${settings.port}`,
+        severity: 'warning',
+        status: 'failure',
+        metadata: {
+          requestedSettings: settings,
+          error: error instanceof Error ? error.message : String(error),
+          source: 'manual-ui',
+        },
+      });
+      throw error;
+    }
+  });
+  app.post('/api/v1/syslog/test', { preHandler: managePreHandler }, async (request) => {
+    const result = await syslogService.testReceiver();
+    await recordSyslogAudit(request, {
+      action: result.success ? 'syslog.server.test_succeeded' : 'syslog.server.test_failed',
+      summary: result.message,
+      severity: result.success ? 'info' : 'warning',
+      status: result.success ? 'success' : 'failure',
+      metadata: { receiver: result.receiver, source: 'manual-ui' },
+    });
+    return { success: true, data: result };
+  });
   app.post('/api/v1/syslog/aliases', { preHandler: managePreHandler }, async (request) => {
     const body = aliasSchema.parse(request.body ?? {});
-    return { success: true, data: await syslogService.addAlias(body.alias, body.deviceId) };
+    const result = await syslogService.addAlias(body.alias, body.deviceId);
+    await recordSyslogAudit(request, {
+      action: 'syslog.source_alias.saved',
+      summary: `Saved Syslog source alias ${body.alias}`,
+      status: 'success',
+      entity: { type: 'device', id: body.deviceId },
+      metadata: { alias: body.alias, source: 'manual-ui' },
+    });
+    return { success: true, data: result };
   });
   app.delete('/api/v1/syslog/aliases/:id', { preHandler: managePreHandler }, async (request) => {
     const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
-    return { success: true, data: await syslogService.deleteAlias(id) };
+    const result = await syslogService.deleteAlias(id);
+    await recordSyslogAudit(request, {
+      action: 'syslog.source_alias.deleted',
+      summary: `Deleted Syslog source alias ${id}`,
+      status: 'success',
+      metadata: { aliasId: id, source: 'manual-ui' },
+    });
+    return { success: true, data: result };
   });
-  app.post('/api/v1/syslog/purge', { preHandler: managePreHandler }, async () => ({
-    success: true,
-    data: await syslogService.purge(),
-  }));
+  app.post('/api/v1/syslog/purge', { preHandler: managePreHandler }, async (request) => {
+    const result = await syslogService.purge();
+    await recordSyslogAudit(request, {
+      action: 'syslog.storage.purged',
+      summary: `Purged ${result.total} expired or overflow Syslog records`,
+      status: 'success',
+      metadata: { ...result, source: 'manual-ui' },
+    });
+    return { success: true, data: result };
+  });
   app.post('/api/v1/syslog/clear', { preHandler: managePreHandler }, async (request) => {
     z.object({ confirm: z.literal(true) }).parse(request.body ?? {});
-    return { success: true, data: await syslogService.clearAll() };
+    const result = await syslogService.clearAll();
+    await recordSyslogAudit(request, {
+      action: 'syslog.storage.cleared',
+      summary: `Deleted all ${result.deleted} stored Syslog records`,
+      severity: 'warning',
+      status: 'success',
+      metadata: { ...result, source: 'manual-ui' },
+    });
+    return { success: true, data: result };
   });
   app.post(
     '/api/v1/syslog/routeros/configure',
@@ -105,12 +219,46 @@ export async function syslogRoutes(app: FastifyInstance): Promise<void> {
           )),
         );
       }
+      const succeeded = results.filter((item) => item.success).length;
+      const failed = results.filter((item) => !item.success).length;
+      const logContext = {
+        action: failed > 0 ? 'syslog.routeros.configuration_partial' : 'syslog.routeros.configured',
+        actorId: requestAuditActor(request).id,
+        serverAddress: body.serverAddress,
+        port: body.port,
+        topics: body.topics,
+        succeeded,
+        failed,
+        results,
+      };
+      if (failed > 0) {
+        request.log.warn(logContext, 'RouterOS Syslog configuration completed with failures');
+      } else {
+        request.log.info(logContext, 'RouterOS Syslog configuration completed');
+      }
+      await recordSyslogAudit(request, {
+        action: failed > 0 ? 'syslog.routeros.configuration_partial' : 'syslog.routeros.configured',
+        summary: `Configured RouterOS Syslog on ${succeeded}/${results.length} devices`,
+        severity: failed > 0 ? 'warning' : 'info',
+        status: failed > 0 ? 'failure' : 'success',
+        entity: { type: 'config', id: 'routeros-syslog', name: 'RouterOS Syslog' },
+        metadata: {
+          serverAddress: body.serverAddress,
+          port: body.port,
+          topics: body.topics,
+          deviceIds: body.deviceIds,
+          succeeded,
+          failed,
+          results,
+          source: 'manual-ui',
+        },
+      });
       return {
         success: true,
         data: {
           results,
-          succeeded: results.filter((item) => item.success).length,
-          failed: results.filter((item) => !item.success).length,
+          succeeded,
+          failed,
         },
       };
     },
