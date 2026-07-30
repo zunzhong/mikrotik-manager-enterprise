@@ -47,7 +47,11 @@ const configureSchema = z.object({
     .trim()
     .min(1)
     .max(255)
-    .regex(/^[A-Za-z0-9_.:[\]-]+$/, 'Invalid Syslog server address'),
+    .regex(/^[A-Za-z0-9_.:[\]-]+$/, 'Invalid Syslog server address')
+    .refine(
+      (value) => !['localhost', '127.0.0.1', '::1', '[::1]'].includes(value.toLowerCase()),
+      'Use the LAN IP/hostname of the MME computer; localhost points to the router itself.',
+    ),
   port: z.coerce.number().int().min(1).max(65535).default(514),
   topics: z.string().trim().min(1).max(512).default('info,!account,!debug'),
   confirm: z.literal(true),

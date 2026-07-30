@@ -74,7 +74,7 @@ chọn lần lượt `5514`, `6514` hoặc `10514`; cổng thực tế được 
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.4-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.5-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -82,7 +82,7 @@ Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.4-x64.exe' `
 Đặt cổng riêng khi cài im lặng:
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.4-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.8.5-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
     '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
   -Wait

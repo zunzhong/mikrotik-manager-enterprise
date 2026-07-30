@@ -53,6 +53,7 @@ export interface SyslogOverview {
   aliases: SyslogAlias[];
   settings: SyslogSettings;
   receiver: SyslogReceiverStatus;
+  recommendedServerAddresses: string[];
 }
 
 export interface SyslogMessage {
@@ -102,4 +103,6 @@ export interface RouterOsSyslogResult {
   deviceName: string;
   success: boolean;
   error?: string;
+  routerOsVersion?: string;
+  configurationProfile?: string;
 }

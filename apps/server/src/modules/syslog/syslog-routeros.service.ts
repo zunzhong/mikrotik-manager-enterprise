@@ -12,6 +12,11 @@ interface RouterRecord {
   [key: string]: unknown;
 }
 
+interface RouterOsSyslogActionProfile {
+  name: 'routeros-7.18+' | 'routeros-7-modern-split' | 'routeros-legacy' | 'compatible-minimal';
+  parameters: Record<string, string>;
+}
+
 export interface ConfigureRouterOsSyslogInput {
   serverAddress: string;
   port: number;
@@ -20,6 +25,86 @@ export interface ConfigureRouterOsSyslogInput {
 
 function recordId(record: RouterRecord | undefined): string | undefined {
   return record?.['.id'] ?? record?.id;
+}
+
+function routerOsVersion(value: unknown): { major: number; minor: number } | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d+)\.(\d+)/.exec(value.trim());
+  if (!match) return null;
+  return { major: Number(match[1]), minor: Number(match[2]) };
+}
+
+function remoteEndpoint(serverAddress: string, port: number): string {
+  const host =
+    serverAddress.includes(':') && !serverAddress.startsWith('[')
+      ? `[${serverAddress}]`
+      : serverAddress;
+  return `${host}:${port}`;
+}
+
+export function buildRouterOsSyslogActionProfiles(
+  version: unknown,
+  serverAddress: string,
+  port: number,
+): RouterOsSyslogActionProfile[] {
+  const parsedVersion = routerOsVersion(version);
+  const shared = {
+    target: 'remote',
+    'syslog-facility': 'local0',
+    'syslog-severity': 'auto',
+  };
+  const modern: RouterOsSyslogActionProfile = {
+    name: 'routeros-7.18+',
+    parameters: {
+      ...shared,
+      'remote-log-format': 'syslog',
+      'remote-protocol': 'udp',
+      'remote-port': remoteEndpoint(serverAddress, port),
+      'syslog-time-format': 'iso8601',
+    },
+  };
+  const modernSplit: RouterOsSyslogActionProfile = {
+    name: 'routeros-7-modern-split',
+    parameters: {
+      ...shared,
+      remote: serverAddress,
+      'remote-port': String(port),
+      'remote-log-format': 'syslog',
+      'syslog-time-format': 'iso8601',
+    },
+  };
+  const legacy: RouterOsSyslogActionProfile = {
+    name: 'routeros-legacy',
+    parameters: {
+      ...shared,
+      remote: serverAddress,
+      'remote-port': String(port),
+      'bsd-syslog': 'yes',
+    },
+  };
+  const compatibleMinimal: RouterOsSyslogActionProfile = {
+    name: 'compatible-minimal',
+    parameters: {
+      ...shared,
+      remote: serverAddress,
+      'remote-port': String(port),
+    },
+  };
+
+  if (parsedVersion?.major === 7 && parsedVersion.minor >= 18) {
+    return [modern, modernSplit, compatibleMinimal];
+  }
+  if (parsedVersion && (parsedVersion.major < 7 || parsedVersion.major === 7)) {
+    return [legacy, compatibleMinimal];
+  }
+  return [modern, modernSplit, legacy, compatibleMinimal];
+}
+
+function isParameterCompatibilityError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /unknown parameter|invalid value.*(?:remote|syslog)|expected.*(?:remote|syslog)/i.test(
+    message,
+  );
 }
 
 export class SyslogRouterOsService {
@@ -38,6 +123,10 @@ export class SyslogRouterOsService {
     });
     try {
       await client.connect();
+      const resource = await client.command('/system/resource/print', {
+        '.proplist': 'version',
+      });
+      const version = resource.rows[0]?.version;
       const actions = (
         await client.command(
           '/system/logging/action/print',
@@ -45,26 +134,31 @@ export class SyslogRouterOsService {
           { queries: ['?name=mme-syslog'], timeoutMs: 15000 },
         )
       ).rows as RouterRecord[];
-      const actionParameters = {
-        target: 'remote',
-        remote: input.serverAddress,
-        'remote-port': String(input.port),
-        'bsd-syslog': 'yes',
-        'syslog-facility': 'local0',
-        'syslog-severity': 'auto',
-      };
       const actionId = recordId(actions[0]);
-      if (actionId) {
-        await client.command('/system/logging/action/set', {
-          '.id': actionId,
-          ...actionParameters,
-        });
-      } else {
-        await client.command('/system/logging/action/add', {
-          name: 'mme-syslog',
-          ...actionParameters,
-        });
+      const profiles = buildRouterOsSyslogActionProfiles(version, input.serverAddress, input.port);
+      let appliedProfile: RouterOsSyslogActionProfile | undefined;
+      let lastCompatibilityError: unknown;
+      for (const profile of profiles) {
+        try {
+          if (actionId) {
+            await client.command('/system/logging/action/set', {
+              '.id': actionId,
+              ...profile.parameters,
+            });
+          } else {
+            await client.command('/system/logging/action/add', {
+              name: 'mme-syslog',
+              ...profile.parameters,
+            });
+          }
+          appliedProfile = profile;
+          break;
+        } catch (error) {
+          if (!isParameterCompatibilityError(error)) throw error;
+          lastCompatibilityError = error;
+        }
       }
+      if (!appliedProfile) throw lastCompatibilityError;
 
       const rules = (
         await client.command(
@@ -103,6 +197,8 @@ export class SyslogRouterOsService {
         port: input.port,
         protocol: 'udp',
         topics: input.topics,
+        routerOsVersion: typeof version === 'string' ? version : 'unknown',
+        configurationProfile: appliedProfile.name,
         duplicateRulesRemoved,
       };
     } catch (error) {

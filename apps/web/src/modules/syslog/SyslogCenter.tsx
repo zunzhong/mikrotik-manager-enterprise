@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { syslogApi } from './syslog.api';
 import type {
@@ -67,11 +67,17 @@ export function SyslogCenter() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
-  const [serverAddress, setServerAddress] = useState(() => window.location.hostname);
+  const [serverAddress, setServerAddress] = useState(() => {
+    const hostname = window.location.hostname;
+    return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname.toLowerCase())
+      ? ''
+      : hostname;
+  });
   const [routerPort, setRouterPort] = useState(514);
   const [topics, setTopics] = useState('info,!account,!debug');
   const [alias, setAlias] = useState('');
   const [aliasDeviceId, setAliasDeviceId] = useState('');
+  const routerDefaultsInitialized = useRef(false);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -84,6 +90,13 @@ export function SyslogCenter() {
         setOverview(nextOverview);
         setMessages(nextMessages);
         setSettings((current) => current ?? nextOverview.settings);
+        if (!routerDefaultsInitialized.current) {
+          setServerAddress(
+            (current) => current || nextOverview.recommendedServerAddresses[0] || '',
+          );
+          setRouterPort(nextOverview.receiver.port);
+          routerDefaultsInitialized.current = true;
+        }
         setAliasDeviceId((current) => current || nextOverview.devices[0]?.id || '');
         setError(null);
       } catch (loadError) {
@@ -426,8 +439,8 @@ export function SyslogCenter() {
         ) : null}
         <p className="syslog-hint">
           {tr(
-            'Linux/Windows Firewall phải cho phép cổng đã chọn trên cả UDP/TCP. Bộ cài tự mở cổng mặc định 514.',
-            'Linux/Windows Firewall must allow the selected UDP/TCP port. The installer opens default port 514.',
+            'Linux/Windows Firewall phải cho phép cổng đã chọn trên cả UDP/TCP. Bộ cài mở cổng Syslog đã cấu hình.',
+            'Linux/Windows Firewall must allow the selected UDP/TCP port. The installer opens the configured Syslog port.',
           )}
         </p>
       </details>
@@ -446,6 +459,16 @@ export function SyslogCenter() {
                 value={serverAddress}
                 onChange={(event) => setServerAddress(event.target.value)}
               />
+              <small>
+                {tr(
+                  `Không dùng localhost. Địa chỉ MME gợi ý: ${
+                    overview?.recommendedServerAddresses.join(', ') || '—'
+                  }`,
+                  `Do not use localhost. Suggested MME address: ${
+                    overview?.recommendedServerAddresses.join(', ') || '—'
+                  }`,
+                )}
+              </small>
             </label>
             <label>
               {tr('Cổng UDP', 'UDP port')}

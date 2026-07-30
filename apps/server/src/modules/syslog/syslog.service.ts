@@ -1,5 +1,6 @@
 import dgram from 'node:dgram';
 import net from 'node:net';
+import { networkInterfaces } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { config } from '../../config/config.service.js';
 import { syslogRepository, type StoredSyslogInput } from './syslog.repository.js';
@@ -30,6 +31,59 @@ function settingsShape(settings: SyslogReceiverSettings): SyslogReceiverSettings
     maxRecords: settings.maxRecords,
     acceptUnmatched: settings.acceptUnmatched,
   };
+}
+
+export function recommendedSyslogServerAddresses(
+  interfaces?: ReturnType<typeof networkInterfaces>,
+  deviceHosts: string[] = [],
+): string[] {
+  if (!interfaces) {
+    try {
+      interfaces = networkInterfaces();
+    } catch {
+      interfaces = {};
+    }
+  }
+  const ipv4Number = (value: string): number | null => {
+    const octets = value.split('.').map(Number);
+    if (
+      octets.length !== 4 ||
+      octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+    )
+      return null;
+    return octets.reduce((result, octet) => ((result << 8) | octet) >>> 0, 0);
+  };
+  const addresses: Array<{ address: string; score: number }> = [];
+  for (const entries of Object.values(interfaces)) {
+    for (const entry of entries ?? []) {
+      if (entry.internal || entry.family !== 'IPv4') continue;
+      if (
+        entry.address === '0.0.0.0' ||
+        entry.address.startsWith('127.') ||
+        entry.address.startsWith('169.254.')
+      )
+        continue;
+      const interfaceAddress = ipv4Number(entry.address);
+      const netmask = ipv4Number(entry.netmask);
+      const score =
+        interfaceAddress === null || netmask === null
+          ? 0
+          : deviceHosts.filter((host) => {
+              const deviceAddress = ipv4Number(host);
+              return (
+                deviceAddress !== null && (interfaceAddress & netmask) === (deviceAddress & netmask)
+              );
+            }).length;
+      addresses.push({ address: entry.address, score });
+    }
+  }
+  return [
+    ...new Set(
+      addresses
+        .sort((left, right) => right.score - left.score)
+        .map((candidate) => candidate.address),
+    ),
+  ];
 }
 
 export class SyslogService {
@@ -67,6 +121,10 @@ export class SyslogService {
       ...database,
       settings: persisted ? settingsShape(persisted) : this.settings,
       receiver: this.receiver.status(),
+      recommendedServerAddresses: recommendedSyslogServerAddresses(
+        undefined,
+        database.devices.map((device) => device.host),
+      ),
     };
   }
 
