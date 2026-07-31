@@ -279,9 +279,9 @@ function Initialize-Environment {
     $existingConfig = Set-EnvironmentContentValue $existingConfig 'NODE_ENV' 'production'
     $existingConfig = Set-EnvironmentContentValue $existingConfig 'APP_NAME' 'mikrotik-manager-enterprise'
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.9.1')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.9.2')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.9.1`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.9.2`r`n"
     }
     foreach ($requiredValue in @{
       SERVER_HOST = '127.0.0.1'
@@ -378,7 +378,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.9.1
+APP_VERSION=5.9.2
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$BackendRuntimePort
 FRONTEND_HOST=127.0.0.1

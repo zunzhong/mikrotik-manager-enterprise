@@ -1,6 +1,6 @@
-# Hướng dẫn Syslog tập trung MME 5.9.0
+# Hướng dẫn Syslog tập trung MME 5.9.2
 
-MME 5.9.0 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
+MME 5.9.2 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
 phân tích, ánh xạ với thiết bị đã quản lý và lưu trong database đang được MME sử dụng.
 
 ## 1. Thành phần được hỗ trợ
@@ -84,7 +84,7 @@ bị đã thêm, bản ghi tự gắn với thiết bị. Nếu chưa khớp, b�
 RouterOS 7.18 trở lên, ví dụ gửi UDP tới máy MME `10.0.0.11:514`:
 
 ```routeros
-/system logging action add name=mme-syslog target=remote remote-log-format=syslog remote-protocol=udp remote-port=10.0.0.11:514 syslog-facility=local0 syslog-severity=auto syslog-time-format=iso8601
+/system logging action add name=mme-syslog target=remote remote=10.0.0.11 remote-port=514 remote-log-format=syslog remote-protocol=udp syslog-facility=local0 syslog-severity=auto syslog-time-format=iso8601
 /system logging add topics=info,!account,!debug action=mme-syslog
 ```
 

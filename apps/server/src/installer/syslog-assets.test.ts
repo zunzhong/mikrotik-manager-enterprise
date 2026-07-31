@@ -32,15 +32,18 @@ describe('Centralized Syslog release assets', () => {
   it('ships the Syslog guide in both installer artifacts', () => {
     const workflow = read('.github/workflows/platform-installers.yml');
     const debBuilder = read('packaging/linux/build-deb-ubuntu20.sh');
-    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-5.9.0.md');
+    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-5.9.2.md');
     const syslogUi = read('apps/web/src/modules/syslog/SyslogCenter.tsx');
-    expect(workflow.match(/HUONG-DAN-SYSLOG-5\.9\.0\.md/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-5.9.0.md');
+    expect(workflow.match(/HUONG-DAN-SYSLOG-5\.9\.2\.md/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-5.9.2.md');
     expect(guide).toContain('RFC 3164');
     expect(guide).toContain('RFC 5424');
     expect(guide).toContain('RFC 6587');
     expect(guide).toContain('sudo mme-control syslog-check');
     expect(guide).toContain('Cấu Hình Server Syslog');
+    expect(guide).toContain('remote=10.0.0.11');
+    expect(guide).toContain('remote-port=514');
+    expect(guide).not.toContain('remote-port=10.0.0.11:514');
     expect(guide).toContain('remote-log-format=syslog');
     expect(guide).toContain(':log warning "MME manual Syslog test"');
     expect(syslogUi).toContain("tr('Cấu Hình Server Syslog', 'Syslog Server Configuration')");

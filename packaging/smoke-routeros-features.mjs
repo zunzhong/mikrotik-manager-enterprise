@@ -227,9 +227,11 @@ try {
       (sentence) =>
         sentence[0] === '/system/logging/action/add' &&
         sentence.includes('=name=mme-syslog') &&
+        sentence.includes('=remote=192.0.2.10') &&
         sentence.includes('=remote-log-format=syslog') &&
         sentence.includes('=remote-protocol=udp') &&
-        sentence.includes('=remote-port=192.0.2.10:514') &&
+        sentence.includes('=remote-port=514') &&
+        !sentence.includes('=remote-port=192.0.2.10:514') &&
         !sentence.includes('=bsd-syslog=yes'),
     ),
     'RouterOS Syslog action was not sent to the device.',

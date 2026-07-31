@@ -133,8 +133,8 @@ cp project-docs/deployment/HUONG-DAN-CAI-DAT-LINUX.md "$APP/HUONG-DAN-CAI-DAT-LI
 cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.2.md "$APP/HUONG-DAN-DATABASE-LINUX-5.6.2.md"
 cp project-docs/deployment/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md \
   "$APP/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md"
-cp project-docs/deployment/HUONG-DAN-SYSLOG-5.9.0.md \
-  "$APP/HUONG-DAN-SYSLOG-5.9.0.md"
+cp project-docs/deployment/HUONG-DAN-SYSLOG-5.9.2.md \
+  "$APP/HUONG-DAN-SYSLOG-5.9.2.md"
 
 install -m 0755 packaging/linux/mme-control "$ROOT/usr/local/bin/mme-control"
 install -m 0755 packaging/linux/mme-ubuntu-install.sh "$ROOT/usr/local/bin/mme-ubuntu-install"

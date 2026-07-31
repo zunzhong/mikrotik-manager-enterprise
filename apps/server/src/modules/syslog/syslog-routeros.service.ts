@@ -13,7 +13,7 @@ interface RouterRecord {
 }
 
 interface RouterOsSyslogActionProfile {
-  name: 'routeros-7.18+' | 'routeros-7-modern-split' | 'routeros-legacy' | 'compatible-minimal';
+  name: 'routeros-7.18+' | 'routeros-7.18+-endpoint' | 'routeros-legacy' | 'compatible-minimal';
   parameters: Record<string, string>;
 }
 
@@ -57,19 +57,20 @@ export function buildRouterOsSyslogActionProfiles(
     name: 'routeros-7.18+',
     parameters: {
       ...shared,
+      remote: serverAddress,
       'remote-log-format': 'syslog',
       'remote-protocol': 'udp',
-      'remote-port': remoteEndpoint(serverAddress, port),
+      'remote-port': String(port),
       'syslog-time-format': 'iso8601',
     },
   };
-  const modernSplit: RouterOsSyslogActionProfile = {
-    name: 'routeros-7-modern-split',
+  const modernEndpoint: RouterOsSyslogActionProfile = {
+    name: 'routeros-7.18+-endpoint',
     parameters: {
       ...shared,
-      remote: serverAddress,
-      'remote-port': String(port),
       'remote-log-format': 'syslog',
+      'remote-protocol': 'udp',
+      'remote-port': remoteEndpoint(serverAddress, port),
       'syslog-time-format': 'iso8601',
     },
   };
@@ -92,18 +93,20 @@ export function buildRouterOsSyslogActionProfiles(
   };
 
   if (parsedVersion?.major === 7 && parsedVersion.minor >= 18) {
-    return [modern, modernSplit, compatibleMinimal];
+    return [modern, modernEndpoint, compatibleMinimal];
   }
   if (parsedVersion && (parsedVersion.major < 7 || parsedVersion.major === 7)) {
     return [legacy, compatibleMinimal];
   }
-  return [modern, modernSplit, legacy, compatibleMinimal];
+  return [modern, modernEndpoint, legacy, compatibleMinimal];
 }
 
-function isParameterCompatibilityError(error: unknown): boolean {
+export function isParameterCompatibilityError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /unknown parameter|invalid value.*(?:remote|syslog)|expected.*(?:remote|syslog)/i.test(
-    message,
+  if (/unknown parameter/i.test(message)) return true;
+  return (
+    /(?:remote|syslog)/i.test(message) &&
+    /invalid|trailing characters|expected|bad value|not (?:valid|supported)/i.test(message)
   );
 }
 
