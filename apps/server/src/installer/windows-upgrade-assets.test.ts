@@ -130,6 +130,10 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain('Import-LegacySqliteDatabase');
     expect(control).toContain("Set-EnvironmentContentValue $existingConfig 'DATABASE_URL'");
     expect(control).toContain('Repaired missing required setting:');
+    expect(control).toContain("Get-EnvironmentContentValue $existingConfig 'SERVER_PORT'");
+    expect(control).toContain("Get-EnvironmentContentValue $existingConfig 'FRONTEND_PORT'");
+    expect(control).not.toContain('(?m)^SERVER_PORT=([0-9]+)$');
+    expect(control).not.toContain('(?m)^FRONTEND_PORT=([0-9]+)$');
     expect(control).toContain('$databaseAvailableBeforeSetup = Test-Path $Database');
     expect(control).toContain(
       'Write-InitialCredentials -FreshDatabase:(-not $databaseAvailableBeforeSetup)',
@@ -140,5 +144,11 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain('Get-ServiceLogSummary');
     expect(workflow).toContain('Simulate an interrupted legacy installation');
     expect(workflow).toContain('bootstrap-error.txt');
+    expect(workflow).toContain('function Read-MMEEnvironmentFile');
+    expect(workflow).toContain("$normalized -split '=', 2");
+    expect(workflow).toContain('$repairIssues -join');
+    expect(workflow).not.toContain(
+      "$installedConfig -notmatch '(?m)^DATABASE_URL=file:.+/data/mme\\.db$'",
+    );
   });
 });

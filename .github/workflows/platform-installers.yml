@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.9.0
+        default: 5.9.1
       platform:
         description: Nền tảng cần build
         required: true
@@ -194,6 +194,16 @@ jobs:
             Write-MMEDiagnostics
             throw "API không ready sau $TimeoutSeconds giây."
           }
+          function Read-MMEEnvironmentFile([string]$Path) {
+            $values = @{}
+            foreach ($line in @(Get-Content $Path -ErrorAction Stop)) {
+              $normalized = ([string]$line).TrimStart([char]0xfeff)
+              if ($normalized -notmatch '^[A-Z0-9_]+=') { continue }
+              $name, $value = $normalized -split '=', 2
+              $values[$name] = $value.Trim()
+            }
+            return $values
+          }
           function Assert-TopologyApi {
             $topology = Invoke-RestMethod 'http://127.0.0.1:3000/api/v1/topology' -TimeoutSec 10
             if (-not $topology.success) { throw 'Topology API không trả success.' }
@@ -246,16 +256,20 @@ jobs:
           }
           function Assert-Syslog {
             $configFile = "$env:ProgramData\MikroTik Manager Enterprise\config\mme.env"
-            $passwordLine = Get-Content $configFile | Where-Object { $_ -like 'DEFAULT_ADMIN_PASSWORD=*' } | Select-Object -First 1
-            if (-not $passwordLine) { throw 'Thiếu mật khẩu quản trị để smoke test Syslog.' }
-            $syslogPortLine = Get-Content $configFile | Where-Object { $_ -like 'SYSLOG_PORT=*' } | Select-Object -First 1
-            if (-not $syslogPortLine) { throw 'Thiếu SYSLOG_PORT trong cấu hình sau cài đặt.' }
+            $configValues = Read-MMEEnvironmentFile $configFile
+            if (-not $configValues.ContainsKey('DEFAULT_ADMIN_PASSWORD') -or
+              [string]::IsNullOrWhiteSpace([string]$configValues['DEFAULT_ADMIN_PASSWORD'])) {
+              throw 'Thiếu mật khẩu quản trị để smoke test Syslog.'
+            }
+            if (-not $configValues.ContainsKey('SYSLOG_PORT')) {
+              throw 'Thiếu SYSLOG_PORT trong cấu hình sau cài đặt.'
+            }
             $syslogPort = 0
-            if (-not [int]::TryParse(($syslogPortLine -split '=', 2)[1], [ref]$syslogPort)) {
+            if (-not [int]::TryParse([string]$configValues['SYSLOG_PORT'], [ref]$syslogPort)) {
               throw 'SYSLOG_PORT sau cài đặt không hợp lệ.'
             }
             $env:MME_SMOKE_EMAIL = 'admin@example.com'
-            $env:MME_SMOKE_PASSWORD = ($passwordLine -split '=', 2)[1]
+            $env:MME_SMOKE_PASSWORD = [string]$configValues['DEFAULT_ADMIN_PASSWORD']
             $env:MME_SMOKE_SYSLOG_HOST = '127.0.0.1'
             $env:MME_SMOKE_SYSLOG_PORT = [string]$syslogPort
             node packaging/smoke-syslog.mjs 'http://127.0.0.1:3000' |
@@ -362,12 +376,28 @@ jobs:
           if (-not (Test-Path "$env:ProgramData\MikroTik Manager Enterprise\MME-Thong-Tin-Dang-Nhap.txt")) {
             throw 'Thiếu file thông tin đăng nhập bền vững trong ProgramData.'
           }
-          $installedConfig = Get-Content "$env:ProgramData\MikroTik Manager Enterprise\config\mme.env" -Raw
-          if ($installedConfig -notmatch '(?m)^DATABASE_URL=file:.+/data/mme\.db$' -or
-            $installedConfig -notmatch '(?m)^JWT_SECRET=.+$' -or
-            $installedConfig -notmatch '(?m)^ENCRYPTION_KEY=.+$' -or
-            $installedConfig -notmatch '(?m)^DEFAULT_ADMIN_PASSWORD=.+$') {
-            throw 'Installer không sửa hoàn chỉnh cấu hình còn sót lại từ lần cài dở.'
+          $installedConfigPath = "$env:ProgramData\MikroTik Manager Enterprise\config\mme.env"
+          $installedConfig = Read-MMEEnvironmentFile $installedConfigPath
+          $expectedDatabaseUrl = 'file:' + (
+            (Join-Path $env:ProgramData 'MikroTik Manager Enterprise\data\mme.db').Replace('\', '/')
+          )
+          $repairIssues = @()
+          if (-not $installedConfig.ContainsKey('DATABASE_URL') -or
+            $installedConfig['DATABASE_URL'] -ne $expectedDatabaseUrl) {
+            $repairIssues += 'DATABASE_URL'
+          }
+          foreach ($requiredKey in @('JWT_SECRET', 'ENCRYPTION_KEY', 'DEFAULT_ADMIN_PASSWORD')) {
+            if (-not $installedConfig.ContainsKey($requiredKey) -or
+              [string]::IsNullOrWhiteSpace([string]$installedConfig[$requiredKey])) {
+              $repairIssues += $requiredKey
+            }
+          }
+          if (-not $installedConfig.ContainsKey('APP_VERSION') -or
+            $installedConfig['APP_VERSION'] -ne '${{ steps.version.outputs.value }}') {
+            $repairIssues += 'APP_VERSION'
+          }
+          if ($repairIssues.Count -gt 0) {
+            throw "Installer không sửa hoàn chỉnh các khóa cấu hình: $($repairIssues -join ', ')."
           }
           $installState = "$env:ProgramData\MikroTik Manager Enterprise\install-state.json"
           if (-not (Test-Path $installState)) { throw 'Thiếu biên nhận cài đặt thành công.' }
@@ -750,7 +780,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.9.0!'
+          recovery_password='MME-Recovery-5.9.1!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path

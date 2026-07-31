@@ -279,9 +279,9 @@ function Initialize-Environment {
     $existingConfig = Set-EnvironmentContentValue $existingConfig 'NODE_ENV' 'production'
     $existingConfig = Set-EnvironmentContentValue $existingConfig 'APP_NAME' 'mikrotik-manager-enterprise'
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.9.0')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.9.1')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.9.0`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.9.1`r`n"
     }
     foreach ($requiredValue in @{
       SERVER_HOST = '127.0.0.1'
@@ -303,26 +303,33 @@ function Initialize-Environment {
     if ($BackendPort -gt 0) {
       $backendForFrontend = $BackendPort
       $existingConfig = Set-EnvironmentContentValue $existingConfig 'SERVER_PORT' ([string]$BackendPort)
-    } elseif ($existingConfig -match '(?m)^SERVER_PORT=([0-9]+)$') {
+    } else {
       $configuredBackend = 0
-      [void][int]::TryParse($Matches[1], [ref]$configuredBackend)
-      if ($configuredBackend -ge 1 -and $configuredBackend -le 65535) {
+      $configuredBackendValue = Get-EnvironmentContentValue $existingConfig 'SERVER_PORT'
+      $backendIsValid = [int]::TryParse(
+        [string]$configuredBackendValue,
+        [ref]$configuredBackend
+      )
+      if ($backendIsValid -and $configuredBackend -ge 1 -and $configuredBackend -le 65535) {
         $backendForFrontend = $configuredBackend
       } else {
         $existingConfig = Set-EnvironmentContentValue $existingConfig 'SERVER_PORT' ([string]$DefaultPort)
       }
-    } else {
-      $existingConfig = Set-EnvironmentContentValue $existingConfig 'SERVER_PORT' ([string]$DefaultPort)
     }
     if ($FrontendPort -gt 0) {
       $existingConfig = Set-EnvironmentContentValue $existingConfig 'FRONTEND_PORT' ([string]$FrontendPort)
     } else {
       $configuredFrontend = 0
-      $frontendIsValid = $false
-      if ($existingConfig -match '(?m)^FRONTEND_PORT=([0-9]+)$') {
-        $frontendIsValid = [int]::TryParse($Matches[1], [ref]$configuredFrontend)
-        $frontendIsValid = $frontendIsValid -and $configuredFrontend -ge 1 -and $configuredFrontend -le 65535
-      }
+      $configuredFrontendValue = Get-EnvironmentContentValue $existingConfig 'FRONTEND_PORT'
+      $frontendIsValid = [int]::TryParse(
+        [string]$configuredFrontendValue,
+        [ref]$configuredFrontend
+      )
+      $frontendIsValid = (
+        $frontendIsValid -and
+        $configuredFrontend -ge 1 -and
+        $configuredFrontend -le 65535
+      )
       if (-not $frontendIsValid) {
         $existingConfig = Set-EnvironmentContentValue $existingConfig 'FRONTEND_PORT' ([string]$backendForFrontend)
       }
@@ -371,7 +378,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.9.0
+APP_VERSION=5.9.1
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$BackendRuntimePort
 FRONTEND_HOST=127.0.0.1
