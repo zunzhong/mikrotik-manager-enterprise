@@ -102,6 +102,12 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain('Ensure-SyslogFirewall');
     expect(control).toContain("New-NetFirewallRule -DisplayName 'MME Syslog UDP'");
     expect(control).toContain("New-NetFirewallRule -DisplayName 'MME Syslog TCP'");
+    expect(control).toContain('-Profile Any');
+    expect(control).toContain('-RemoteAddress LocalSubnet');
+    expect(control).toContain(
+      "'firewall' { Assert-Administrator; Ensure-SyslogFirewall $SyslogPort }",
+    );
+    expect(control).toContain("'firewall-remove' { Assert-Administrator; Remove-SyslogFirewall }");
     expect(control).toContain('Remove-SyslogFirewall');
     expect(control).toContain('Resolve-SyslogPort');
     expect(control).toContain('Test-SyslogPortAvailable');
@@ -116,6 +122,10 @@ describe('Windows in-place upgrade assets', () => {
     expect(control).toContain("Join-Path $DataDir 'MME-Thong-Tin-Dang-Nhap.txt'");
     expect(workflow).toContain('Assert-Syslog');
     expect(workflow).toContain("smoke-syslog.mjs 'http://127.0.0.1:3000'");
+    expect(workflow).toContain("smoke-routeros-features.mjs 'http://127.0.0.1:3000'");
+    expect(workflow).toContain('routeros-syslog-windows-smoke.json');
+    expect(workflow).toContain('Get-NetFirewallAddressFilter');
+    expect(workflow).toContain("'LocalSubnet'");
     expect(workflow).toContain('syslog-windows-smoke.json');
     expect(workflow).toContain('SYSLOG_PORT_LOCKED');
     expect(workflow).toContain('Installer phải trả exit code 100');

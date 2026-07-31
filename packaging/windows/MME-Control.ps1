@@ -1,12 +1,14 @@
 ﻿param(
-  [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'backup', 'uninstall', 'validate')]
+  [ValidateSet('install', 'start', 'stop', 'restart', 'open', 'status', 'backup', 'uninstall', 'validate', 'firewall', 'firewall-remove')]
   [string]$Action = 'start',
   [switch]$NoOpen,
   [string]$DataRoot = '',
   [ValidateRange(0, 65535)]
   [int]$BackendPort = 0,
   [ValidateRange(0, 65535)]
-  [int]$FrontendPort = 0
+  [int]$FrontendPort = 0,
+  [ValidateRange(0, 65535)]
+  [int]$SyslogPort = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -279,9 +281,9 @@ function Initialize-Environment {
     $existingConfig = Set-EnvironmentContentValue $existingConfig 'NODE_ENV' 'production'
     $existingConfig = Set-EnvironmentContentValue $existingConfig 'APP_NAME' 'mikrotik-manager-enterprise'
     if ($existingConfig -match '(?m)^APP_VERSION=') {
-      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.9.2')
+      $existingConfig = [Text.RegularExpressions.Regex]::Replace($existingConfig, '(?m)^APP_VERSION=.*$', 'APP_VERSION=5.9.3')
     } else {
-      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.9.2`r`n"
+      $existingConfig = $existingConfig.TrimEnd() + "`r`nAPP_VERSION=5.9.3`r`n"
     }
     foreach ($requiredValue in @{
       SERVER_HOST = '127.0.0.1'
@@ -378,7 +380,7 @@ function Initialize-Environment {
   $content = @"
 NODE_ENV=production
 APP_NAME=mikrotik-manager-enterprise
-APP_VERSION=5.9.2
+APP_VERSION=5.9.3
 SERVER_HOST=127.0.0.1
 SERVER_PORT=$BackendRuntimePort
 FRONTEND_HOST=127.0.0.1
@@ -455,13 +457,14 @@ function Get-ServiceLogSummary([int]$MaximumLines = 20) {
   return Get-NativeOutputSummary $lines $MaximumLines
 }
 
-function Ensure-SyslogFirewall {
+function Ensure-SyslogFirewall([int]$PortOverride = 0) {
   $values = Read-Environment
-  if (-not $values.ContainsKey('SYSLOG_ENABLED') -or $values['SYSLOG_ENABLED'] -ne 'true') {
+  if ($PortOverride -le 0 -and
+    (-not $values.ContainsKey('SYSLOG_ENABLED') -or $values['SYSLOG_ENABLED'] -ne 'true')) {
     return
   }
-  $port = $DefaultSyslogPort
-  if ($values.ContainsKey('SYSLOG_PORT')) {
+  $port = if ($PortOverride -gt 0) { $PortOverride } else { $DefaultSyslogPort }
+  if ($PortOverride -le 0 -and $values.ContainsKey('SYSLOG_PORT')) {
     $configured = 0
     if ([int]::TryParse([string]$values['SYSLOG_PORT'], [ref]$configured) -and
       $configured -ge 1 -and $configured -le 65535) {
@@ -473,10 +476,12 @@ function Ensure-SyslogFirewall {
   Get-NetFirewallRule -DisplayName 'MME Syslog TCP' -ErrorAction SilentlyContinue |
     Remove-NetFirewallRule -ErrorAction SilentlyContinue
   New-NetFirewallRule -DisplayName 'MME Syslog UDP' -Group 'MikroTik Manager Enterprise Syslog' `
-    -Direction Inbound -Action Allow -Protocol UDP -LocalPort $port -Profile Domain,Private | Out-Null
+    -Direction Inbound -Action Allow -Protocol UDP -LocalPort $port -Profile Any `
+    -RemoteAddress LocalSubnet | Out-Null
   New-NetFirewallRule -DisplayName 'MME Syslog TCP' -Group 'MikroTik Manager Enterprise Syslog' `
-    -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -Profile Domain,Private | Out-Null
-  Write-BootstrapLog "Windows Firewall cho phép Syslog UDP/TCP cổng $port trên Domain/Private."
+    -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -Profile Any `
+    -RemoteAddress LocalSubnet | Out-Null
+  Write-BootstrapLog "Windows Firewall allows Syslog UDP/TCP port $port from LocalSubnet on every network profile."
 }
 
 function Test-SyslogPortAvailable([int]$Port) {
@@ -940,6 +945,8 @@ try {
     'backup' { Assert-Administrator; Backup-Data }
     'uninstall' { Assert-Administrator; Stop-MMERuntime; & $ServiceExe uninstall; Remove-SyslogFirewall }
     'validate' { Write-BootstrapLog 'Windows PowerShell validation đạt.' }
+    'firewall' { Assert-Administrator; Ensure-SyslogFirewall $SyslogPort }
+    'firewall-remove' { Assert-Administrator; Remove-SyslogFirewall }
   }
 } catch {
   Write-BootstrapFailure $_

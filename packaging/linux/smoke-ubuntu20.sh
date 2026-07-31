@@ -61,7 +61,7 @@ export DEFAULT_ADMIN_PASSWORD=MME-Ubuntu20-Smoke-Password-2026
 export SYSLOG_ENABLED=true
 export SYSLOG_UDP_ENABLED=true
 export SYSLOG_TCP_ENABLED=true
-export SYSLOG_BIND_ADDRESS=127.0.0.1
+export SYSLOG_BIND_ADDRESS=0.0.0.0
 export SYSLOG_PORT=15514
 export SYSLOG_RETENTION_DAYS=30
 export SYSLOG_MAX_RECORDS=500000
@@ -105,10 +105,11 @@ curl --fail --silent --show-error http://127.0.0.1:3180/topology \
 "$NODE" packaging/smoke-frontend-assets.mjs http://127.0.0.1:3180 \
   | tee artifacts/ubuntu20-frontend-assets.json
 MME_SMOKE_EMAIL="$DEFAULT_ADMIN_EMAIL" MME_SMOKE_PASSWORD="$DEFAULT_ADMIN_PASSWORD" \
+  MME_SMOKE_SYSLOG_HOST=127.0.0.2 MME_SMOKE_SYSLOG_PORT="$SYSLOG_PORT" \
   "$NODE" packaging/smoke-routeros-features.mjs http://127.0.0.1:3100 \
   | tee artifacts/ubuntu20-routeros-features.json
 MME_SMOKE_EMAIL="$DEFAULT_ADMIN_EMAIL" MME_SMOKE_PASSWORD="$DEFAULT_ADMIN_PASSWORD" \
-  MME_SMOKE_SYSLOG_HOST=127.0.0.1 MME_SMOKE_SYSLOG_PORT="$SYSLOG_PORT" \
+  MME_SMOKE_SYSLOG_HOST=127.0.0.2 MME_SMOKE_SYSLOG_PORT="$SYSLOG_PORT" \
   "$NODE" packaging/smoke-syslog.mjs http://127.0.0.1:3100 \
   | tee artifacts/ubuntu20-syslog.json
 

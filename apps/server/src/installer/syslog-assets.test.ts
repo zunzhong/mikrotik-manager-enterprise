@@ -32,10 +32,11 @@ describe('Centralized Syslog release assets', () => {
   it('ships the Syslog guide in both installer artifacts', () => {
     const workflow = read('.github/workflows/platform-installers.yml');
     const debBuilder = read('packaging/linux/build-deb-ubuntu20.sh');
-    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-5.9.2.md');
+    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-5.9.3.md');
     const syslogUi = read('apps/web/src/modules/syslog/SyslogCenter.tsx');
-    expect(workflow.match(/HUONG-DAN-SYSLOG-5\.9\.2\.md/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-5.9.2.md');
+    const windowsControl = read('packaging/windows/MME-Control.ps1');
+    expect(workflow.match(/HUONG-DAN-SYSLOG-5\.9\.3\.md/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-5.9.3.md');
     expect(guide).toContain('RFC 3164');
     expect(guide).toContain('RFC 5424');
     expect(guide).toContain('RFC 6587');
@@ -46,6 +47,11 @@ describe('Centralized Syslog release assets', () => {
     expect(guide).not.toContain('remote-port=10.0.0.11:514');
     expect(guide).toContain('remote-log-format=syslog');
     expect(guide).toContain(':log warning "MME manual Syslog test"');
+    expect(guide).toContain('mọi network profile');
+    expect(guide).toContain('LocalSubnet');
+    expect(workflow).toContain('routeros-syslog-windows-smoke.json');
+    expect(windowsControl).toContain('-Profile Any');
+    expect(windowsControl).toContain('-RemoteAddress LocalSubnet');
     expect(syslogUi).toContain("tr('Cấu Hình Server Syslog', 'Syslog Server Configuration')");
   });
 });

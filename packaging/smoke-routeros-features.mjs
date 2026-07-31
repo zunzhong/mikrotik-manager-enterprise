@@ -1,6 +1,7 @@
 /* global fetch */
 
 import { error, log } from 'node:console';
+import dgram from 'node:dgram';
 import process from 'node:process';
 import { FakeRouterOsServer } from '../packages/routeros-core/dist/testing/fake-routeros-server.js';
 
@@ -8,10 +9,32 @@ const baseUrl = (process.argv[2] ?? 'http://127.0.0.1:3000').replace(/\/+$/, '')
 const email = process.env.MME_SMOKE_EMAIL ?? 'admin@example.com';
 const password = process.env.MME_SMOKE_PASSWORD;
 const expectLinuxPing = process.env.MME_SMOKE_EXPECT_PING !== '0';
+const syslogHost = process.env.MME_SMOKE_SYSLOG_HOST ?? '127.0.0.2';
+const syslogPort = Number(process.env.MME_SMOKE_SYSLOG_PORT ?? process.env.SYSLOG_PORT ?? 514);
 
 if (!password) {
   error('MME_SMOKE_PASSWORD is required.');
   process.exit(2);
+}
+
+const loggingActions = [];
+const loggingRules = [];
+
+function sentenceAttributes(sentence) {
+  return Object.fromEntries(
+    sentence
+      .filter((word) => word.startsWith('='))
+      .map((word) => {
+        const separator = word.indexOf('=', 1);
+        return [word.slice(1, separator), word.slice(separator + 1)];
+      }),
+  );
+}
+
+function sendRouterSyslog(marker) {
+  const socket = dgram.createSocket('udp4');
+  const payload = `<134>1 ${new Date().toISOString()} MME-LINUX-CI RouterOS - MME_TEST - ${marker}`;
+  socket.send(payload, syslogPort, syslogHost, () => socket.close());
 }
 
 const fake = new FakeRouterOsServer({
@@ -39,10 +62,6 @@ const fake = new FakeRouterOsServer({
     ],
     '/system/health/print': [{ name: 'temperature', value: '42' }],
     '/system/clock/print': [{ date: '2026-07-25', time: '12:00:00' }],
-    '/system/logging/action/print': [],
-    '/system/logging/action/add': [],
-    '/system/logging/print': [],
-    '/system/logging/add': [],
     '/interface/print': [
       {
         '.id': '*1',
@@ -64,6 +83,42 @@ const fake = new FakeRouterOsServer({
     '/ping': [{ host: '8.8.8.8', status: 'echo reply', time: '12ms' }],
     '/system/backup/save': [],
     '/system/sup-output': [],
+  },
+  commandHandler: (sentence) => {
+    const command = sentence[0];
+    const attributes = sentenceAttributes(sentence);
+    if (command === '/system/logging/action/print') return loggingActions;
+    if (command === '/system/logging/action/add') {
+      loggingActions.push({ '.id': '*A1', ...attributes });
+      return [];
+    }
+    if (command === '/system/logging/action/set') {
+      const action = loggingActions.find((item) => item['.id'] === attributes['.id']);
+      if (action) Object.assign(action, attributes);
+      return [];
+    }
+    if (command === '/system/logging/print') return loggingRules;
+    if (command === '/system/logging/add') {
+      loggingRules.push({ '.id': '*L1', ...attributes });
+      return [];
+    }
+    if (command === '/system/logging/set') {
+      const rule = loggingRules.find((item) => item['.id'] === attributes['.id']);
+      if (rule) Object.assign(rule, attributes);
+      return [];
+    }
+    if (command === '/system/logging/remove') {
+      const index = loggingRules.findIndex((item) => item['.id'] === attributes['.id']);
+      if (index >= 0) loggingRules.splice(index, 1);
+      return [];
+    }
+    if (
+      ['/log/info', '/log/warning', '/log/error', '/log/critical', '/log/debug'].includes(command)
+    ) {
+      if (attributes.message) sendRouterSyslog(attributes.message);
+      return [];
+    }
+    return undefined;
   },
   unknownCommand: 'empty',
 });
@@ -207,7 +262,7 @@ try {
     token,
     body: {
       deviceIds: [deviceId],
-      serverAddress: '192.0.2.10',
+      serverAddress: syslogHost,
       port: 514,
       topics: 'info,!account,!debug',
       confirm: true,
@@ -219,7 +274,10 @@ try {
   );
   assert(
     syslogConfiguration?.results?.[0]?.routerOsVersion === '7.19.1' &&
-      syslogConfiguration?.results?.[0]?.configurationProfile === 'routeros-7.18+',
+      syslogConfiguration?.results?.[0]?.configurationProfile === 'routeros-7.18+' &&
+      syslogConfiguration?.results?.[0]?.actionVerified === true &&
+      syslogConfiguration?.results?.[0]?.ruleVerified === true &&
+      syslogConfiguration?.results?.[0]?.deliveryVerified === true,
     'RouterOS Syslog did not select the 7.18+ configuration profile.',
   );
   assert(
@@ -227,7 +285,7 @@ try {
       (sentence) =>
         sentence[0] === '/system/logging/action/add' &&
         sentence.includes('=name=mme-syslog') &&
-        sentence.includes('=remote=192.0.2.10') &&
+        sentence.includes(`=remote=${syslogHost}`) &&
         sentence.includes('=remote-log-format=syslog') &&
         sentence.includes('=remote-protocol=udp') &&
         sentence.includes('=remote-port=514') &&
@@ -259,6 +317,7 @@ try {
         routerSupout: true,
         inventory: true,
         routerOsSyslogConfiguration: true,
+        routerOsSyslogDelivery: true,
       },
       routerOs: {
         identity: connection.identity,

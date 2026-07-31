@@ -1,6 +1,6 @@
-# Hướng dẫn Syslog tập trung MME 5.9.2
+# Hướng dẫn Syslog tập trung MME 5.9.3
 
-MME 5.9.2 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
+MME 5.9.3 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
 phân tích, ánh xạ với thiết bị đã quản lý và lưu trong database đang được MME sử dụng.
 
 ## 1. Thành phần được hỗ trợ
@@ -13,8 +13,8 @@ phân tích, ánh xạ với thiết bị đã quản lý và lưu trong databas
 - Tự làm mới danh sách log mỗi 5 giây; có thể tắt chế độ realtime.
 - Giới hạn thời gian lưu và tổng số bản ghi; bản ghi cũ nhất được dọn tự động.
 - Cấu hình gửi Syslog hàng loạt cho các thiết bị RouterOS từ giao diện MME.
-- Rule firewall được tạo cho UDP/TCP trên mạng Domain/Private (Windows) hoặc subnet
-  LAN trực tiếp (UFW trên Linux).
+- Rule firewall được tạo cho UDP/TCP từ mạng LAN trực tiếp trên mọi profile mạng
+  Windows hoặc subnet LAN trực tiếp với UFW trên Linux.
 
 ## 2. Mở và kiểm tra bộ nhận
 
@@ -55,6 +55,10 @@ Get-NetTCPConnection -State Listen -LocalPort 514
 Get-NetFirewallRule -Group 'MikroTik Manager Enterprise Syslog'
 ```
 
+Trên Windows, rule do MME quản lý áp dụng cho mọi network profile nhưng giới hạn
+nguồn ở `LocalSubnet`. Vì vậy RouterOS trong cùng LAN vẫn gửi được ngay cả khi card
+mạng Windows đang ở profile Public, còn nguồn ngoài subnet không tự động được mở.
+
 ## 3. Cấu hình RouterOS từ MME
 
 Trong trang **Syslog**:
@@ -66,6 +70,8 @@ Trong trang **Syslog**:
 5. Nhấn **Cấu hình RouterOS** và xác nhận.
 
 MME tạo/cập nhật action `mme-syslog` và chỉ duy trì một rule tương ứng trên router.
+Sau khi ghi, MME đọc lại action/rule, phát một bản tin thử trực tiếp trên RouterOS và
+chỉ xác nhận đầy đủ khi bản tin đó đã được bộ nhận MME lưu vào database.
 Tài khoản RouterOS cần quyền cho `/system/logging` và `/system/logging/action`.
 
 Có thể kiểm tra trực tiếp trên RouterOS:

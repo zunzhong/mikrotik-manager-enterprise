@@ -6,7 +6,7 @@ on:
       version:
         description: Installer version
         required: true
-        default: 5.9.2
+        default: 5.9.3
       platform:
         description: Nền tảng cần build
         required: true
@@ -135,7 +135,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/payload/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
           Copy-Item project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/payload/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
           Copy-Item project-docs/deployment/HUONG-DAN-CONG-DATABASE-5.5.0.md artifacts/payload/HUONG-DAN-CONG-DATABASE-5.5.0.md
-          Copy-Item project-docs/deployment/HUONG-DAN-SYSLOG-5.9.2.md artifacts/payload/HUONG-DAN-SYSLOG-5.9.2.md
+          Copy-Item project-docs/deployment/HUONG-DAN-SYSLOG-5.9.3.md artifacts/payload/HUONG-DAN-SYSLOG-5.9.3.md
           New-Item -ItemType Directory -Force artifacts/payload/runtime, artifacts/payload/service | Out-Null
           Copy-Item (Get-Command node).Source artifacts/payload/runtime/node.exe
           Invoke-WebRequest `
@@ -270,11 +270,27 @@ jobs:
             }
             $env:MME_SMOKE_EMAIL = 'admin@example.com'
             $env:MME_SMOKE_PASSWORD = [string]$configValues['DEFAULT_ADMIN_PASSWORD']
-            $env:MME_SMOKE_SYSLOG_HOST = '127.0.0.1'
+            $syslogLanAddress = Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred |
+              Where-Object {
+                $_.IPAddress -notlike '127.*' -and
+                $_.IPAddress -notlike '169.254.*' -and
+                -not $_.SkipAsSource
+              } |
+              Select-Object -First 1 -ExpandProperty IPAddress
+            if ([string]::IsNullOrWhiteSpace([string]$syslogLanAddress)) {
+              throw 'Không tìm thấy địa chỉ IPv4 LAN để smoke test Syslog từ RouterOS.'
+            }
+            $env:MME_SMOKE_SYSLOG_HOST = [string]$syslogLanAddress
             $env:MME_SMOKE_SYSLOG_PORT = [string]$syslogPort
             node packaging/smoke-syslog.mjs 'http://127.0.0.1:3000' |
               Set-Content artifacts/syslog-windows-smoke.json -Encoding utf8
             if ($LASTEXITCODE -ne 0) { throw 'Smoke test Syslog UDP/TCP trên Windows thất bại.' }
+            $env:MME_SMOKE_EXPECT_PING = '0'
+            node packaging/smoke-routeros-features.mjs 'http://127.0.0.1:3000' |
+              Set-Content artifacts/routeros-syslog-windows-smoke.json -Encoding utf8
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Smoke test cấu hình và nhận Syslog từ RouterOS giả lập trên Windows thất bại.'
+            }
             if (-not (Get-NetUDPEndpoint -LocalPort $syslogPort -ErrorAction SilentlyContinue)) {
               throw "Không tìm thấy listener Syslog UDP cổng $syslogPort."
             }
@@ -283,6 +299,18 @@ jobs:
             }
             $rules = @(Get-NetFirewallRule -Group 'MikroTik Manager Enterprise Syslog' -ErrorAction SilentlyContinue)
             if ($rules.Count -lt 2) { throw 'Thiếu rule Windows Firewall cho Syslog UDP/TCP.' }
+            foreach ($rule in $rules) {
+              if ([string]$rule.Profile -ne 'Any') {
+                throw "Rule Syslog không áp dụng cho Windows Public profile: $($rule.DisplayName)"
+              }
+              $remoteAddresses = @(
+                $rule | Get-NetFirewallAddressFilter -ErrorAction Stop |
+                  Select-Object -ExpandProperty RemoteAddress
+              )
+              if ($remoteAddresses -notcontains 'LocalSubnet') {
+                throw "Rule Syslog không giới hạn đúng nguồn LocalSubnet: $($rule.DisplayName)"
+              }
+            }
             $script:InstalledSyslogPort = $syslogPort
           }
           function Assert-InstalledCriticalFiles {
@@ -559,7 +587,7 @@ jobs:
           Copy-Item project-docs/deployment/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md -Force
           Copy-Item project-docs/deployment/HUONG-DAN-CONG-DATABASE-5.5.0.md artifacts/HUONG-DAN-CONG-DATABASE-5.5.0.md -Force
-          Copy-Item project-docs/deployment/HUONG-DAN-SYSLOG-5.9.2.md artifacts/HUONG-DAN-SYSLOG-5.9.2.md -Force
+          Copy-Item project-docs/deployment/HUONG-DAN-SYSLOG-5.9.3.md artifacts/HUONG-DAN-SYSLOG-5.9.3.md -Force
 
       - name: Thu thập chẩn đoán Windows Service
         if: always()
@@ -600,12 +628,13 @@ jobs:
             artifacts/HUONG-DAN-TOPOLOGY-ENTERPRISE-5.4.0.md
             artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
             artifacts/HUONG-DAN-CONG-DATABASE-5.5.0.md
-            artifacts/HUONG-DAN-SYSLOG-5.9.2.md
+            artifacts/HUONG-DAN-SYSLOG-5.9.3.md
             artifacts/*.log
             artifacts/topology-smoke.json
             artifacts/report-send-guard-smoke.txt
             artifacts/custom-ports-smoke.txt
             artifacts/syslog-windows-smoke.json
+            artifacts/routeros-syslog-windows-smoke.json
           if-no-files-found: error
 
       - name: Upload Windows diagnostics when installer fails
@@ -733,6 +762,7 @@ jobs:
           smoke_password="$(sudo awk -F': ' '/^Password:/{print $2; exit}' /root/mme-thong-tin-dang-nhap.txt)"
           test -n "$smoke_password"
           MME_SMOKE_EMAIL=admin@example.com MME_SMOKE_PASSWORD="$smoke_password" \
+            MME_SMOKE_SYSLOG_HOST="$lan_ip" MME_SMOKE_SYSLOG_PORT=5514 \
             node packaging/smoke-routeros-features.mjs http://127.0.0.1:3000 \
             | tee artifacts/routeros-features-deb-smoke.json
           MME_SMOKE_EMAIL=admin@example.com MME_SMOKE_PASSWORD="$smoke_password" \
@@ -780,7 +810,7 @@ jobs:
           fi
           systemctl is-active --quiet mme.service
 
-          recovery_password='MME-Recovery-5.9.2!'
+          recovery_password='MME-Recovery-5.9.3!'
           sudo env RECOVERY_PASSWORD="$recovery_password" python3 - <<'PY'
           import os
           from pathlib import Path
@@ -873,7 +903,7 @@ jobs:
           cp project-docs/deployment/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
           cp project-docs/deployment/HUONG-DAN-DATABASE-LINUX-5.6.2.md artifacts/HUONG-DAN-DATABASE-LINUX-5.6.2.md
           cp project-docs/deployment/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md artifacts/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md
-          cp project-docs/deployment/HUONG-DAN-SYSLOG-5.9.2.md artifacts/HUONG-DAN-SYSLOG-5.9.2.md
+          cp project-docs/deployment/HUONG-DAN-SYSLOG-5.9.3.md artifacts/HUONG-DAN-SYSLOG-5.9.3.md
 
       - name: Thu thập chẩn đoán Linux
         if: always()
@@ -897,7 +927,7 @@ jobs:
             artifacts/HUONG-DAN-REPORT-GIAO-DIEN-5.4.2.md
             artifacts/HUONG-DAN-DATABASE-LINUX-5.6.2.md
             artifacts/HUONG-DAN-KIEM-TRA-TINH-NANG-LINUX-5.7.0.md
-            artifacts/HUONG-DAN-SYSLOG-5.9.2.md
+            artifacts/HUONG-DAN-SYSLOG-5.9.3.md
             artifacts/*.log
             artifacts/ready-deb-*.json
             artifacts/topology-deb-*.json

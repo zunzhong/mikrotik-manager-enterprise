@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { config } from '../../config/config.service.js';
+import { SyslogFirewallService } from './syslog-firewall.service.js';
 import { SyslogReceiver } from './syslog.receiver.js';
 import { SyslogRepository } from './syslog.repository.js';
 import { receiverConfigurationError, SyslogService } from './syslog.service.js';
@@ -62,14 +63,44 @@ describe('Syslog server configuration', () => {
       start: vi.fn(async (input: SyslogReceiverSettings) => statusFor(input)),
       status: vi.fn(() => statusFor(settings)),
     } as unknown as SyslogReceiver;
-    const service = new SyslogService(repository, receiver);
+    const sync = vi.fn(async () => undefined);
+    const firewall = { sync } as unknown as SyslogFirewallService;
+    const service = new SyslogService(repository, receiver, firewall);
 
     const result = await service.updateSettings(settings);
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(saveSettings).toHaveBeenCalledWith(settings);
+    expect(sync).toHaveBeenCalledWith(settings);
     expect(result.receiver.udpListening).toBe(true);
     expect(result.receiver.tcpListening).toBe(true);
+  });
+
+  it('restores the receiver when the operating-system firewall cannot be updated', async () => {
+    const settings = nextSettings();
+    const saveSettings = vi.fn();
+    const repository = { saveSettings } as unknown as SyslogRepository;
+    const start = vi.fn(async (input: SyslogReceiverSettings) => statusFor(input));
+    const receiver = {
+      start,
+      status: vi.fn(() => statusFor(config.syslog)),
+    } as unknown as SyslogReceiver;
+    const sync = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Access is denied'))
+      .mockResolvedValueOnce(undefined);
+    const firewall = { sync } as unknown as SyslogFirewallService;
+    const service = new SyslogService(repository, receiver, firewall);
+
+    await expect(service.updateSettings(settings)).rejects.toMatchObject({
+      code: 'SYSLOG_FIREWALL_UPDATE_FAILED',
+      statusCode: 409,
+    });
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(start).toHaveBeenNthCalledWith(1, settings);
+    expect(start).toHaveBeenNthCalledWith(2, config.syslog);
+    expect(sync).toHaveBeenNthCalledWith(1, settings);
+    expect(sync).toHaveBeenNthCalledWith(2, config.syslog);
   });
 
   it('restores the previous receiver and does not save an unbindable configuration', async () => {
@@ -90,7 +121,8 @@ describe('Syslog server configuration', () => {
       start,
       status: vi.fn(() => statusFor(config.syslog)),
     } as unknown as SyslogReceiver;
-    const service = new SyslogService(repository, receiver);
+    const firewall = { sync: vi.fn(async () => undefined) } as unknown as SyslogFirewallService;
+    const service = new SyslogService(repository, receiver, firewall);
 
     await expect(service.updateSettings(settings)).rejects.toMatchObject({
       code: 'SYSLOG_LISTENER_START_FAILED',
@@ -113,7 +145,8 @@ describe('Syslog server configuration', () => {
       start,
       status: vi.fn(() => statusFor(config.syslog)),
     } as unknown as SyslogReceiver;
-    const service = new SyslogService(repository, receiver);
+    const firewall = { sync: vi.fn(async () => undefined) } as unknown as SyslogFirewallService;
+    const service = new SyslogService(repository, receiver, firewall);
 
     await expect(service.updateSettings(settings)).rejects.toMatchObject({
       code: 'SYSLOG_SETTINGS_PERSIST_FAILED',

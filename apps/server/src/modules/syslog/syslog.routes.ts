@@ -215,7 +215,11 @@ export async function syslogRoutes(app: FastifyInstance): Promise<void> {
           ...(await Promise.all(
             body.deviceIds
               .slice(index, index + 5)
-              .map((deviceId) => syslogRouterOsService.configure(deviceId, body)),
+              .map((deviceId) =>
+                syslogRouterOsService.configure(deviceId, body, (marker) =>
+                  syslogService.waitForStoredMessage(marker),
+                ),
+              ),
           )),
         );
       }

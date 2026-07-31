@@ -11,6 +11,7 @@ export interface FakeRouterOsServerOptions {
   challengeHex?: string;
   resource?: Record<string, string>;
   responses?: Record<string, Array<Record<string, string>>>;
+  commandHandler?: (sentence: RouterOsSentence) => Array<Record<string, string>> | undefined;
   unknownCommand?: 'trap' | 'empty';
 }
 
@@ -97,6 +98,12 @@ export class FakeRouterOsServer {
 
     if (command === '/system/resource/print') {
       this.handleResourcePrint(socket, sentence);
+      return;
+    }
+
+    const handledRows = this.options.commandHandler?.([...sentence]);
+    if (handledRows) {
+      this.handleConfiguredResponse(socket, sentence, handledRows);
       return;
     }
 

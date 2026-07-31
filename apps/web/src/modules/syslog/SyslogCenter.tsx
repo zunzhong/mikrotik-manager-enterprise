@@ -206,13 +206,17 @@ export function SyslogCenter() {
         .filter((item) => !item.success)
         .map((item) => `${item.deviceName}: ${item.error}`)
         .join(' · ');
+      const warnings = result.results
+        .filter((item) => item.success && item.warning)
+        .map((item) => `${item.deviceName}: ${item.warning}`)
+        .join(' · ');
       setNotice(
         tr(
           `Cấu hình thành công ${result.succeeded}/${result.results.length} thiết bị.`,
           `Configured ${result.succeeded}/${result.results.length} device(s).`,
         ),
       );
-      if (failed) setError(failed);
+      if (failed || warnings) setError([failed, warnings].filter(Boolean).join(' · '));
     } catch (configureError) {
       setError(
         configureError instanceof Error

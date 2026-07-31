@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildRouterOsSyslogActionProfiles,
   isParameterCompatibilityError,
+  routerOsSyslogTestCommand,
 } from './syslog-routeros.service.js';
 
 describe('RouterOS Syslog action profiles', () => {
@@ -57,5 +58,11 @@ describe('RouterOS Syslog action profiles', () => {
         new Error('value of remote-port contains invalid trailing characters'),
       ),
     ).toBe(true);
+  });
+
+  it('selects a RouterOS test command covered by the configured topics', () => {
+    expect(routerOsSyslogTestCommand('info,!account,!debug')).toBe('/log/info');
+    expect(routerOsSyslogTestCommand('error,warning')).toBe('/log/warning');
+    expect(routerOsSyslogTestCommand('system,!debug')).toBeNull();
   });
 });

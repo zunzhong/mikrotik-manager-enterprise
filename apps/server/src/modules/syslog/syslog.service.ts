@@ -4,6 +4,7 @@ import { networkInterfaces } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { config } from '../../config/config.service.js';
 import { HttpError } from '../../errors/http-error.js';
+import { SyslogFirewallService, syslogFirewallService } from './syslog-firewall.service.js';
 import { SyslogRepository, syslogRepository, type StoredSyslogInput } from './syslog.repository.js';
 import { SyslogReceiver } from './syslog.receiver.js';
 import type {
@@ -121,6 +122,7 @@ export class SyslogService {
   public constructor(
     private readonly repository: SyslogRepository = syslogRepository,
     receiver?: SyslogReceiver,
+    private readonly firewall: SyslogFirewallService = syslogFirewallService,
   ) {
     this.receiver = receiver ?? new SyslogReceiver((messages) => this.store(messages));
   }
@@ -192,12 +194,49 @@ export class SyslogService {
     }
 
     try {
+      await this.firewall.sync(next);
+    } catch (error) {
+      const rollbackStatus = await this.receiver.start(previous);
+      const rollbackError = receiverConfigurationError(previous, rollbackStatus);
+      let firewallRollbackError: string | null = null;
+      try {
+        await this.firewall.sync(previous);
+      } catch (rollbackFailure) {
+        firewallRollbackError =
+          rollbackFailure instanceof Error ? rollbackFailure.message : String(rollbackFailure);
+      }
+      throw new HttpError(
+        409,
+        'SYSLOG_FIREWALL_UPDATE_FAILED',
+        [
+          'The Syslog listener started, but the operating-system firewall could not be updated.',
+          error instanceof Error ? error.message : String(error),
+          rollbackError
+            ? `The previous receiver configuration could not be restored: ${rollbackError}`
+            : 'The previous receiver configuration was restored.',
+          firewallRollbackError
+            ? `The previous firewall configuration could not be restored: ${firewallRollbackError}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      );
+    }
+
+    try {
       const saved = await this.repository.saveSettings(next);
       this.settings = settingsShape(saved);
     } catch (error) {
       const rollbackStatus = await this.receiver.start(previous);
       this.settings = previous;
       const rollbackError = receiverConfigurationError(previous, rollbackStatus);
+      let firewallRollbackError: string | null = null;
+      try {
+        await this.firewall.sync(previous);
+      } catch (rollbackFailure) {
+        firewallRollbackError =
+          rollbackFailure instanceof Error ? rollbackFailure.message : String(rollbackFailure);
+      }
       throw new HttpError(
         500,
         'SYSLOG_SETTINGS_PERSIST_FAILED',
@@ -206,8 +245,13 @@ export class SyslogService {
           rollbackError
             ? `The previous receiver configuration could not be restored: ${rollbackError}`
             : 'The previous receiver configuration was restored.',
+          firewallRollbackError
+            ? `The previous firewall configuration could not be restored: ${firewallRollbackError}`
+            : null,
           error instanceof Error ? error.message : String(error),
-        ].join(' '),
+        ]
+          .filter(Boolean)
+          .join(' '),
       );
     }
 
@@ -311,6 +355,21 @@ export class SyslogService {
         : (after.lastError ?? 'The test message was not stored within 5 seconds.'),
       receiver: after,
     };
+  }
+
+  public async waitForStoredMessage(marker: string, timeoutMs = 6000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      await delay(100);
+      await this.receiver.flush();
+      const result = await this.repository.list({
+        page: 1,
+        pageSize: 1,
+        search: marker,
+      });
+      if (result.total > 0) return true;
+    }
+    return false;
   }
 
   private async store(messages: ReceivedSyslogMessage[]): Promise<number> {

@@ -17,6 +17,8 @@ interface RouterOsSyslogActionProfile {
   parameters: Record<string, string>;
 }
 
+type SyslogDeliveryVerifier = (marker: string) => Promise<boolean>;
+
 export interface ConfigureRouterOsSyslogInput {
   serverAddress: string;
   port: number;
@@ -25,6 +27,32 @@ export interface ConfigureRouterOsSyslogInput {
 
 function recordId(record: RouterRecord | undefined): string | undefined {
   return record?.['.id'] ?? record?.id;
+}
+
+function normalizedTopics(value: unknown): string[] {
+  if (typeof value !== 'string') return [];
+  return value
+    .split(',')
+    .map((topic) => topic.trim().toLowerCase())
+    .filter(Boolean)
+    .sort();
+}
+
+function actionMatchesProfile(action: RouterRecord, profile: RouterOsSyslogActionProfile): boolean {
+  if (action.name !== 'mme-syslog' || action.target !== 'remote') return false;
+  for (const key of ['remote', 'remote-port'] as const) {
+    const expected = profile.parameters[key];
+    if (expected !== undefined && String(action[key] ?? '') !== expected) return false;
+  }
+  return true;
+}
+
+export function routerOsSyslogTestCommand(topics: string): string | null {
+  const enabled = normalizedTopics(topics).filter((topic) => !topic.startsWith('!'));
+  for (const level of ['info', 'warning', 'error', 'critical', 'debug']) {
+    if (enabled.includes(level)) return `/log/${level}`;
+  }
+  return null;
 }
 
 function routerOsVersion(value: unknown): { major: number; minor: number } | null {
@@ -111,7 +139,11 @@ export function isParameterCompatibilityError(error: unknown): boolean {
 }
 
 export class SyslogRouterOsService {
-  public async configure(deviceId: string, input: ConfigureRouterOsSyslogInput) {
+  public async configure(
+    deviceId: string,
+    input: ConfigureRouterOsSyslogInput,
+    verifyDelivery?: SyslogDeliveryVerifier,
+  ) {
     const device = await deviceRepository.findById(deviceId);
     if (!device) throw new HttpError(404, 'DEVICE_NOT_FOUND', 'Device not found');
     const client = new RouterClient({
@@ -130,14 +162,8 @@ export class SyslogRouterOsService {
         '.proplist': 'version',
       });
       const version = resource.rows[0]?.version;
-      const actions = (
-        await client.command(
-          '/system/logging/action/print',
-          {},
-          { queries: ['?name=mme-syslog'], timeoutMs: 15000 },
-        )
-      ).rows as RouterRecord[];
-      const actionId = recordId(actions[0]);
+      const actions = (await client.command('/system/logging/action/print')).rows as RouterRecord[];
+      let actionId = recordId(actions.find((action) => action.name === 'mme-syslog'));
       const profiles = buildRouterOsSyslogActionProfiles(version, input.serverAddress, input.port);
       let appliedProfile: RouterOsSyslogActionProfile | undefined;
       let lastCompatibilityError: unknown;
@@ -154,6 +180,16 @@ export class SyslogRouterOsService {
               ...profile.parameters,
             });
           }
+          const verifiedActions = (await client.command('/system/logging/action/print'))
+            .rows as RouterRecord[];
+          const verifiedAction = verifiedActions.find((action) => action.name === 'mme-syslog');
+          actionId = recordId(verifiedAction);
+          if (!verifiedAction || !actionId || !actionMatchesProfile(verifiedAction, profile)) {
+            lastCompatibilityError = new Error(
+              `RouterOS did not persist the mme-syslog remote destination for profile ${profile.name}.`,
+            );
+            continue;
+          }
           appliedProfile = profile;
           break;
         } catch (error) {
@@ -163,14 +199,9 @@ export class SyslogRouterOsService {
       }
       if (!appliedProfile) throw lastCompatibilityError;
 
-      const rules = (
-        await client.command(
-          '/system/logging/print',
-          {},
-          { queries: ['?action=mme-syslog'], timeoutMs: 15000 },
-        )
-      ).rows as RouterRecord[];
-      const ruleId = recordId(rules[0]);
+      const rules = (await client.command('/system/logging/print')).rows as RouterRecord[];
+      const matchingRules = rules.filter((rule) => rule.action === 'mme-syslog');
+      const ruleId = recordId(matchingRules[0]);
       if (ruleId) {
         await client.command('/system/logging/set', {
           '.id': ruleId,
@@ -184,11 +215,38 @@ export class SyslogRouterOsService {
         });
       }
       let duplicateRulesRemoved = 0;
-      for (const duplicate of rules.slice(1)) {
+      for (const duplicate of matchingRules.slice(1)) {
         const duplicateId = recordId(duplicate);
         if (!duplicateId) continue;
         await client.command('/system/logging/remove', { '.id': duplicateId });
         duplicateRulesRemoved += 1;
+      }
+      const verifiedRules = (await client.command('/system/logging/print')).rows as RouterRecord[];
+      const verifiedRule = verifiedRules.find(
+        (rule) =>
+          rule.action === 'mme-syslog' &&
+          normalizedTopics(rule.topics).join(',') === normalizedTopics(input.topics).join(','),
+      );
+      if (!verifiedRule || !recordId(verifiedRule)) {
+        throw new Error(
+          'RouterOS accepted the command but did not persist the mme-syslog logging rule.',
+        );
+      }
+
+      const testCommand = routerOsSyslogTestCommand(input.topics);
+      let deliveryVerified: boolean | null = null;
+      let warning: string | undefined;
+      if (testCommand && verifyDelivery) {
+        const marker = `mme-routeros-syslog-test-${deviceId}-${Date.now()}`;
+        await client.command(testCommand, { message: marker });
+        deliveryVerified = await verifyDelivery(marker);
+        if (!deliveryVerified) {
+          warning =
+            'RouterOS action/rule were verified, but its test message did not reach MME. Check the server firewall, network profile and UDP path.';
+        }
+      } else if (!testCommand) {
+        warning =
+          'RouterOS action/rule were verified. Delivery was not tested because the selected topics do not include info, warning, error, critical or debug.';
       }
 
       return {
@@ -202,6 +260,10 @@ export class SyslogRouterOsService {
         topics: input.topics,
         routerOsVersion: typeof version === 'string' ? version : 'unknown',
         configurationProfile: appliedProfile.name,
+        actionVerified: true,
+        ruleVerified: true,
+        deliveryVerified,
+        warning,
         duplicateRulesRemoved,
       };
     } catch (error) {

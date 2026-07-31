@@ -103,6 +103,10 @@ export interface RouterOsSyslogResult {
   deviceName: string;
   success: boolean;
   error?: string;
+  warning?: string;
+  actionVerified?: boolean;
+  ruleVerified?: boolean;
+  deliveryVerified?: boolean | null;
   routerOsVersion?: string;
   configurationProfile?: string;
 }
