@@ -19,6 +19,13 @@ interface RouterOsSyslogActionProfile {
 
 type SyslogDeliveryVerifier = (marker: string) => Promise<boolean>;
 
+export const ROUTEROS_SYSLOG_ACTION_NAME = 'MMESyslog';
+const LEGACY_ROUTEROS_SYSLOG_ACTION_NAME = 'mme-syslog';
+
+function isManagedActionName(value: unknown): boolean {
+  return value === ROUTEROS_SYSLOG_ACTION_NAME || value === LEGACY_ROUTEROS_SYSLOG_ACTION_NAME;
+}
+
 export interface ConfigureRouterOsSyslogInput {
   serverAddress: string;
   port: number;
@@ -39,7 +46,7 @@ function normalizedTopics(value: unknown): string[] {
 }
 
 function actionMatchesProfile(action: RouterRecord, profile: RouterOsSyslogActionProfile): boolean {
-  if (action.name !== 'mme-syslog' || action.target !== 'remote') return false;
+  if (action.name !== ROUTEROS_SYSLOG_ACTION_NAME || action.target !== 'remote') return false;
   for (const key of ['remote', 'remote-port'] as const) {
     const expected = profile.parameters[key];
     if (expected !== undefined && String(action[key] ?? '') !== expected) return false;
@@ -163,7 +170,10 @@ export class SyslogRouterOsService {
       });
       const version = resource.rows[0]?.version;
       const actions = (await client.command('/system/logging/action/print')).rows as RouterRecord[];
-      let actionId = recordId(actions.find((action) => action.name === 'mme-syslog'));
+      const existingAction =
+        actions.find((action) => action.name === ROUTEROS_SYSLOG_ACTION_NAME) ??
+        actions.find((action) => action.name === LEGACY_ROUTEROS_SYSLOG_ACTION_NAME);
+      let actionId = recordId(existingAction);
       const profiles = buildRouterOsSyslogActionProfiles(version, input.serverAddress, input.port);
       let appliedProfile: RouterOsSyslogActionProfile | undefined;
       let lastCompatibilityError: unknown;
@@ -172,21 +182,24 @@ export class SyslogRouterOsService {
           if (actionId) {
             await client.command('/system/logging/action/set', {
               '.id': actionId,
+              name: ROUTEROS_SYSLOG_ACTION_NAME,
               ...profile.parameters,
             });
           } else {
             await client.command('/system/logging/action/add', {
-              name: 'mme-syslog',
+              name: ROUTEROS_SYSLOG_ACTION_NAME,
               ...profile.parameters,
             });
           }
           const verifiedActions = (await client.command('/system/logging/action/print'))
             .rows as RouterRecord[];
-          const verifiedAction = verifiedActions.find((action) => action.name === 'mme-syslog');
+          const verifiedAction = verifiedActions.find(
+            (action) => action.name === ROUTEROS_SYSLOG_ACTION_NAME,
+          );
           actionId = recordId(verifiedAction);
           if (!verifiedAction || !actionId || !actionMatchesProfile(verifiedAction, profile)) {
             lastCompatibilityError = new Error(
-              `RouterOS did not persist the mme-syslog remote destination for profile ${profile.name}.`,
+              `RouterOS did not persist the ${ROUTEROS_SYSLOG_ACTION_NAME} remote destination for profile ${profile.name}.`,
             );
             continue;
           }
@@ -200,18 +213,18 @@ export class SyslogRouterOsService {
       if (!appliedProfile) throw lastCompatibilityError;
 
       const rules = (await client.command('/system/logging/print')).rows as RouterRecord[];
-      const matchingRules = rules.filter((rule) => rule.action === 'mme-syslog');
+      const matchingRules = rules.filter((rule) => isManagedActionName(rule.action));
       const ruleId = recordId(matchingRules[0]);
       if (ruleId) {
         await client.command('/system/logging/set', {
           '.id': ruleId,
           topics: input.topics,
-          action: 'mme-syslog',
+          action: ROUTEROS_SYSLOG_ACTION_NAME,
         });
       } else {
         await client.command('/system/logging/add', {
           topics: input.topics,
-          action: 'mme-syslog',
+          action: ROUTEROS_SYSLOG_ACTION_NAME,
         });
       }
       let duplicateRulesRemoved = 0;
@@ -224,13 +237,23 @@ export class SyslogRouterOsService {
       const verifiedRules = (await client.command('/system/logging/print')).rows as RouterRecord[];
       const verifiedRule = verifiedRules.find(
         (rule) =>
-          rule.action === 'mme-syslog' &&
+          rule.action === ROUTEROS_SYSLOG_ACTION_NAME &&
           normalizedTopics(rule.topics).join(',') === normalizedTopics(input.topics).join(','),
       );
       if (!verifiedRule || !recordId(verifiedRule)) {
         throw new Error(
-          'RouterOS accepted the command but did not persist the mme-syslog logging rule.',
+          `RouterOS accepted the command but did not persist the ${ROUTEROS_SYSLOG_ACTION_NAME} logging rule.`,
         );
+      }
+
+      const finalActions = (await client.command('/system/logging/action/print'))
+        .rows as RouterRecord[];
+      for (const legacyAction of finalActions.filter(
+        (action) => action.name === LEGACY_ROUTEROS_SYSLOG_ACTION_NAME,
+      )) {
+        const legacyActionId = recordId(legacyAction);
+        if (!legacyActionId) continue;
+        await client.command('/system/logging/action/remove', { '.id': legacyActionId });
       }
 
       const testCommand = routerOsSyslogTestCommand(input.topics);
@@ -253,7 +276,7 @@ export class SyslogRouterOsService {
         deviceId,
         deviceName: device.name,
         success: true,
-        action: 'mme-syslog',
+        action: ROUTEROS_SYSLOG_ACTION_NAME,
         serverAddress: input.serverAddress,
         port: input.port,
         protocol: 'udp',
@@ -271,7 +294,7 @@ export class SyslogRouterOsService {
         deviceId,
         deviceName: device.name,
         success: false,
-        action: 'mme-syslog',
+        action: ROUTEROS_SYSLOG_ACTION_NAME,
         serverAddress: input.serverAddress,
         port: input.port,
         protocol: 'udp',

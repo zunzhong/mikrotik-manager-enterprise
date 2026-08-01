@@ -128,7 +128,7 @@ describe('Syslog routes', () => {
         deviceId,
         deviceName: 'Router 1',
         success: true,
-        action: 'mme-syslog',
+        action: 'MMESyslog',
         serverAddress: input.serverAddress,
         port: input.port,
         protocol: 'udp',

@@ -185,8 +185,8 @@ export function SyslogCenter() {
     if (
       !window.confirm(
         tr(
-          `MME sẽ tạo/cập nhật action “mme-syslog” trên ${selectedDevices.length} thiết bị. Tiếp tục?`,
-          `MME will create or update the “mme-syslog” action on ${selectedDevices.length} device(s). Continue?`,
+          `MME sẽ tạo/cập nhật action “MMESyslog” trên ${selectedDevices.length} thiết bị. Tiếp tục?`,
+          `MME will create or update the “MMESyslog” action on ${selectedDevices.length} device(s). Continue?`,
         ),
       )
     )

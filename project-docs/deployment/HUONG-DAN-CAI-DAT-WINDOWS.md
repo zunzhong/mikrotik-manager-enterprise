@@ -78,7 +78,7 @@ chọn lần lượt `5514`, `6514` hoặc `10514`; cổng thực tế được 
 ## 6. Cài đặt im lặng
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.9.3-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-6.0.0-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' `
   -Wait
 ```
@@ -86,14 +86,14 @@ Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.9.3-x64.exe' `
 Đặt cổng riêng khi cài im lặng:
 
 ```powershell
-Start-Process '.\MikroTik-Manager-Enterprise-Setup-5.9.3-x64.exe' `
+Start-Process '.\MikroTik-Manager-Enterprise-Setup-6.0.0-x64.exe' `
   -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-', `
     '/BACKENDPORT=3000','/FRONTENDPORT=8080' `
   -Wait
 ```
 
 Nếu bỏ hai tham số, cài mới dùng mặc định `3000`. Khi cài đè, bỏ qua tùy chỉnh sẽ giữ cổng đang
-cấu hình để không làm gián đoạn URL hiện tại. Từ bản 5.9.3, installer đọc `mme.env` theo từng cặp
+cấu hình để không làm gián đoạn URL hiện tại. Từ bản 6.0.0, installer đọc `mme.env` theo từng cặp
 `KEY=VALUE`, tương thích cả CRLF/LF và giữ nguyên cổng tùy chỉnh hợp lệ khi nâng cấp.
 
 ## 7. Sao lưu và nâng cấp

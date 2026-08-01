@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   buildRouterOsSyslogActionProfiles,
   isParameterCompatibilityError,
+  ROUTEROS_SYSLOG_ACTION_NAME,
   routerOsSyslogTestCommand,
 } from './syslog-routeros.service.js';
 
 describe('RouterOS Syslog action profiles', () => {
+  it('uses an action name accepted by RouterOS releases that allow only letters and numbers', () => {
+    expect(ROUTEROS_SYSLOG_ACTION_NAME).toBe('MMESyslog');
+    expect(ROUTEROS_SYSLOG_ACTION_NAME).toMatch(/^[A-Za-z0-9]+$/);
+  });
+
   it('uses the RouterOS 7.18+ Syslog parameters without the removed bsd-syslog flag', () => {
     const profiles = buildRouterOsSyslogActionProfiles('7.19.2 (stable)', '10.0.0.11', 5514);
 

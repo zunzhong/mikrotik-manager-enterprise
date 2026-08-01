@@ -1,6 +1,6 @@
-# Hướng dẫn Syslog tập trung MME 5.9.3
+# Hướng dẫn Syslog tập trung MME 6.0.0
 
-MME 5.9.3 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
+MME 6.0.0 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
 phân tích, ánh xạ với thiết bị đã quản lý và lưu trong database đang được MME sử dụng.
 
 ## 1. Thành phần được hỗ trợ
@@ -69,7 +69,9 @@ Trong trang **Syslog**:
 4. Chọn một, nhiều hoặc toàn bộ thiết bị.
 5. Nhấn **Cấu hình RouterOS** và xác nhận.
 
-MME tạo/cập nhật action `mme-syslog` và chỉ duy trì một rule tương ứng trên router.
+MME tạo/cập nhật action `MMESyslog` và chỉ duy trì một rule tương ứng trên router.
+Tên này chỉ gồm chữ và số để tương thích với các bản RouterOS giới hạn tên action.
+Nếu tồn tại action cũ `mme-syslog`, MME tự đổi tên và chuyển rule sang `MMESyslog`.
 Sau khi ghi, MME đọc lại action/rule, phát một bản tin thử trực tiếp trên RouterOS và
 chỉ xác nhận đầy đủ khi bản tin đó đã được bộ nhận MME lưu vào database.
 Tài khoản RouterOS cần quyền cho `/system/logging` và `/system/logging/action`.
@@ -77,8 +79,8 @@ Tài khoản RouterOS cần quyền cho `/system/logging` và `/system/logging/a
 Có thể kiểm tra trực tiếp trên RouterOS:
 
 ```routeros
-/system logging action print where name="mme-syslog"
-/system logging print where action="mme-syslog"
+/system logging action print where name="MMESyslog"
+/system logging print where action="MMESyslog"
 ```
 
 ## 4. Cấu hình thủ công
@@ -90,15 +92,15 @@ bị đã thêm, bản ghi tự gắn với thiết bị. Nếu chưa khớp, b�
 RouterOS 7.18 trở lên, ví dụ gửi UDP tới máy MME `10.0.0.11:514`:
 
 ```routeros
-/system logging action add name=mme-syslog target=remote remote=10.0.0.11 remote-port=514 remote-log-format=syslog remote-protocol=udp syslog-facility=local0 syslog-severity=auto syslog-time-format=iso8601
-/system logging add topics=info,!account,!debug action=mme-syslog
+/system logging action add name=MMESyslog target=remote remote=10.0.0.11 remote-port=514 remote-log-format=syslog remote-protocol=udp syslog-facility=local0 syslog-severity=auto syslog-time-format=iso8601
+/system logging add topics=info,!account,!debug action=MMESyslog
 ```
 
 RouterOS 7.17 trở xuống:
 
 ```routeros
-/system logging action add name=mme-syslog target=remote remote=10.0.0.11 remote-port=514 bsd-syslog=yes syslog-facility=local0 syslog-severity=auto
-/system logging add topics=info,!account,!debug action=mme-syslog
+/system logging action add name=MMESyslog target=remote remote=10.0.0.11 remote-port=514 bsd-syslog=yes syslog-facility=local0 syslog-severity=auto
+/system logging add topics=info,!account,!debug action=MMESyslog
 ```
 
 Nếu action/rule đã tồn tại, dùng `set` theo `.id` thay vì tạo bản ghi trùng. Sau đó

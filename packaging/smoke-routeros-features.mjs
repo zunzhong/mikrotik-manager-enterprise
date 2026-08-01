@@ -263,7 +263,7 @@ try {
     body: {
       deviceIds: [deviceId],
       serverAddress: syslogHost,
-      port: 514,
+      port: syslogPort,
       topics: 'info,!account,!debug',
       confirm: true,
     },
@@ -284,22 +284,50 @@ try {
     fake.receivedSentences.some(
       (sentence) =>
         sentence[0] === '/system/logging/action/add' &&
-        sentence.includes('=name=mme-syslog') &&
+        sentence.includes('=name=MMESyslog') &&
         sentence.includes(`=remote=${syslogHost}`) &&
         sentence.includes('=remote-log-format=syslog') &&
         sentence.includes('=remote-protocol=udp') &&
-        sentence.includes('=remote-port=514') &&
-        !sentence.includes('=remote-port=192.0.2.10:514') &&
+        sentence.includes(`=remote-port=${syslogPort}`) &&
+        !sentence.includes(`=remote-port=${syslogHost}:${syslogPort}`) &&
         !sentence.includes('=bsd-syslog=yes'),
     ),
     'RouterOS Syslog action was not sent to the device.',
   );
   assert(
     fake.receivedSentences.some(
-      (sentence) =>
-        sentence[0] === '/system/logging/add' && sentence.includes('=action=mme-syslog'),
+      (sentence) => sentence[0] === '/system/logging/add' && sentence.includes('=action=MMESyslog'),
     ),
     'RouterOS Syslog logging rule was not sent to the device.',
+  );
+  assert(
+    loggingActions.every((action) => /^[A-Za-z0-9]+$/.test(action.name)),
+    'RouterOS Syslog action name contains unsupported characters.',
+  );
+
+  // Simulate an upgrade from a RouterOS release that previously accepted the
+  // hyphenated action name. Version 6 must rename the action and move its rule.
+  loggingActions[0].name = 'mme-syslog';
+  loggingRules[0].action = 'mme-syslog';
+  const migratedSyslogConfiguration = await request('/api/v1/syslog/routeros/configure', {
+    method: 'POST',
+    token,
+    body: {
+      deviceIds: [deviceId],
+      serverAddress: syslogHost,
+      port: syslogPort,
+      topics: 'info,!account,!debug',
+      confirm: true,
+    },
+  });
+  assert(
+    migratedSyslogConfiguration?.results?.[0]?.action === 'MMESyslog' &&
+      migratedSyslogConfiguration?.results?.[0]?.deliveryVerified === true &&
+      loggingActions.length === 1 &&
+      loggingActions[0]?.name === 'MMESyslog' &&
+      loggingRules.length === 1 &&
+      loggingRules[0]?.action === 'MMESyslog',
+    'Legacy RouterOS Syslog action/rule was not migrated to MMESyslog.',
   );
 
   log(
@@ -318,6 +346,7 @@ try {
         inventory: true,
         routerOsSyslogConfiguration: true,
         routerOsSyslogDelivery: true,
+        routerOsSyslogLegacyMigration: true,
       },
       routerOs: {
         identity: connection.identity,
