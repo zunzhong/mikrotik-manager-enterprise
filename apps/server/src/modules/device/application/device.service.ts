@@ -1,5 +1,6 @@
 import { HttpError } from '../../../errors/http-error.js';
 import { encryptionService } from '../../../security/encryption.service.js';
+import { syslogService } from '../../syslog/syslog.service.js';
 import { deviceRepository } from '../infrastructure/device.repository.js';
 import type { CreateDeviceInput, UpdateDeviceInput } from '../presentation/device.schemas.js';
 import { deviceRealtimeService } from './device-realtime.service.js';
@@ -17,6 +18,7 @@ export class DeviceService {
       groupId: input.groupId,
       tags: input.tags,
     });
+    syslogService.invalidateIdentityCache();
 
     return this.toSafeDevice(device);
   }
@@ -46,6 +48,7 @@ export class DeviceService {
       ...rest,
       passwordEncrypted: password !== undefined ? encryptionService.encrypt(password) : undefined,
     });
+    syslogService.invalidateIdentityCache();
 
     return this.toSafeDevice(device);
   }
@@ -54,6 +57,7 @@ export class DeviceService {
     await this.get(id);
     deviceRealtimeService.clear(id);
     await deviceRepository.delete(id);
+    syslogService.invalidateIdentityCache();
 
     return { deleted: true, id };
   }

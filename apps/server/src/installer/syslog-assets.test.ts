@@ -22,6 +22,10 @@ describe('Centralized Syslog release assets', () => {
     expect(smoke).toContain('atomicConfigurationRollback: true');
     expect(smoke).toContain('manualConfigurationAudit: true');
     expect(smoke).toContain('failedConfigurationAudit: true');
+    const routerOsSmoke = read('packaging/smoke-routeros-features.mjs');
+    expect(routerOsSmoke).toContain('routerOsSyslogMessageNormalization: true');
+    expect(routerOsSmoke).toContain('routerOsSyslogDailyFile: true');
+    expect(routerOsSmoke).toContain('/api/v1/syslog/files/');
     const service = read('apps/server/src/modules/syslog/syslog.service.ts');
     expect(service).toContain('mme-syslog-self-test-');
     expect(service).toContain('search: marker');
@@ -32,11 +36,11 @@ describe('Centralized Syslog release assets', () => {
   it('ships the Syslog guide in both installer artifacts', () => {
     const workflow = read('.github/workflows/platform-installers.yml');
     const debBuilder = read('packaging/linux/build-deb-ubuntu20.sh');
-    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-6.0.0.md');
+    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-6.0.1.md');
     const syslogUi = read('apps/web/src/modules/syslog/SyslogCenter.tsx');
     const windowsControl = read('packaging/windows/MME-Control.ps1');
-    expect(workflow.match(/HUONG-DAN-SYSLOG-6\.0\.0\.md/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-6.0.0.md');
+    expect(workflow.match(/HUONG-DAN-SYSLOG-6\.0\.1\.md/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-6.0.1.md');
     expect(guide).toContain('RFC 3164');
     expect(guide).toContain('RFC 5424');
     expect(guide).toContain('RFC 6587');
@@ -51,6 +55,8 @@ describe('Centralized Syslog release assets', () => {
     expect(guide).toContain(':log warning "MME manual Syslog test"');
     expect(guide).toContain('mọi network profile');
     expect(guide).toContain('LocalSubnet');
+    expect(guide).toContain('Giao_An_Office_2026-08-01.log');
+    expect(guide).toContain('Lọc theo ngày');
     expect(workflow).toContain('routeros-syslog-windows-smoke.json');
     expect(windowsControl).toContain('-Profile Any');
     expect(windowsControl).toContain('-RemoteAddress LocalSubnet');

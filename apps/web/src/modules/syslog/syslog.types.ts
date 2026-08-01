@@ -53,6 +53,7 @@ export interface SyslogOverview {
   aliases: SyslogAlias[];
   settings: SyslogSettings;
   receiver: SyslogReceiverStatus;
+  fileStorage: { path: string; lastError: string | null };
   recommendedServerAddresses: string[];
 }
 
@@ -96,6 +97,7 @@ export interface SyslogFilters {
   facility?: number;
   protocol?: SyslogProtocol;
   search?: string;
+  date?: string;
 }
 
 export interface RouterOsSyslogResult {

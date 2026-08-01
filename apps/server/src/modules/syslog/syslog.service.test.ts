@@ -3,7 +3,11 @@ import { config } from '../../config/config.service.js';
 import { SyslogFirewallService } from './syslog-firewall.service.js';
 import { SyslogReceiver } from './syslog.receiver.js';
 import { SyslogRepository } from './syslog.repository.js';
-import { receiverConfigurationError, SyslogService } from './syslog.service.js';
+import {
+  receiverConfigurationError,
+  stripDeviceIdentityFromMessage,
+  SyslogService,
+} from './syslog.service.js';
 import type { SyslogReceiverSettings, SyslogReceiverStatus } from './syslog.types.js';
 
 function statusFor(
@@ -43,6 +47,20 @@ function nextSettings(port = 5514): SyslogReceiverSettings {
 }
 
 describe('Syslog server configuration', () => {
+  it('removes a RouterOS identity with spaces from the displayed message', () => {
+    expect(
+      stripDeviceIdentityFromMessage('An_Office TA LA BUI QUANG CHINH', 'Giao', ['Giao An_Office']),
+    ).toBe('TA LA BUI QUANG CHINH');
+    expect(
+      stripDeviceIdentityFromMessage('Giao An_Office interface ether1 link down', null, [
+        'Giao An_Office',
+      ]),
+    ).toBe('interface ether1 link down');
+    expect(
+      stripDeviceIdentityFromMessage('Giao An_OfficeBackup completed', null, ['Giao An_Office']),
+    ).toBe('Giao An_OfficeBackup completed');
+  });
+
   it('requires every requested listener to bind before accepting settings', () => {
     const settings = nextSettings();
     const status = statusFor(settings, {

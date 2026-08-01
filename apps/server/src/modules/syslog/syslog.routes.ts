@@ -1,11 +1,14 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { DateTime } from 'luxon';
 import { z } from 'zod';
+import { HttpError } from '../../errors/http-error.js';
 import {
   attachAuthContextPreHandler,
   getRequiredAuthContext,
 } from '../auth/auth.context.middleware.js';
 import { auditService, type CreateAuditEventInput } from '../audit/index.js';
 import { rbacGuard } from '../rbac/rbac.guard.js';
+import { systemPreferencesService } from '../system/application/system-preferences.service.js';
 import { syslogRouterOsService } from './syslog-routeros.service.js';
 import { syslogService } from './syslog.service.js';
 
@@ -22,6 +25,15 @@ const listQuerySchema = z.object({
   search: z.string().trim().max(256).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
+const dailyFileParamsSchema = z.object({
+  deviceId: z.string().trim().min(1).max(255),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 const settingsSchema = z
@@ -72,6 +84,20 @@ function requestAuditActor(request: FastifyRequest) {
   };
 }
 
+function parseListQuery(query: unknown) {
+  const parsed = listQuerySchema.parse(query ?? {});
+  const { date, ...result } = parsed;
+  if (!date) return result;
+  const zone = systemPreferencesService.get().timeZone;
+  const day = DateTime.fromISO(date, { zone });
+  if (!day.isValid) throw new HttpError(400, 'SYSLOG_DATE_INVALID', 'Invalid Syslog date.');
+  return {
+    ...result,
+    from: day.startOf('day').toUTC().toJSDate(),
+    to: day.endOf('day').toUTC().toJSDate(),
+  };
+}
+
 async function recordSyslogAudit(
   request: FastifyRequest,
   input: Omit<CreateAuditEventInput, 'actor'>,
@@ -98,8 +124,28 @@ export async function syslogRoutes(app: FastifyInstance): Promise<void> {
   }));
   app.get('/api/v1/syslog/messages', { preHandler: readPreHandler }, async (request) => ({
     success: true,
-    data: await syslogService.list(listQuerySchema.parse(request.query ?? {})),
+    data: await syslogService.list(parseListQuery(request.query)),
   }));
+  app.get(
+    '/api/v1/syslog/files/:deviceId/:date/download',
+    { preHandler: readPreHandler },
+    async (request, reply) => {
+      const { deviceId, date } = dailyFileParamsSchema.parse(request.params);
+      const file = await syslogService.dailyFile(deviceId, date);
+      if (!file) {
+        throw new HttpError(
+          404,
+          'SYSLOG_DAILY_FILE_NOT_FOUND',
+          `No daily Syslog file exists for ${date}.`,
+        );
+      }
+      return reply
+        .type('text/plain; charset=utf-8')
+        .header('Content-Length', file.size)
+        .header('Content-Disposition', `attachment; filename="${file.fileName}"`)
+        .send(file.content);
+    },
+  );
   app.put('/api/v1/syslog/settings', { preHandler: managePreHandler }, async (request) => {
     const settings = settingsSchema.parse(request.body ?? {});
     try {

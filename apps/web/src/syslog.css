@@ -195,7 +195,9 @@
 
 .syslog-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(130px, 0.7fr)) auto auto;
+  grid-template-columns:
+    minmax(220px, 1.5fr) minmax(145px, 0.65fr) repeat(3, minmax(130px, 0.7fr))
+    auto auto auto;
   gap: 9px;
   margin: 18px 0 14px;
 }

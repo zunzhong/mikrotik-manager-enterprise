@@ -4,8 +4,15 @@ import { networkInterfaces } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { config } from '../../config/config.service.js';
 import { HttpError } from '../../errors/http-error.js';
+import { systemPreferencesService } from '../system/application/system-preferences.service.js';
+import { SyslogFileStore, syslogFileStore } from './syslog-file.store.js';
 import { SyslogFirewallService, syslogFirewallService } from './syslog-firewall.service.js';
-import { SyslogRepository, syslogRepository, type StoredSyslogInput } from './syslog.repository.js';
+import {
+  SyslogRepository,
+  syslogRepository,
+  type StoredSyslogInput,
+  type SyslogDeviceIdentity,
+} from './syslog.repository.js';
 import { SyslogReceiver } from './syslog.receiver.js';
 import type {
   ReceivedSyslogMessage,
@@ -21,6 +28,34 @@ function normalizeIdentity(value: string | null | undefined): string {
     .replace(/^::ffff:/, '')
     .replace(/\.$/, '')
     .toLowerCase();
+}
+
+function removeIdentityPrefix(value: string, identity: string): string | null {
+  const candidate = identity.trim();
+  if (!candidate || !value.toLowerCase().startsWith(candidate.toLowerCase())) return null;
+  const boundary = value.slice(candidate.length, candidate.length + 1);
+  if (boundary && !/[\s:|-]/.test(boundary)) return null;
+  return value.slice(candidate.length).replace(/^[\s:|-]+/, '');
+}
+
+export function stripDeviceIdentityFromMessage(
+  message: string,
+  parsedHostname: string | null,
+  identities: string[],
+): string {
+  const candidates = [
+    ...new Set(identities.map((identity) => identity.trim()).filter(Boolean)),
+  ].sort((left, right) => right.length - left.length);
+  for (const identity of candidates) {
+    const direct = removeIdentityPrefix(message, identity);
+    if (direct !== null) return direct;
+    if (parsedHostname) {
+      const combined = `${parsedHostname} ${message}`.trim();
+      const reconstructed = removeIdentityPrefix(combined, identity);
+      if (reconstructed !== null) return reconstructed;
+    }
+  }
+  return message;
 }
 
 function settingsShape(settings: SyslogReceiverSettings): SyslogReceiverSettings {
@@ -113,16 +148,19 @@ export function recommendedSyslogServerAddresses(
 
 export class SyslogService {
   private identities = new Map<string, string>();
+  private devicesById = new Map<string, SyslogDeviceIdentity>();
   private identityCacheAt = 0;
   private settings: SyslogReceiverSettings = config.syslog;
   private readonly receiver: SyslogReceiver;
   private retentionTimer: NodeJS.Timeout | null = null;
   private settingsUpdateQueue: Promise<void> = Promise.resolve();
+  private fileStorageError: string | null = null;
 
   public constructor(
     private readonly repository: SyslogRepository = syslogRepository,
     receiver?: SyslogReceiver,
     private readonly firewall: SyslogFirewallService = syslogFirewallService,
+    private readonly fileStore: SyslogFileStore = syslogFileStore,
   ) {
     this.receiver = receiver ?? new SyslogReceiver((messages) => this.store(messages));
   }
@@ -132,11 +170,8 @@ export class SyslogService {
     this.settings = settingsShape(persisted);
     await this.refreshIdentities();
     await this.receiver.start(this.settings);
-    await this.repository.purge(this.settings.retentionDays, this.settings.maxRecords);
-    this.retentionTimer = setInterval(
-      () => void this.repository.purge(this.settings.retentionDays, this.settings.maxRecords),
-      60 * 60_000,
-    );
+    await this.purge();
+    this.retentionTimer = setInterval(() => void this.purge(), 60 * 60_000);
     this.retentionTimer.unref();
   }
 
@@ -155,6 +190,10 @@ export class SyslogService {
       ...database,
       settings: persisted ? settingsShape(persisted) : this.settings,
       receiver: this.receiver.status(),
+      fileStorage: {
+        path: this.fileStore.rootPath,
+        lastError: this.fileStorageError,
+      },
       recommendedServerAddresses: recommendedSyslogServerAddresses(
         undefined,
         database.devices.map((device) => device.host),
@@ -162,8 +201,25 @@ export class SyslogService {
     };
   }
 
-  public list(query: SyslogListQuery) {
-    return this.repository.list(query);
+  public async list(query: SyslogListQuery) {
+    if (Date.now() - this.identityCacheAt > 60_000) await this.refreshIdentities();
+    const result = await this.repository.list(query);
+    return {
+      ...result,
+      items: result.items.map((item) => {
+        const identity = item.device ? this.devicesById.get(item.device.id) : undefined;
+        return {
+          ...item,
+          message: item.device
+            ? stripDeviceIdentityFromMessage(item.message, item.hostname, [
+                item.device.name,
+                identity?.host ?? '',
+                ...(identity?.aliases ?? []),
+              ])
+            : item.message,
+        };
+      }),
+    };
   }
 
   public updateSettings(settings: SyslogReceiverSettings) {
@@ -272,12 +328,37 @@ export class SyslogService {
     return result;
   }
 
-  public purge() {
-    return this.repository.purge(this.settings.retentionDays, this.settings.maxRecords);
+  public invalidateIdentityCache(): void {
+    this.identities.clear();
+    this.devicesById.clear();
+    this.identityCacheAt = 0;
   }
 
-  public clearAll() {
-    return this.repository.clearAll();
+  public async purge() {
+    const [database, filesDeleted] = await Promise.all([
+      this.repository.purge(this.settings.retentionDays, this.settings.maxRecords),
+      this.fileStore.purge(
+        this.settings.retentionDays,
+        new Date(),
+        systemPreferencesService.get().timeZone,
+      ),
+    ]);
+    return { ...database, filesDeleted };
+  }
+
+  public async clearAll() {
+    const [database, filesDeleted] = await Promise.all([
+      this.repository.clearAll(),
+      this.fileStore.clear(),
+    ]);
+    return { ...database, filesDeleted };
+  }
+
+  public async dailyFile(deviceId: string, date: string) {
+    if (Date.now() - this.identityCacheAt > 60_000) await this.refreshIdentities();
+    const device = this.devicesById.get(deviceId);
+    if (!device) throw new HttpError(404, 'SYSLOG_DEVICE_NOT_FOUND', 'Device not found.');
+    return this.fileStore.dailyFile(deviceId, device.name, date);
   }
 
   public async testReceiver() {
@@ -388,10 +469,36 @@ export class SyslogService {
           break;
         }
       }
-      if (deviceId || this.settings.acceptUnmatched || message.messageId === 'SYSLOG_TEST')
-        records.push({ ...message, deviceId });
+      if (deviceId || this.settings.acceptUnmatched || message.messageId === 'SYSLOG_TEST') {
+        const device = deviceId ? this.devicesById.get(deviceId) : undefined;
+        records.push({
+          ...message,
+          deviceId,
+          message: device
+            ? stripDeviceIdentityFromMessage(message.message, message.hostname, [
+                device.name,
+                ...device.aliases,
+              ])
+            : message.message,
+        });
+      }
     }
-    return this.repository.insertMany(records);
+    const stored = await this.repository.insertMany(records);
+    try {
+      await this.fileStore.appendMany(
+        records.map((record) => ({
+          ...record,
+          deviceName: record.deviceId
+            ? (this.devicesById.get(record.deviceId)?.name ?? null)
+            : null,
+        })),
+        systemPreferencesService.get().timeZone,
+      );
+      this.fileStorageError = null;
+    } catch (error) {
+      this.fileStorageError = error instanceof Error ? error.message : String(error);
+    }
+    return stored;
   }
 
   private async refreshIdentities(force = false): Promise<void> {
@@ -405,6 +512,7 @@ export class SyslogService {
       }
     }
     this.identities = identities;
+    this.devicesById = new Map(devices.map((device) => [device.id, device]));
     this.identityCacheAt = Date.now();
   }
 }

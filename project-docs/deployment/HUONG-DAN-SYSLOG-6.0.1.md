@@ -1,7 +1,8 @@
-# Hướng dẫn Syslog tập trung MME 6.0.0
+# Hướng dẫn Syslog tập trung MME 6.0.1
 
-MME 6.0.0 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
-phân tích, ánh xạ với thiết bị đã quản lý và lưu trong database đang được MME sử dụng.
+MME 6.0.1 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
+phân tích, ánh xạ với thiết bị đã quản lý, lưu trong database đang được MME sử dụng
+và đồng thời ghi vào file riêng theo thiết bị/từng ngày.
 
 ## 1. Thành phần được hỗ trợ
 
@@ -9,7 +10,11 @@ phân tích, ánh xạ với thiết bị đã quản lý và lưu trong databas
 - Hỗ trợ bản tin RFC 3164, RFC 5424 và TCP framing RFC 6587.
 - Nhận log RouterOS và vẫn lưu được bản tin không hoàn toàn đúng chuẩn.
 - Tự ánh xạ nguồn theo IP, hostname, identity hoặc alias do quản trị viên khai báo.
-- Lọc theo thiết bị, severity, facility, giao thức, thời gian và nội dung.
+- Lọc theo thiết bị, ngày, severity, facility, giao thức và nội dung.
+- Cột Message chỉ hiển thị nội dung log của RouterOS; Identity được hiển thị riêng ở
+  cột Thiết bị/nguồn và không lặp lại trong Message.
+- Ghi file log theo ngày với tên an toàn cho Windows/Linux, ví dụ
+  `Giao_An_Office_2026-08-01.log`, và cho phép tải file từ giao diện.
 - Tự làm mới danh sách log mỗi 5 giây; có thể tắt chế độ realtime.
 - Giới hạn thời gian lưu và tổng số bản ghi; bản ghi cũ nhất được dọn tự động.
 - Cấu hình gửi Syslog hàng loạt cho các thiết bị RouterOS từ giao diện MME.
@@ -33,6 +38,19 @@ Mở **Cấu Hình Server Syslog** để thay đổi bind address, cổng, UDP/T
 và giới hạn bản ghi. MME chỉ lưu cấu hình mới sau khi tất cả listener đã chọn bind
 thành công. Nếu địa chỉ hoặc cổng không dùng được, listener cũ được tự khôi phục và
 database không bị ghi cấu hình lỗi.
+
+Trong **Nhật ký tập trung**, chọn một thiết bị và **Lọc theo ngày** để chỉ xem log
+của ngày đó theo múi giờ đã cấu hình trong MME. Nút **Tải file ngày** tải file `.log`
+tương ứng. Nút chỉ hoạt động khi đã chọn một thiết bị cụ thể và một ngày.
+
+File được lưu tại:
+
+- Linux: `/var/lib/mikrotik-manager-enterprise/logs/syslog/`
+- Windows: `C:\ProgramData\MikroTik Manager Enterprise\logs\syslog\`
+
+MME tự tạo thư mục, ghi nối tiếp log mới, dọn file hết hạn theo Retention và xóa file
+khi quản trị viên chọn **Xóa toàn bộ log**. Mỗi dòng gồm thời gian, giao thức, mức độ,
+facility/app, địa chỉ nguồn và message đã loại bỏ phần Identity bị lặp.
 
 Nhấn **Kiểm thử đầu-cuối**. MME chỉ báo đạt khi bản tin đã đi qua listener, parser và
 được ghi thành công vào database. Thao tác lưu cấu hình, kiểm thử, ánh xạ nguồn, dọn

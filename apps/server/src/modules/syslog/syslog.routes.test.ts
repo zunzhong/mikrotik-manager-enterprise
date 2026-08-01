@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { auditService } from '../audit/index.js';
+import { systemPreferencesService } from '../system/application/system-preferences.service.js';
 import { syslogRouterOsService } from './syslog-routeros.service.js';
 import { syslogRoutes } from './syslog.routes.js';
 import { syslogService } from './syslog.service.js';
@@ -38,6 +39,62 @@ const receiver: SyslogReceiverStatus = {
 };
 
 describe('Syslog routes', () => {
+  it('filters one calendar day using the configured MME timezone', async () => {
+    vi.spyOn(systemPreferencesService, 'get').mockReturnValue({
+      timeZone: 'Asia/Ho_Chi_Minh',
+      language: 'vi',
+      updatedAt: new Date(0).toISOString(),
+    });
+    const list = vi.spyOn(syslogService, 'list').mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+      pages: 1,
+    });
+    const app = Fastify();
+    await app.register(syslogRoutes);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/syslog/messages?date=2026-08-01',
+      headers: { 'x-user-id': 'admin-1', 'x-rbac-super-admin': 'true' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: new Date('2026-07-31T17:00:00.000Z'),
+        to: new Date('2026-08-01T16:59:59.999Z'),
+      }),
+    );
+    await app.close();
+  });
+
+  it('downloads a daily log with its device-and-date file name', async () => {
+    vi.spyOn(syslogService, 'dailyFile').mockResolvedValue({
+      fileName: 'Giao_An_Office_2026-08-01.log',
+      content: Buffer.from('router message\n'),
+      size: 15,
+      modifiedAt: new Date(0).toISOString(),
+    });
+    const app = Fastify();
+    await app.register(syslogRoutes);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/syslog/files/device-1/2026-08-01/download',
+      headers: { 'x-user-id': 'admin-1', 'x-rbac-super-admin': 'true' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-disposition']).toBe(
+      'attachment; filename="Giao_An_Office_2026-08-01.log"',
+    );
+    expect(response.body).toBe('router message\n');
+    await app.close();
+  });
+
   it('records a manual server configuration in the application audit log', async () => {
     vi.spyOn(syslogService, 'updateSettings').mockResolvedValue({ settings, receiver });
     const record = vi.spyOn(auditService, 'record').mockResolvedValue({

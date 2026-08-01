@@ -19,6 +19,7 @@ if (!password) {
 
 const loggingActions = [];
 const loggingRules = [];
+let lastRouterSyslogMarker = '';
 
 function sentenceAttributes(sentence) {
   return Object.fromEntries(
@@ -32,9 +33,24 @@ function sentenceAttributes(sentence) {
 }
 
 function sendRouterSyslog(marker) {
+  lastRouterSyslogMarker = marker;
   const socket = dgram.createSocket('udp4');
-  const payload = `<134>1 ${new Date().toISOString()} MME-LINUX-CI RouterOS - MME_TEST - ${marker}`;
+  const payload = `<134>${new Date().toISOString()} MME Linux CI Router ${marker}`;
   socket.send(payload, syslogPort, syslogHost, () => socket.close());
+}
+
+function calendarDate(date, timeZone) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 const fake = new FakeRouterOsServer({
@@ -175,6 +191,11 @@ try {
   });
   deviceId = device?.id;
   assert(deviceId, 'Device creation did not return an id.');
+  await request('/api/v1/syslog/aliases', {
+    method: 'POST',
+    token,
+    body: { alias: 'MME', deviceId },
+  });
 
   const connection = await request(`/api/v1/devices/${deviceId}/test`, {
     method: 'POST',
@@ -304,6 +325,34 @@ try {
     loggingActions.every((action) => /^[A-Za-z0-9]+$/.test(action.name)),
     'RouterOS Syslog action name contains unsupported characters.',
   );
+  assert(lastRouterSyslogMarker, 'RouterOS Syslog delivery marker was not generated.');
+  const storedRouterSyslog = await request(
+    `/api/v1/syslog/messages?search=${encodeURIComponent(lastRouterSyslogMarker)}&page=1&pageSize=50`,
+    { token },
+  );
+  const storedRouterMessage = storedRouterSyslog?.items?.find((item) => item.deviceId === deviceId);
+  assert(storedRouterMessage, 'RouterOS Syslog message was not assigned to the managed device.');
+  assert(
+    storedRouterMessage.message === lastRouterSyslogMarker,
+    `RouterOS identity was repeated in the Message field: ${storedRouterMessage.message}`,
+  );
+  const preferences = await request('/api/v1/system/preferences');
+  const logDate = calendarDate(new Date(storedRouterMessage.receivedAt), preferences.timeZone);
+  const fileResponse = await fetch(
+    `${baseUrl}/api/v1/syslog/files/${encodeURIComponent(deviceId)}/${logDate}/download`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const fileContent = await fileResponse.text();
+  assert(fileResponse.ok, `Daily Syslog file download failed: HTTP ${fileResponse.status}`);
+  assert(
+    fileResponse.headers.get('content-disposition')?.includes(`MME_Linux_CI_Router_${logDate}.log`),
+    'Daily Syslog file name does not contain the device identity and date.',
+  );
+  assert(fileContent.includes(lastRouterSyslogMarker), 'Daily Syslog file is missing the message.');
+  assert(
+    !fileContent.includes(`MME Linux CI Router ${lastRouterSyslogMarker}`),
+    'Daily Syslog file repeats the device identity in the message.',
+  );
 
   // Simulate an upgrade from a RouterOS release that previously accepted the
   // hyphenated action name. Version 6 must rename the action and move its rule.
@@ -346,6 +395,8 @@ try {
         inventory: true,
         routerOsSyslogConfiguration: true,
         routerOsSyslogDelivery: true,
+        routerOsSyslogMessageNormalization: true,
+        routerOsSyslogDailyFile: true,
         routerOsSyslogLegacyMigration: true,
       },
       routerOs: {

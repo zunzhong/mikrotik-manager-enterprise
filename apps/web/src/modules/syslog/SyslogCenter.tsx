@@ -292,6 +292,24 @@ export function SyslogCenter() {
     }
   }
 
+  async function downloadDailyLog() {
+    if (!filters.date || !filters.deviceId || filters.deviceId === 'unmatched') return;
+    setBusy('download');
+    setError(null);
+    try {
+      const fileName = await syslogApi.downloadDaily(filters.deviceId, filters.date);
+      setNotice(tr(`Đã tải ${fileName}.`, `Downloaded ${fileName}.`));
+    } catch (downloadError) {
+      setError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : tr('Không tải được file Syslog.', 'Unable to download the Syslog file.'),
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (loading && !overview)
     return <div className="syslog-loading">{tr('Đang tải Syslog...', 'Loading Syslog...')}</div>;
 
@@ -340,6 +358,12 @@ export function SyslogCenter() {
 
       {receiver?.lastError ? (
         <div className="syslog-banner is-warning">{receiver.lastError}</div>
+      ) : null}
+      {overview?.fileStorage.lastError ? (
+        <div className="syslog-banner is-warning">
+          {tr('Không thể ghi file Syslog theo ngày: ', 'Unable to write daily Syslog files: ')}
+          {overview.fileStorage.lastError}
+        </div>
       ) : null}
 
       <details className="syslog-panel syslog-configuration">
@@ -561,6 +585,19 @@ export function SyslogCenter() {
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
           />
+          <input
+            type="date"
+            aria-label={tr('Lọc theo ngày', 'Filter by date')}
+            title={tr('Lọc theo ngày', 'Filter by date')}
+            value={filters.date ?? ''}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                page: 1,
+                date: event.target.value || undefined,
+              }))
+            }
+          />
           <select
             value={filters.deviceId ?? ''}
             onChange={(event) =>
@@ -629,6 +666,22 @@ export function SyslogCenter() {
             <option value="internal">Internal</option>
           </select>
           <button type="submit">{tr('Tìm kiếm', 'Search')}</button>
+          <button
+            type="button"
+            disabled={
+              busy === 'download' ||
+              !filters.date ||
+              !filters.deviceId ||
+              filters.deviceId === 'unmatched'
+            }
+            title={tr(
+              'Chọn một thiết bị và ngày để tải file',
+              'Select one device and a date to download its file',
+            )}
+            onClick={() => void downloadDailyLog()}
+          >
+            {tr('Tải file ngày', 'Download daily file')}
+          </button>
           <button
             type="button"
             onClick={() => {
