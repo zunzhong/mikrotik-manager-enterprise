@@ -1,6 +1,6 @@
-# Hướng dẫn Syslog tập trung MME 6.0.1
+# Hướng dẫn Syslog tập trung MME 6.0.2
 
-MME 6.0.1 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
+MME 6.0.2 có bộ nhận Syslog trực tiếp, hoạt động trên cả Windows và Linux. Log được
 phân tích, ánh xạ với thiết bị đã quản lý, lưu trong database đang được MME sử dụng
 và đồng thời ghi vào file riêng theo thiết bị/từng ngày.
 

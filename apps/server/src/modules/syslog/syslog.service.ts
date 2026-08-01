@@ -33,9 +33,11 @@ function normalizeIdentity(value: string | null | undefined): string {
 function removeIdentityPrefix(value: string, identity: string): string | null {
   const candidate = identity.trim();
   if (!candidate || !value.toLowerCase().startsWith(candidate.toLowerCase())) return null;
-  const boundary = value.slice(candidate.length, candidate.length + 1);
-  if (boundary && !/[\s:|-]/.test(boundary)) return null;
-  return value.slice(candidate.length).replace(/^[\s:|-]+/, '');
+  const remainder = value.slice(candidate.length);
+  if (!remainder) return '';
+  if (/^\s/.test(remainder)) return remainder.replace(/^\s*(?:[:|-]\s*)?/, '');
+  if (/^[:|]/.test(remainder)) return remainder.replace(/^[:|]\s*/, '');
+  return null;
 }
 
 export function stripDeviceIdentityFromMessage(

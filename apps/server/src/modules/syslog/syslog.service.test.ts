@@ -59,6 +59,12 @@ describe('Syslog server configuration', () => {
     expect(
       stripDeviceIdentityFromMessage('Giao An_OfficeBackup completed', null, ['Giao An_Office']),
     ).toBe('Giao An_OfficeBackup completed');
+    expect(
+      stripDeviceIdentityFromMessage('mme-routeros-syslog-test-device-123', 'MME', ['MME']),
+    ).toBe('mme-routeros-syslog-test-device-123');
+    expect(stripDeviceIdentityFromMessage('MME - interface ether1 link down', null, ['MME'])).toBe(
+      'interface ether1 link down',
+    );
   });
 
   it('requires every requested listener to bind before accepting settings', () => {

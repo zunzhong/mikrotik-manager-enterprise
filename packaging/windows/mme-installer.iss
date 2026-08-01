@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "6.0.1"
+  #define MyAppVersion "6.0.2"
 #endif
 
 #define MyAppName "MikroTik Manager Enterprise"

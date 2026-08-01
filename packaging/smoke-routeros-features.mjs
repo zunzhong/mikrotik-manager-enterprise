@@ -334,7 +334,7 @@ try {
   assert(storedRouterMessage, 'RouterOS Syslog message was not assigned to the managed device.');
   assert(
     storedRouterMessage.message === lastRouterSyslogMarker,
-    `RouterOS identity was repeated in the Message field: ${storedRouterMessage.message}`,
+    `RouterOS Syslog message normalization mismatch: expected=${JSON.stringify(lastRouterSyslogMarker)} actual=${JSON.stringify(storedRouterMessage.message)}`,
   );
   const preferences = await request('/api/v1/system/preferences');
   const logDate = calendarDate(new Date(storedRouterMessage.receivedAt), preferences.timeZone);

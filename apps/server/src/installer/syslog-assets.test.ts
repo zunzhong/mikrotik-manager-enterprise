@@ -36,11 +36,11 @@ describe('Centralized Syslog release assets', () => {
   it('ships the Syslog guide in both installer artifacts', () => {
     const workflow = read('.github/workflows/platform-installers.yml');
     const debBuilder = read('packaging/linux/build-deb-ubuntu20.sh');
-    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-6.0.1.md');
+    const guide = read('project-docs/deployment/HUONG-DAN-SYSLOG-6.0.2.md');
     const syslogUi = read('apps/web/src/modules/syslog/SyslogCenter.tsx');
     const windowsControl = read('packaging/windows/MME-Control.ps1');
-    expect(workflow.match(/HUONG-DAN-SYSLOG-6\.0\.1\.md/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-6.0.1.md');
+    expect(workflow.match(/HUONG-DAN-SYSLOG-6\.0\.2\.md/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(debBuilder).toContain('HUONG-DAN-SYSLOG-6.0.2.md');
     expect(guide).toContain('RFC 3164');
     expect(guide).toContain('RFC 5424');
     expect(guide).toContain('RFC 6587');
